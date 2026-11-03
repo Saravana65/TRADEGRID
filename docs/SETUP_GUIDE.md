@@ -17,7 +17,7 @@ This guide covers:
 | GitHub access | Fetch/push to `https://github.com/Saravana65/TRADEGRID.git` |
 | Markdown viewer or editor | Read `README.md` and `docs/` |
 
-No Node.js, Python, Java, Docker, or database server is required **until** the project adds corresponding files.
+No Node.js, Java, Docker, or MySQL is required **until** implementation starts (proposed later: Java 17, Maven, Node.js for Vite, Docker Compose, MySQL 8). See [TECH_STACK.md](TECH_STACK.md) and [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 ## Clone the repository
 

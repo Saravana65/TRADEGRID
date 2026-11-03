@@ -46,8 +46,13 @@ When database artifacts are added:
 4. Credit any SQL copied from external repositories or tutorials.
 5. Never commit production passwords; document environment variable **names** only.
 
+## Proposed schema (not applied)
+
+A full table inventory, ER diagram, indexes, and transaction rules are in **[DATABASE_DESIGN.md](DATABASE_DESIGN.md)**. That file is a blueprint. It must not be mistaken for a live MySQL database.
+
 ## Related documents
 
+- [DATABASE_DESIGN.md](DATABASE_DESIGN.md)
 - [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
 - [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md)
 - [SETUP_GUIDE.md](SETUP_GUIDE.md)

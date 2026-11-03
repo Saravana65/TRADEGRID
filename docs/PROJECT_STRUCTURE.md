@@ -4,19 +4,27 @@
 
 After cloning `https://github.com/Saravana65/TRADEGRID.git` into the workspace, Git reported an **empty repository** (no commits). The only content from GitHub was `.git`.
 
-The following layout includes **documentation added in the setup phase**. It does not include application source, because none exists.
+The following layout includes documentation only. Application source still does not exist.
 
 ```text
 TradeGrid/
-├── .git/                      # Git metadata; remote origin = GitHub
-├── README.md                  # Project overview and clone notes
+├── .git/
+├── README.md
 └── docs/
-    ├── PROJECT_OVERVIEW.md    # Goals and scope
-    ├── TECH_STACK.md          # Tools (none verified in application code)
-    ├── PROJECT_STRUCTURE.md   # This file
-    ├── DATABASE_DOCUMENTATION.md
+    ├── PROJECT_OVERVIEW.md
+    ├── TECH_STACK.md
+    ├── PROJECT_STRUCTURE.md
+    ├── DATABASE_DOCUMENTATION.md   # verified: no SQL yet
     ├── SETUP_GUIDE.md
-    └── DEVELOPMENT_STATUS.md
+    ├── DEVELOPMENT_STATUS.md
+    ├── ARCHITECTURE.md             # Phase 1 blueprint
+    ├── DATABASE_DESIGN.md          # proposed schema
+    ├── MARKET_ENGINE.md
+    ├── MATCHING_ENGINE.md
+    ├── API_DESIGN.md
+    ├── SECURITY.md
+    ├── TESTING_STRATEGY.md
+    └── DEVELOPMENT_ROADMAP.md
 ```
 
 ## File roles
@@ -31,6 +39,14 @@ TradeGrid/
 | `docs/DATABASE_DOCUMENTATION.md` | Database notes (none found) |
 | `docs/SETUP_GUIDE.md` | How to clone and (later) run |
 | `docs/DEVELOPMENT_STATUS.md` | Feature status |
+| `docs/ARCHITECTURE.md` | Proposed modular monolith |
+| `docs/DATABASE_DESIGN.md` | Proposed tables (not executed) |
+| `docs/MARKET_ENGINE.md` | Simulation design |
+| `docs/MATCHING_ENGINE.md` | Matching design |
+| `docs/API_DESIGN.md` | Proposed APIs |
+| `docs/SECURITY.md` | Security design |
+| `docs/TESTING_STRATEGY.md` | Test plan |
+| `docs/DEVELOPMENT_ROADMAP.md` | Implementation phases |
 
 ## What is not in the tree
 
@@ -44,8 +60,7 @@ If those folders are added later, update this document from the real tree rather
 |---------|--------|
 | Remote name | `origin` |
 | Fetch / push URL | `https://github.com/Saravana65/TRADEGRID.git` |
-| Branch | `main` |
-| Commits on `main` at clone | None |
+| Branch | `main` (documentation commits; no application code) |
 
 Preserving history: the clone did not overwrite application work because the remote had no files. Later commits should be additive unless you explicitly choose otherwise.
 

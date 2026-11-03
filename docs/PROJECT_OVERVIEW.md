@@ -62,25 +62,18 @@ See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for a feature-by-feature chec
 
 ## 6. Architecture
 
-**Existing architecture:** none.
+**Implemented architecture:** none.
 
-No services, processes, HTTP routes, WebSocket endpoints, or database connections are defined in files.
-
-**Planned conceptual domains** (labels only, from the GitHub description):
-
-- Trading (virtual orders)
-- Market (price movement and matching)
-- Portfolio
-- Analytics
-- Admin events
-
-Choosing how these domains become folders, APIs, or processes is **future work**.
+**Proposed architecture:** modular Spring Boot monolith with separate matching and simulation engines. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## 7. Related documents
 
 - [../README.md](../README.md) – short overview and clone instructions
-- [TECH_STACK.md](TECH_STACK.md) – tools (none verified in code)
+- [ARCHITECTURE.md](ARCHITECTURE.md) – modules and UIs
+- [TECH_STACK.md](TECH_STACK.md) – verified vs proposed tools
 - [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) – files that actually exist
-- [DATABASE_DOCUMENTATION.md](DATABASE_DOCUMENTATION.md) – no database yet
-- [SETUP_GUIDE.md](SETUP_GUIDE.md) – how to work with the empty project
+- [DATABASE_DOCUMENTATION.md](DATABASE_DOCUMENTATION.md) – verified: no SQL yet
+- [DATABASE_DESIGN.md](DATABASE_DESIGN.md) – proposed schema
+- [SETUP_GUIDE.md](SETUP_GUIDE.md) – how to clone
 - [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) – implementation checklist
+- [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) – phases

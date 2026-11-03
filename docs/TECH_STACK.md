@@ -2,67 +2,66 @@
 
 ## Status
 
-**No technology stack is verified from application code.**
+Two layers:
 
-The clone of [Saravana65/TRADEGRID](https://github.com/Saravana65/TRADEGRID) contained:
+1. **Verified in the repository** — what files actually exist.
+2. **Proposed (Phase 1)** — intended stack after you approve architecture. Not installed.
 
-- Git metadata only
-- No programming-language source files
-- No lockfiles or manifests
-- No Docker, CI, or infrastructure-as-code files
-- No SQL or ORM models
+There is still **no** `pom.xml`, `package.json`, Dockerfile, or SQL in the tree. Nothing has been silently migrated; the repo was empty of application code.
 
-Until those files exist, claiming a stack (for example “React + Node + PostgreSQL”) would be invention. This document records **what is actually present** and what is **unknown**.
+## Verified in the repository
 
-## Verified tools (repository / documentation phase)
-
-| Tool | Purpose in this clone |
-|------|------------------------|
+| Tool | Purpose |
+|------|--------|
 | Git | Version control |
-| GitHub | Remote hosting (`https://github.com/Saravana65/TRADEGRID.git`) |
-| Markdown | Project documentation (`README.md`, `docs/`) |
+| GitHub | `https://github.com/Saravana65/TRADEGRID.git` |
+| Markdown | Documentation |
 
-Git version and GitHub account tooling are local/environment details, not project dependencies checked into the repo.
+## Proposed stack (not in code yet)
 
-## Not present (checked)
+### Frontend
 
-These common project files were **not** found:
+| Technology | Purpose |
+|------------|---------|
+| React.js + TypeScript | Admin panel and trader terminal |
+| Vite | Dev server and bundling |
+| Tailwind CSS | Styling |
+| TradingView Lightweight Charts | Display candles/lines from **server** bars |
+| Zustand | UI state only (tabs, caches). Not source of truth for cash or fills |
 
-| Typical file | Meaning if missing |
-|--------------|--------------------|
-| `package.json` / `package-lock.json` / `pnpm-lock.yaml` / `yarn.lock` | No Node.js app or JS dependencies declared |
-| `requirements.txt` / `pyproject.toml` / `Pipfile` | No Python app declared |
-| `pom.xml` / `build.gradle` | No Java/Kotlin Maven/Gradle app declared |
-| `go.mod` | No Go module declared |
-| `Cargo.toml` | No Rust crate declared |
-| `composer.json` | No PHP Composer app declared |
-| `*.csproj` / `*.sln` | No .NET project declared |
-| `Dockerfile` / `docker-compose.yml` | No container setup declared |
-| `.github/workflows/*` | No GitHub Actions workflows in the empty clone |
+### Backend
 
-## Languages and frameworks
+| Technology | Purpose |
+|------------|---------|
+| Java 17 | Language |
+| Spring Boot | Modular monolith |
+| Spring Security | AuthN/AuthZ |
+| JDBC / JdbcTemplate | Explicit SQL |
+| REST | Commands and queries |
+| WebSockets | Quotes, depth, private fills |
 
-| Category | Actual purpose in repo |
-|----------|------------------------|
-| Application languages | **None yet** |
-| Frontend framework | **None yet** |
-| Backend framework | **None yet** |
-| Database engine | **None yet** |
-| Real-time layer (WebSocket, etc.) | **None yet** |
-| Test framework | **None yet** |
+### Database and ops
 
-## Libraries
+| Technology | Purpose |
+|------------|---------|
+| MySQL 8 | System of record |
+| Flyway | Versioned migrations |
+| Maven | Backend build |
+| Docker Compose | Local MySQL (and later API) |
 
-No third-party libraries are declared or vendored.
+**Not proposed** (avoid unless a later need appears): Kafka, Redis, Kubernetes, extra microservices, ORM as the only way to touch money rows.
 
-When application code is added, this file should list each dependency and its **actual** role (for example authentication, HTTP, charts), and should credit upstream projects if code is copied from other repositories.
+## Compatibility with existing implementation
 
-## Secrets and configuration
+**No existing implementation.** Adopting this stack does not replace another framework.
 
-No `.env`, credentials files, or API keys were present in the empty clone. Do not add secrets to Git. When configuration is introduced, document **variable names** only, not values.
+If application code is added from an external template, credit it and re-check this file.
 
-## Update rule
+## Secrets
 
-Revise this document only after inspecting new files (manifests, imports, Dockerfiles). Do not fill this table from a preferred stack until that stack exists in the repository.
+No credentials are in Git. Future Compose/env names only (for example `MYSQL_PASSWORD`), never real passwords in docs.
 
-See also: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md), [SETUP_GUIDE.md](SETUP_GUIDE.md).
+## Related
+
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [SETUP_GUIDE.md](SETUP_GUIDE.md)
