@@ -1,0 +1,58 @@
+# ==============================================================================
+# TRADEGRID Backend Dockerfile (Multi-stage build)
+# ==============================================================================
+
+# Stage 1: Build stage
+FROM node:24-alpine AS builder
+
+WORKDIR /app
+
+# Install native dependencies required by argon2 compilation
+RUN apk add --no-cache python3 make g++
+
+# Copy package manifests
+COPY package.json package-lock.json* ./
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/validation/package.json ./packages/validation/
+COPY apps/backend/package.json ./apps/backend/
+
+# Install all dependencies (including devDependencies)
+RUN npm ci
+
+# Copy source code and tsconfigs
+COPY tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/backend ./apps/backend
+COPY database ./database
+
+# Compile TypeScript
+RUN npm run build:packages
+RUN npm run build:backend
+
+# Stage 2: Production runtime stage
+FROM node:24-alpine AS runner
+
+WORKDIR /app
+
+# Install runtime utilities
+RUN apk add --no-cache curl
+
+ENV NODE_ENV=production
+ENV PORT=5000
+
+# Copy node_modules and built artifacts from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder /app/packages/shared-types/package.json ./packages/shared-types/package.json
+COPY --from=builder /app/packages/validation/dist ./packages/validation/dist
+COPY --from=builder /app/packages/validation/package.json ./packages/validation/package.json
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+COPY --from=builder /app/apps/backend/package.json ./apps/backend/package.json
+COPY --from=builder /app/database ./database
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
+  CMD curl -f http://localhost:5000/api/v1/health || exit 1
+
+CMD ["node", "apps/backend/dist/server.js"]

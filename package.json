@@ -1,0 +1,26 @@
+{
+  "name": "tradegrid-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TRADEGRID — Hybrid real-time virtual stock exchange and trading simulator",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:packages": "npm run build -w @tradegrid/shared-types && npm run build -w @tradegrid/validation",
+    "build:backend": "npm run build -w apps/backend",
+    "build:frontend": "npm run build -w apps/frontend",
+    "build": "npm run build:packages && npm run build:backend && npm run build:frontend",
+    "dev:backend": "npm run dev -w apps/backend",
+    "dev:frontend": "npm run dev -w apps/frontend",
+    "test": "npm run test -w apps/backend",
+    "test:coverage": "npm run test:coverage -w apps/backend",
+    "migrate:latest": "npm run migrate:latest -w apps/backend",
+    "migrate:rollback": "npm run migrate:rollback -w apps/backend",
+    "seed:run": "npm run seed:run -w apps/backend"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

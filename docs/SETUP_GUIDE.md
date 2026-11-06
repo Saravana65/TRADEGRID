@@ -1,105 +1,167 @@
-# TRADEGRID – Setup Guide
+# TRADEGRID – Setup and Installation Guide
 
-## What you can run today
+* **Project:** TRADEGRID Educational Stock Exchange Simulator
+* **Architecture:** Modular Monolith in an NPM Monorepo
+* **Current Phase:** Phase 1 Foundation
 
-**The application cannot be started.** The GitHub repository was empty at clone time: no install command, no start script, no environment template, and no database to create.
+---
 
-This guide covers:
+## 1. System Requirements
 
-1. Cloning and verifying Git (this works now)
-2. What to add before a real local run is possible
+Before starting, ensure your host environment has the following tools installed:
 
-## Prerequisites (current)
+| Tool | Minimum Version | Recommended | Verification Command |
+|---|---|---|---|
+| **Node.js** | v20.0.0 | v24.x | `node -v` |
+| **npm** | v10.0.0 | v11.x | `npm -v` |
+| **Docker** (Optional) | v24.0.0 | v29.x | `docker -v` |
+| **Docker Compose** (Optional) | v2.20.0 | v5.x | `docker compose version` |
 
-| Requirement | Why |
-|-------------|-----|
-| Git | Clone and version control |
-| GitHub access | Fetch/push to `https://github.com/Saravana65/TRADEGRID.git` |
-| Markdown viewer or editor | Read `README.md` and `docs/` |
+---
 
-No Node.js, Java, Docker, or MySQL is required **until** implementation starts (proposed later: Java 17, Maven, Node.js for Vite, Docker Compose, MySQL 8). See [TECH_STACK.md](TECH_STACK.md) and [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
+## 2. Environment Configuration
 
-## Clone the repository
+TRADEGRID separates application configuration and credentials into environment variables.
+Never commit your local `.env` file into version control!
 
-If the folder is empty:
+1. **Create your `.env` file from the provided template:**
+   ```bash
+   cp .env.example .env
+   ```
+   *(On Windows PowerShell: `Copy-Item .env.example .env`)*
 
+2. **Inspect and adjust configuration parameters:**
+   ```env
+   # Server
+   NODE_ENV=development
+   PORT=5000
+
+   # Client
+   CLIENT_URL=http://localhost:5173
+   VITE_API_URL=http://localhost:5000/api/v1
+
+   # MySQL Database
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_NAME=tradegrid
+   DB_USER=tradegrid_user
+   DB_PASSWORD=tradegrid_secure_password
+   DB_ROOT_PASSWORD=tradegrid_root_password
+
+   # Cryptographic Secrets (Min 32 characters in production)
+   JWT_ACCESS_SECRET=tradegrid_dev_access_secret_key_minimum_32_characters_long_12345
+   JWT_REFRESH_SECRET=tradegrid_dev_refresh_secret_key_minimum_32_characters_long_67890
+   JWT_ACCESS_EXPIRES_IN=15m
+   JWT_REFRESH_EXPIRES_IN=7d
+   ```
+
+---
+
+## 3. Method A: Local Development Setup (Fastest)
+
+### Step 1: Install Dependencies
+Run `npm install` from the monorepo root. NPM workspaces will automatically link `@tradegrid/shared-types` and `@tradegrid/validation` into both `apps/backend` and `apps/frontend`:
 ```bash
-git clone https://github.com/Saravana65/TRADEGRID.git
-cd TRADEGRID
+npm install
 ```
 
-If you are already inside an empty project folder (as in this workspace):
-
+### Step 2: Build Shared Packages
+Compile the TypeScript declaration files for the shared packages:
 ```bash
-git clone https://github.com/Saravana65/TRADEGRID.git .
+npm run build:packages
 ```
 
-Do **not** clone a second time into a folder that already contains `.git`.
-
-## Verify connection to GitHub
-
+### Step 3: Run the Automated Test Suite
+Verify that all unit and integration tests execute successfully:
 ```bash
-git remote -v
-git status
-git branch
+npm test
+```
+*Expected result:* 17 tests passed across `tests/health.test.ts` and `tests/auth.test.ts`.
+
+### Step 4: Run Database Migrations & Seeds (Optional / When MySQL is running)
+If you have MySQL 8 running locally on port 3306:
+```bash
+# Run migrations (creates users and user_sessions tables)
+npm run migrate:latest
+
+# Seed initial admin and trader accounts
+npm run seed:run
 ```
 
-Expected remote:
+### Step 5: Launch Development Servers
 
-```text
-origin  https://github.com/Saravana65/TRADEGRID.git (fetch)
-origin  https://github.com/Saravana65/TRADEGRID.git (push)
-```
+You can launch both applications simultaneously in separate terminals:
 
-Expected branch: `main`.
+* **Terminal 1: Backend API Service**
+  ```bash
+  npm run dev:backend
+  ```
+  * Running at: `http://localhost:5000`
+  * Health check: `http://localhost:5000/api/v1/health`
 
-At first clone, Git reported:
+* **Terminal 2: Frontend Trading Terminal**
+  ```bash
+  npm run dev:frontend
+  ```
+  * Running at: `http://localhost:5173`
 
-```text
-warning: You appear to have cloned an empty repository.
-```
+---
 
-and `git status` showed **no commits yet**. That is the verified remote state, not a local error.
+## 4. Method B: Docker Compose Setup (Containerized)
 
-## Install application dependencies
+To run the complete isolated stack including MySQL 8, Backend, and Frontend without installing local MySQL:
 
-**Not applicable.** There is no dependency manifest.
+1. **Build and start all containers:**
+   ```bash
+   docker compose up --build
+   ```
 
-When one is added, this section should quote the real commands from that file (for example `npm install` only if `package.json` exists).
+2. **Container Services:**
+   * **Frontend Terminal (Nginx SPA):** `http://localhost:3000`
+   * **Backend REST & WebSocket API:** `http://localhost:5000`
+   * **MySQL 8 Database:** `localhost:3306`
 
-## Database setup
+3. **Stop the stack:**
+   ```bash
+   docker compose down
+   ```
+   *(To wipe database volumes: `docker compose down -v`)*
 
-**Not applicable.** See [DATABASE_DOCUMENTATION.md](DATABASE_DOCUMENTATION.md).
+---
 
-## Environment variables
+## 5. Development Credentials
 
-No `.env.example` or similar file exists. Do not invent required keys.
+When testing the authentication flow, you can register new accounts via `/register` or use the pre-configured demo credentials:
 
-## Run the project
+| Role | Email | Password | Access Level |
+|---|---|---|---|
+| **Administrator** | `admin@tradegrid.internal` | `Admin@12345` | Full access to exchange halts, user management, and catalyst injection |
+| **Trader Demo** | `trader@tradegrid.internal` | `Trader@12345` | Trader terminal, order book, watchlist, and portfolio tracking |
 
-**Not applicable.** There is no server, UI, or CLI entry point.
+---
 
-## Typical next setup steps (after code exists)
+## 6. Monorepo Script Reference
 
-These are reminders, not instructions for the current repo:
+Run these commands from the root directory:
 
-1. Add a stack and lockfile; document exact versions.
-2. Add a README “Run” section that matches those scripts.
-3. Add `.env.example` with placeholder names only.
-4. If using a database, add migrations and document how to apply them.
-5. Keep secrets out of Git.
+* `npm run build`: Compiles all packages and applications (`shared-types`, `validation`, `backend`, `frontend`).
+* `npm run build:packages`: Builds only the shared TypeScript packages.
+* `npm run build:backend`: Compiles backend TypeScript to `apps/backend/dist`.
+* `npm run build:frontend`: Builds optimized production bundle for frontend via Vite.
+* `npm run dev:backend`: Starts backend with `tsx` hot reload on changes.
+* `npm run dev:frontend`: Starts Vite development server with instant HMR.
+* `npm test`: Runs backend test suite via Vitest.
+* `npm run migrate:latest`: Executes pending Knex database migrations.
+* `npm run migrate:rollback`: Rolls back the last migration batch.
+* `npm run seed:run`: Seeds default accounts into MySQL.
 
-## Troubleshooting (Git only)
+---
 
-| Observation | Meaning |
-|-------------|---------|
-| Empty repository warning | Remote has no commits; clone still succeeded |
-| `main` has no commits | Nothing to `git log` until the first commit |
-| Nested `TRADEGRID/TRADEGRID` folder | Clone was run without `.` into a non-empty-named parent; use one project root |
+## 7. Troubleshooting
 
-## Related documents
-
-- [../README.md](../README.md)
-- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
-- [TECH_STACK.md](TECH_STACK.md)
-- [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md)
+* **Issue: `Cannot find module '@tradegrid/shared-types'`**
+  * *Solution:* Run `npm run build:packages` from the root directory so TypeScript generates the `dist/` declarations.
+* **Issue: `EADDRINUSE: address already in use :::5000`**
+  * *Solution:* Another process is listening on port 5000. Stop the existing process or change `PORT=5001` in your `.env`.
+* **Issue: `Invalid credentials` error on login**
+  * *Solution:* Ensure you use the exact seed password `Admin@12345` or `Trader@12345` (case-sensitive) or register a fresh user.

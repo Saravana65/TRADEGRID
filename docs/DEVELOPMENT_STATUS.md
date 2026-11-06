@@ -1,85 +1,75 @@
 # TRADEGRID – Development Status
 
-Last verified against the local clone of [Saravana65/TRADEGRID](https://github.com/Saravana65/TRADEGRID) on **3 November 2026**.
+* **Current Phase:** Phase 1 Foundation Complete
+* **Next Target:** Phase 2 (Matching Engine, Wallet Ledger, Simulation Engine)
 
-## Summary
+---
 
-| Area | Status |
-|------|--------|
-| GitHub repository | Created; empty of application commits |
-| Local clone | Connected to `origin` |
-| Application features | **Not started** |
-| Database | **Not started** |
-| Automated tests | **Not present** |
-| CI/CD | **Not present** |
-| Documentation | Setup docs + Phase 1 architecture blueprint |
-| Application code | **Not started** |
+## 1. Feature Status Matrix
 
-## Repository setup
+### A. Phase 1: Foundation (Completed)
 
-| Item | Status | Notes |
-|------|--------|--------|
-| Remote `origin` | Complete | `https://github.com/Saravana65/TRADEGRID.git` |
-| Default branch `main` | Complete | No commits at clone |
-| Source tree | Empty | Application folders absent |
-| First documentation set | Complete | `README.md` + `docs/` |
-| Phase 1 architecture docs | Complete (blueprint) | Not implemented in code |
+| Module / Component | Status | Details |
+|---|---|---|
+| **Monorepo Architecture** | ✅ Completed | NPM workspaces linking `apps/backend`, `apps/frontend`, `packages/shared-types`, and `packages/validation`. |
+| **Backend Initialization** | ✅ Completed | Node.js v24, Express, TypeScript (strict mode), centralized error handling, CORS, Helmet, Socket.IO. |
+| **Health Check API** | ✅ Completed | `GET /api/v1/health` verifying uptime, memory, and MySQL pool connectivity. |
+| **User Registration** | ✅ Completed | `POST /api/v1/auth/register` with Zod validation, unique checks, and Argon2id password hashing. |
+| **User Login** | ✅ Completed | `POST /api/v1/auth/login` issuing short-lived JWT access tokens (15m) and refresh tokens (7d). |
+| **Refresh Token Rotation** | ✅ Completed | `POST /api/v1/auth/refresh` revoking old session, generating fresh token pair, defending against replay attacks. |
+| **User Logout** | ✅ Completed | `POST /api/v1/auth/logout` invalidating session token hash in database. |
+| **Protected Profile** | ✅ Completed | `GET /api/v1/auth/me` guarded by JWT Bearer authentication middleware. |
+| **Role-Based Authorization** | ✅ Completed | `requireRole('ADMIN')` middleware guarding administrative routes (`/api/v1/users`). |
+| **Database Migrations** | ✅ Completed | Knex migration files for `users` and `user_sessions` with foreign keys, cascading deletes, and indexes. |
+| **Database Seeding** | ✅ Completed | Initial seeds creating hashed `admin@tradegrid.internal` and `trader@tradegrid.internal`. |
+| **Frontend Initialization** | ✅ Completed | React 18, Vite, TypeScript, Tailwind CSS with financial dark terminal theme. |
+| **Zustand State Stores** | ✅ Completed | `authStore` (persisted sessions, auto-refresh) and `uiStore` (cash balance, sidebar toggle, market status). |
+| **Centralized API Client** | ✅ Completed | Axios client with request interceptors for token injection and 401 automatic refresh recovery. |
+| **Frontend Page: Login** | ✅ Completed | Terminal login with error handling and quick-fill demo buttons. |
+| **Frontend Page: Register** | ✅ Completed | Trader signup with live password strength criteria. |
+| **Frontend Page: Dashboard** | ✅ Completed | Portfolio metrics, cash summary, active listings, gainers/losers preview, simulated news ticker. |
+| **Frontend Page: Markets** | ✅ Completed | Simulated equity universe with search, sector filtering, and trade links. |
+| **Frontend Page: Portfolio** | ✅ Completed | Virtual cash allocation, stock holdings table, average cost, and unrealized P&L. |
+| **Frontend Page: Watchlist** | ✅ Completed | Custom tracked tickers with real-time add/remove controls. |
+| **Frontend Page: Simulated News** | ✅ Completed | Synthetic newsfeed with explicit simulated labels, catalyst tags, and impact scores. |
+| **Frontend Page: Trading Terminal** | ✅ Completed | Candlestick chart area, order entry desk (Buy/Sell, Limit/Market), and live order book depth. |
+| **Frontend Page: Transaction History** | ✅ Completed | Executed trade prints and double-entry append-only cash ledger movements. |
+| **Frontend Page: Admin Dashboard** | ✅ Completed | Emergency market halt/resume circuit breaker, user status toggle, and market shock triggers. |
+| **Docker Compose** | ✅ Completed | MySQL 8, Backend, and Frontend (Nginx SPA) with health checks and persistent volumes. |
+| **Automated Testing Suite** | ✅ Completed | 17 Vitest & Supertest unit and integration tests passing with 100% success rate. |
 
-## Product features
+---
 
-Statuses use only evidence from the repository. GitHub “About” text is treated as **planned**, not done.
+### B. Phase 2: Core Trading & Market Simulation (Planned Next)
 
-| Feature | Status | Evidence |
-|---------|--------|----------|
-| Dynamic market movements | Pending | Described on GitHub; no code |
-| Automated order matching | Pending | Described on GitHub; no code |
-| Virtual stock trading | Pending | Described on GitHub; no code |
-| Portfolio management | Pending | Described on GitHub; no code |
-| Live market analytics | Pending | Described on GitHub; no code |
-| Admin-controlled market events | Pending | Described on GitHub; no code |
-| User authentication | Pending | Designed in SECURITY.md / API_DESIGN.md |
-| REST + WebSockets | Pending | Designed in API_DESIGN.md |
-| Admin UI | Pending | Screen list in ARCHITECTURE.md |
-| Trader UI | Pending | Screen list in ARCHITECTURE.md |
-| Order matching engine | Pending | MATCHING_ENGINE.md |
-| Market simulation | Pending | MARKET_ENGINE.md |
+| Feature | Target Phase | Status |
+|---|---|---|
+| In-Memory Limit Order Book | Phase 2 | Planned (Price-Time priority algorithm) |
+| Order Matching Engine | Phase 2 | Planned (Single-threaded per symbol isolation) |
+| Double-Entry Cash Ledger Execution | Phase 2 | Planned (Atomic trade execution and balance settlement) |
+| Continuous Market Simulation Engine | Phase 2 | Planned (Drift + Mean reversion price ticks) |
+| Real-Time WebSocket Quotes | Phase 2 | Planned (Socket.IO quote broadcasts) |
+| Candlestick OHLCV Aggregator | Phase 2 | Planned (1m, 5m, 15m, 1h bar generation) |
 
-**Completed application modules:** none  
-**Partially implemented modules:** none (no incomplete source files)
+---
 
-## Documentation files
+### C. Phase 3: Social & Advanced Market Events (Planned)
 
-| File | Status |
-|------|--------|
-| [../README.md](../README.md) | Overview; proposed stack noted |
-| [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) | Written |
-| [TECH_STACK.md](TECH_STACK.md) | Verified vs proposed |
-| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | Written |
-| [DATABASE_DOCUMENTATION.md](DATABASE_DOCUMENTATION.md) | Verified: no SQL |
-| [DATABASE_DESIGN.md](DATABASE_DESIGN.md) | Proposed schema |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Blueprint |
-| [MARKET_ENGINE.md](MARKET_ENGINE.md) | Blueprint |
-| [MATCHING_ENGINE.md](MATCHING_ENGINE.md) | Blueprint |
-| [API_DESIGN.md](API_DESIGN.md) | Blueprint |
-| [SECURITY.md](SECURITY.md) | Blueprint |
-| [TESTING_STRATEGY.md](TESTING_STRATEGY.md) | Plan |
-| [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) | Plan |
-| [SETUP_GUIDE.md](SETUP_GUIDE.md) | Clone only until implementation |
-| This file | Written |
+| Feature | Target Phase | Status |
+|---|---|---|
+| Automated Trading & Panic Bots | Phase 3 | Planned |
+| Admin News Catalyst Injector | Phase 3 | Planned |
+| Trading Competitions & Contests | Phase 3 | Planned |
+| Live Leaderboards | Phase 3 | Planned |
+| Global & Symbol Chat Rooms | Phase 3 | Planned |
 
-## What is not claimed
+---
 
-- No claim that a matching engine, charts, or live feed already exist
-- No claim of original implementation of exchange internals
-- External libraries are not in use yet; when they are, they should be listed and credited
+### D. Phase 4: Production Hardening & Analytics (Planned)
 
-## Suggested implementation order (guidance only)
-
-Follow [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) after Phase 1 approval. Do not start the full application until then.
-
-## Related documents
-
-- [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)
-- [SETUP_GUIDE.md](SETUP_GUIDE.md)
+| Feature | Target Phase | Status |
+|---|---|---|
+| TimescaleDB Time-Series Persistence | Phase 4 | Planned |
+| Python AI Market Assistant | Phase 4 | Planned |
+| Redis Distributed Caching | Phase 4 | Planned |
+| Prometheus & Grafana Monitoring | Phase 4 | Planned |

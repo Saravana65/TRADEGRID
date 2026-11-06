@@ -1,0 +1,81 @@
+# ==============================================================================
+# TRADEGRID Root Docker Compose
+# Delegates directly to infrastructure/docker/docker-compose.yml
+# Run with: docker compose up --build
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tradegrid-mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-tradegrid}
+      MYSQL_USER: ${DB_USER:-tradegrid_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-tradegrid_secure_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-tradegrid_root_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  backend:
+    container_name: tradegrid-backend
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-tradegrid}
+      DB_USER: ${DB_USER:-tradegrid_user}
+      DB_PASSWORD: ${DB_PASSWORD:-tradegrid_secure_password}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-tradegrid_dev_access_secret_key_minimum_32_characters_long_12345}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-tradegrid_dev_refresh_secret_key_minimum_32_characters_long_67890}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CLIENT_URL: http://localhost:3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    container_name: tradegrid-frontend
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  mysql_data:
+    driver: local

@@ -1,243 +1,179 @@
 # TRADEGRID – System Architecture
 
-**Status:** Phase 1 blueprint (not implemented).  
-**Verified in repository:** documentation only; no application source, APIs, or database.
+* **Status:** Phase 1 Foundation Implemented (Clean Monorepo Modular Monolith)
+* **Backend:** Node.js + Express.js + TypeScript
+* **Frontend:** React + TypeScript + Vite + Tailwind CSS
+* **Database:** MySQL 8 (ACID Relational System of Record)
 
-TRADEGRID is an **educational virtual stock exchange**. It does not move real money, connect to brokerages, or settle real trades. The backend is the **only source of truth** for prices used in settlement, orders, executions, cash, and portfolios. Charts and UIs display that truth; they never invent balances.
+TRADEGRID is an **educational virtual stock exchange**. It does not move real money, connect to external brokerages, or execute real trades. The backend is the **sole source of truth** for prices used in settlement, orders, executions, cash, and portfolios. Charts and UIs display that truth; they never invent or modify balances.
 
-## 1. Architectural style
+---
 
-**Modular monolith.**
+## 1. Architectural Style: Modular Monolith
 
-One Spring Boot process owns all modules. One MySQL database is the system of record. Two frontend apps (admin panel and trader terminal) talk to the same backend over REST and WebSockets.
+TRADEGRID utilizes a **Modular Monolith** architecture:
+* A single Node.js Express process owns all business modules in `apps/backend/src/modules/`.
+* One MySQL 8 database acts as the durable system of record.
+* Frontend trading terminal and admin operations communicate with the backend via REST endpoints and Socket.IO WebSocket streams.
 
-Why this fits a college project:
-
-- Easier to run locally (one API, one database) than microservices.
-- Module packages still keep matching, simulation, and portfolio code from mixing.
-- You can extract a service later if needed; you do not start with distributed complexity.
+### Why Modular Monolith fits TRADEGRID:
+1. **Low Operational Overhead:** Running one API service and one database locally is radically simpler than managing 10+ microservices for a student project.
+2. **Strict Module Boundaries:** Clean code organization (`controller` -> `service` -> `repository`) ensures modules do not tightly couple.
+3. **Future Microservice Extraction Path:** If a component (such as the Order Matching Engine or Market Simulation) later requires dedicated compute, it can be extracted into an independent microservice (e.g. in Go or Python) with zero architectural rework.
 
 ```mermaid
-flowchart LR
-  subgraph clients [Clients]
-    AdminUI[Admin Panel<br/>React + Vite]
-    TraderUI[Trader Terminal<br/>React + Vite]
-  end
+flowchart TD
+    subgraph Client ["Client Layer (apps/frontend)"]
+        UI["React 18 + Vite Trading Terminal"]
+        Router["React Router 7 (10 Pages)"]
+        ZustandStore["Zustand Client State (Auth & UI)"]
+        Axios["Axios Client (Bearer Interceptor & 401 Rotation)"]
+        SocketClient["Socket.IO Client (Market Streams)"]
+        UI --> Router
+        Router --> ZustandStore
+        ZustandStore --> Axios
+        ZustandStore --> SocketClient
+    end
 
-  subgraph backend [Spring Boot monolith]
-    API[REST + WebSocket]
-    Auth[Auth / Users]
-    Ex[Exchange / Stocks]
-    Sim[Market Simulation]
-    Ord[Orders / Risk]
-    Match[Matching Engine]
-    Port[Portfolio / Ledger]
-    Mkt[Market Data]
-    Evt[Market Events]
-    Comp[Competitions]
-    Adm[Admin / Audit]
-  end
+    subgraph API_Gateway ["HTTP & Real-Time Gateway (apps/backend)"]
+        ExpressApp["Express.js Server (Port 5000)"]
+        SocketServer["Socket.IO WebSocket Server"]
+        Middleware["Middleware Pipeline:\nHelmet • CORS • Request Logger • Zod Validator • JWT Auth • RBAC"]
+        ExpressApp --> Middleware
+    end
 
-  DB[(MySQL 8)]
+    subgraph ModularMonolith ["Backend Business Modules (apps/backend/src/modules/)"]
+        AuthModule["Auth Module (Argon2id + JWT)"]
+        UsersModule["Users Module (RBAC & Status)"]
+        WalletModule["Wallet Module (Ledger) [Phase 2]"]
+        MarketModule["Market Simulation [Phase 2]"]
+        TradingModule["Order Management [Phase 2]"]
+        MatchingModule["Matching Engine [Phase 2]"]
+        PortfolioModule["Portfolio & P&L [Phase 2]"]
+        NewsModule["Simulated News Feed [Phase 2]"]
+        AdminModule["Admin & Circuit Breakers"]
+        EventBus["In-Memory Domain Event Bus"]
+    end
 
-  AdminUI --> API
-  TraderUI --> API
-  API --> Auth
-  API --> Ex
-  API --> Ord
-  API --> Port
-  API --> Mkt
-  API --> Evt
-  API --> Comp
-  API --> Adm
-  Ord --> Match
-  Ord --> Risk[Risk]
-  Sim --> Mkt
-  Evt --> Sim
-  Match --> Port
-  Match --> Mkt
-  Sim -.->|may post liquidity orders| Ord
-  backend --> DB
+    subgraph Persistence ["Persistence Layer (database/)"]
+        KnexPool["Knex.js + mysql2 Connection Pool"]
+        MySQL[("MySQL 8 Database\nInnoDB • Foreign Keys • Row Locks")]
+    end
+
+    Axios --> ExpressApp
+    SocketClient --> SocketServer
+    Middleware --> AuthModule
+    Middleware --> UsersModule
+    Middleware --> AdminModule
+    Middleware -.-> WalletModule
+    Middleware -.-> MarketModule
+    Middleware -.-> TradingModule
+
+    AuthModule --> EventBus
+    TradingModule -.-> MatchingModule
+    MatchingModule -.-> PortfolioModule
+    MarketModule -.-> SocketServer
+
+    AuthModule --> KnexPool
+    UsersModule --> KnexPool
+    WalletModule -.-> KnexPool
+    TradingModule -.-> KnexPool
+    PortfolioModule -.-> KnexPool
+    KnexPool --> MySQL
 ```
 
-Simulation and matching are **separate modules**. Simulation proposes a fair value and optional liquidity. Matching only pairs real (and optional synthetic) orders using the order book.
+---
 
-## 2. Target technology stack
+## 2. Layered Architecture within Modules
 
-No conflicting stack exists in the repository, so the following is the **intended** stack for implementation (after you approve Phase 1):
-
-| Layer | Technology | Role |
-|-------|------------|------|
-| Frontend | React + TypeScript + Vite | Admin and trader UIs |
-| Styling | Tailwind CSS | Layout and theming |
-| Charts | TradingView Lightweight Charts | Candles / line charts (display only) |
-| Client state | Zustand | UI state; not balances or fills |
-| Backend | Java 17 + Spring Boot | Modular monolith |
-| Security | Spring Security | AuthN / AuthZ |
-| Persistence | JDBC / JdbcTemplate + Flyway | SQL you can read and review |
-| Real-time | Spring WebSocket (STOMP or raw) | Quotes, depth, fills |
-| Database | MySQL 8 | System of record |
-| Build | Maven | Backend |
-| Runtime (dev) | Docker Compose | MySQL (and later the API) |
-
-Details: [TECH_STACK.md](TECH_STACK.md), [DATABASE_DESIGN.md](DATABASE_DESIGN.md).
-
-## 3. Proposed source layout (future)
-
-Not present on disk yet. Intended after approval:
+Each business module adheres strictly to three-tier separation of concerns:
 
 ```text
-TRADEGRID/
-├── backend/                 # Maven, Spring Boot
-│   └── src/main/java/com/tradegrid/
-│       ├── auth/
-│       ├── user/
-│       ├── exchange/
-│       ├── stock/
-│       ├── market/          # simulation engine
-│       ├── order/
-│       ├── matching/        # order book + matcher
-│       ├── portfolio/
-│       ├── event/
-│       ├── marketdata/
-│       ├── risk/
-│       ├── analytics/
-│       ├── competition/
-│       ├── admin/
-│       └── common/
-├── frontend/
-│   ├── trader/              # Vite app
-│   └── admin/               # Vite app
-├── docker-compose.yml
-└── docs/
+HTTP Request
+     │
+     ▼
+┌──────────────┐
+│  Controller  │  Thin layer: Extracts request params, invokes service, formats HTTP response
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│   Service    │  Business logic: Domain rules, validation, Argon2id hashing, token generation
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│  Repository  │  Data access: SQL queries via Knex, database transactions, isolation locks
+└──────┬───────┘
+       │
+       ▼
+  MySQL 8 DB
 ```
 
-Two frontend apps keep admin tools off the trader screen and make role mistakes harder.
+* **Controllers never talk to the database directly.**
+* **Services never read `req` or `res` directly.**
+* **Repositories only handle data querying and persistence.**
 
-## 4. Module responsibilities
+---
 
-| # | Module | Owns | Does not own |
-|---|--------|------|----------------|
-| 1 | Authentication and Authorization | Login, tokens/sessions, roles, password hashing | User profile fields beyond identity |
-| 2 | User Management | Registration, profile, status (active/suspended) | Cash ledger |
-| 3 | Exchange Management | Sessions: pre-open, open, halt, close; tick/lot rules | Matching algorithm |
-| 4 | Stock Management | Listings, sector, status, tick size, lot size | Live last price (market data) |
-| 5 | Market Simulation Engine | Fair-value path, sentiment, volatility, synthetic liquidity policy | Crossing two trader orders |
-| 6 | Order Management | Accept/reject/cancel/amend API, order lifecycle persistence | Continuous matching loop |
-| 7 | Order Matching Engine | In-memory book per symbol, price-time priority, trades | Setting “news” or crash events |
-| 8 | Portfolio Management | Positions, cash ledger, realized/unrealized P&amp;L from trades | Chart rendering |
-| 9 | Market Event Engine | Admin events (crash, rally, news), scheduled impact curves | Directly debiting accounts |
-| 10 | Market Data and Price History | Last, bid/ask, trades, OHLCV bars | Order validation |
-| 11 | Risk Management | Buying power, short rules (if any), max order size, halt checks | UI watchlists |
-| 12 | Trading Analytics | Aggregates: volume, VWAP, participant stats | Source-of-truth balances |
-| 13 | Competition Management | Contests, start/end, starting cash snapshot, ranking | Matching |
-| 14 | Administration and Audit Logs | Admin actions, immutable audit rows | Trading math |
+## 3. Module Inventory & Responsibilities
 
-## 5. How modules communicate
+| # | Module | Phase | Responsibility | Boundaries & Exclusions |
+|---|---|---|---|---|
+| 1 | **Auth** | **Phase 1** | User registration, login, Argon2id hashing, JWT access token issue, refresh token rotation, logout | Does not own wallet cash or trading positions |
+| 2 | **Users** | **Phase 1** | Profile querying, role assignment (`TRADER`, `ADMIN`), account suspension | Does not handle financial balances |
+| 3 | **Admin** | **Phase 1** | Global circuit breaker (Emergency Halt / Resume), user status management, simulated shock triggers | Does not execute trades directly |
+| 4 | **Wallet** | Phase 2 | Double-entry virtual cash ledger, deposit grants, balance reservation for open buy orders | Does not match orders |
+| 5 | **Market Simulation** | Phase 2 | Synthetic price path generation, sentiment drift, random walk with mean reversion | Does not modify trader cash balances |
+| 6 | **Trading (OMS)** | Phase 2 | Accepts limit/market orders, checks cash/share buying power, maintains order lifecycle | Does not pair buy and sell orders |
+| 7 | **Matching Engine** | Phase 2 | In-memory Price-Time Priority limit order book per symbol, trade matching, execution prints | Does not invent prices or fake fills |
+| 8 | **Portfolio** | Phase 2 | Tracks stock positions, average cost basis, realized and unrealized P&L | Does not render UI charts |
+| 9 | **News Feed** | Phase 2 | Synthetic catalyst generation, simulated news wire with explicit disclaimer tags | Does not connect to real financial news |
+| 10 | **Competitions** | Phase 3 | Timed trading tournaments, starting cash snapshot, live leaderboard rankings | Does not alter exchange rules |
+| 11 | **Global Chat** | Phase 3 | Moderated student discussion channels and symbol chat rooms | Public; never exposes private positions |
 
-All communication is **in-process** (method calls / Spring events). No extra message broker in Phase 1.
+---
 
-Typical order path (student-friendly):
+## 4. End-to-End Data Paths
 
-1. Trader UI sends `POST /api/orders`.
-2. **Auth** identifies the user.
-3. **Exchange** confirms the session is open for that symbol.
-4. **Risk** checks cash or share availability (with a database lock; see [MATCHING_ENGINE.md](MATCHING_ENGINE.md)).
-5. **Order Management** inserts the order (`NEW` / `ACCEPTED`).
-6. **Matching Engine** tries to match on that symbol’s book (single-threaded per symbol).
-7. Each fill writes **trades**, updates **portfolio** (cash + position) in one database transaction.
-8. **Market Data** records last price and publishes WebSocket updates.
-9. **Audit** records admin actions separately; user orders are already in `orders` / `trades`.
+### A. Authentication & Refresh Path (Implemented in Phase 1)
+1. Trader UI submits `POST /api/v1/auth/login` with email and password.
+2. Zod middleware validates request payload shape.
+3. `AuthController` passes credentials to `AuthService`.
+4. `AuthService` queries `UserRepository` for the user record.
+5. `verifyPassword(hash, plain)` checks the Argon2id hash.
+6. `AuthService` generates a short-lived Access Token (15m TTL) and a Refresh Token (7d TTL).
+7. The Refresh Token is hashed via SHA-256 and stored in `user_sessions`.
+8. The client receives `{ user, tokens }` (passwords and hashes are **never** returned).
+9. On token expiration, Axios interceptor calls `POST /api/v1/auth/refresh`, the old session is revoked, and a rotated token pair is returned.
 
-Simulation path (separate):
+### B. Order Placement & Matching Path (Phase 2 Blueprint)
+1. Trader UI submits `POST /api/v1/orders`.
+2. Auth middleware verifies JWT token and extracts user ID.
+3. Exchange guard verifies global session is `OPEN` (not `HALTED`).
+4. Risk check locks user's cash (for BUY) or shares (for SELL) in MySQL within a transaction.
+5. Order Management inserts order record (`STATUS = ACCEPTED`).
+6. Matching Engine processes the order against the symbol's in-memory book using **Price-Time Priority**.
+7. If a match occurs:
+   - One atomic DB transaction writes trade prints to `trades`, debits/credits the `cash_ledger`, and updates `positions`.
+8. WebSocket event broadcasts the trade print to public ticker rooms and private fill alerts to the participating users.
 
-1. A scheduler tick runs **Market Simulation**.
-2. Simulation updates fair value from baseline + sentiment + inventory/order-flow + events.
-3. Optionally it submits **synthetic liquidity orders** through Order Management (tagged `source = SIMULATION`) so the book has depth.
-4. It never overwrites trader balances.
+---
 
-```mermaid
-sequenceDiagram
-  participant T as Trader UI
-  participant API as Order API
-  participant R as Risk
-  participant M as Matcher
-  participant P as Portfolio
-  participant WS as WebSocket
-  T->>API: Place limit buy
-  API->>R: Lock cash / validate
-  R-->>API: OK
-  API->>M: Accept order
-  M->>P: Persist fills + ledger
-  P-->>M: Committed
-  M-->>WS: Trade + depth + portfolio
-  WS-->>T: Live update
-```
+## 5. Financial Accuracy & Source of Truth Rules
 
-## 6. Source of truth rules
+| Domain Data | Authority | Safety Mechanism |
+|---|---|---|
+| **Cash Balances** | MySQL 8 `cash_ledger` | Append-only double-entry ledger. Stored as `DECIMAL(19,4)`. Floating point math is strictly forbidden. |
+| **Share Holdings** | MySQL 8 `positions` | Row-level locking during order submission (`SELECT ... FOR UPDATE`). |
+| **Working Orders** | MySQL 8 `orders` | Durable system of record. In-memory order books are rebuilt from active database rows on startup. |
+| **Display Charts** | Server OHLCV aggregation | UIs and charts only render server-derived bars; they never synthesize prices. |
+| **Client State** | Zustand (Ephemeral) | UI cache only. On browser refresh or reconnect, user state is refetched from `/api/v1/auth/me` and `/portfolio`. |
 
-| Data | Authority |
-|------|-----------|
-| Cash and positions | MySQL via Portfolio module |
-| Open orders and trades | MySQL; in-memory book is a cache rebuilt on startup |
-| Display charts | Market data tables / streams derived from trades and simulation ticks |
-| Zustand store | Ephemeral UI only; refetch after reconnect |
+---
 
-On restart, reload working orders from MySQL and rebuild books. Do not treat RAM as durable.
+## 6. Concurrency & Scaling (Target: 100+ Concurrent Users)
 
-## 7. Consistency and money
-
-- Persist money and prices as `DECIMAL` (see [DATABASE_DESIGN.md](DATABASE_DESIGN.md)).
-- Use `BigDecimal` in Java with a fixed scale and `RoundingMode.HALF_UP` (document the scale per field).
-- Never use `double` / `float` for cash, prices, fees, or P&amp;L.
-- Matching and settlement for one symbol run on **one thread** so two fills cannot debit the same cash twice without a queue.
-
-## 8. User interfaces (structure only)
-
-Do **not** implement the full UI in Phase 1. Two Vite apps share design tokens but not routes.
-
-### A. Exchange administration panel
-
-Proposed screens:
-
-| Screen | Job |
-|--------|-----|
-| Login | Admin auth |
-| Session control | Start, halt, resume, close the exchange |
-| Listings | CRUD stocks, opening/baseline price, tick, lot, per-name halt |
-| Simulation | Volatility, liquidity depth, seed (read/adjust) |
-| Events | Inject crash/rally/news/sector shock; schedule window |
-| Order blotter | All working orders, force-cancel if you later approve that power |
-| Trade tape | Executed trades |
-| Participants | Activity, suspend user, virtual cash grant |
-| Analytics | Volume, concentration, halt history |
-| Audit | Filter `audit_logs` |
-
-Admins should not trade on this app in v1 (reduces accidental self-dealing in contests). **Decision if admins may also have a trader login.**
-
-### B. Trader terminal
-
-Proposed screens:
-
-| Screen | Job |
-|--------|-----|
-| Login / register | Auth |
-| Market watch | Live prices, watchlist |
-| Symbol desk | Chart (Lightweight Charts), depth, place/cancel orders |
-| Portfolio | Cash, reserved, holdings, realized and unrealized P&amp;L |
-| Orders & history | Status, fills |
-| News / events | Visible market events |
-| Competition | Join, rank (when built) |
-| Account | Display name only; no “edit my cash” |
-
-Zustand holds UI tabs, chart interval, and **cached** quotes. On reconnect, reload portfolio and orders from the API.
-
-## 9. Related documents
-
-- [MARKET_ENGINE.md](MARKET_ENGINE.md)
-- [MATCHING_ENGINE.md](MATCHING_ENGINE.md)
-- [DATABASE_DESIGN.md](DATABASE_DESIGN.md)
-- [API_DESIGN.md](API_DESIGN.md)
-- [SECURITY.md](SECURITY.md)
-- [TESTING_STRATEGY.md](TESTING_STRATEGY.md)
-- [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)
+* **Asynchronous Event Loop:** Node.js handles I/O-bound requests concurrently using libuv non-blocking worker threads.
+* **MySQL Connection Pool:** Configured via `mysql2` with pool sizing (`DB_CONNECTION_LIMIT=10`), preventing database socket starvation.
+* **Single-Threaded Matcher Isolation:** Order matching per symbol runs in a deterministic queue, preventing race conditions where two trades could double-spend the same cash allocation.
