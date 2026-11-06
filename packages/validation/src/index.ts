@@ -249,3 +249,103 @@ export const candleQuerySchema = z.object({
 });
 
 export type CandleQueryInput = z.infer<typeof candleQuerySchema>;
+
+// ============================================================================
+// Phase 4A: Order Validation Schemas
+// ============================================================================
+
+/**
+ * Create Order Schema
+ */
+export const createOrderSchema = z
+  .object({
+    instrumentId: z
+      .union([z.string(), z.number()], { required_error: 'Instrument ID is required' })
+      .transform((val) => (typeof val === 'number' ? val : parseInt(val, 10)))
+      .refine((val) => !isNaN(val) && val > 0, {
+        message: 'Instrument ID must be a positive integer',
+      }),
+    side: z.enum(['BUY', 'SELL'], {
+      errorMap: () => ({ message: 'Side must be either BUY or SELL' }),
+    }),
+    orderType: z.enum(['MARKET', 'LIMIT'], {
+      errorMap: () => ({ message: 'Order type must be either MARKET or LIMIT' }),
+    }),
+    quantity: decimalAmountSchema,
+    limitPrice: z
+      .union([z.string(), z.number()])
+      .optional()
+      .nullable()
+      .transform((val) => {
+        if (val === undefined || val === null || val === '') return null;
+        return typeof val === 'number' ? val.toFixed(4) : String(val).trim();
+      }),
+    idempotencyKey: z
+      .string()
+      .max(128, 'Idempotency key cannot exceed 128 characters')
+      .trim()
+      .optional()
+      .nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.orderType === 'LIMIT') {
+      if (!data.limitPrice) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['limitPrice'],
+          message: 'Limit price is required for LIMIT orders',
+        });
+      } else {
+        const num = parseFloat(data.limitPrice);
+        if (isNaN(num) || num <= 0 || !decimalAmountRegex.test(data.limitPrice)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['limitPrice'],
+            message: 'Limit price must be a positive decimal number with up to 4 decimal places (greater than 0)',
+          });
+        }
+      }
+    }
+  });
+
+export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+
+/**
+ * Order Query Schema
+ */
+export const orderQuerySchema = z.object({
+  status: z
+    .enum(['PENDING', 'OPEN', 'PARTIALLY_FILLED', 'FILLED', 'CANCELLED', 'REJECTED'])
+    .optional(),
+  side: z.enum(['BUY', 'SELL']).optional(),
+  orderType: z.enum(['MARKET', 'LIMIT']).optional(),
+  instrumentId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? parseInt(String(val), 10) : undefined)),
+  symbol: z.string().trim().optional(),
+  page: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.max(1, parseInt(String(val), 10) || 1) : 1)),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(String(val), 10) || 20)) : 20)),
+});
+
+export type OrderQueryInput = z.infer<typeof orderQuerySchema>;
+
+/**
+ * Order ID Param Schema
+ */
+export const orderIdParamSchema = z.object({
+  id: z
+    .union([z.string(), z.number()])
+    .transform((val) => parseInt(String(val), 10))
+    .refine((val) => !isNaN(val) && val > 0, {
+      message: 'Order ID must be a positive integer',
+    }),
+});
+
+export type OrderIdParamInput = z.infer<typeof orderIdParamSchema>;

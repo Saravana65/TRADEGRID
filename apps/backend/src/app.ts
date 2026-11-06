@@ -29,6 +29,11 @@ import {
   InstrumentController,
   MarketDataController,
 } from './modules/market';
+import {
+  orderRouter as defaultOrderRouter,
+  createOrderRouter,
+  OrderController,
+} from './modules/orders';
 import { tradingRouter } from './modules/trading';
 import { portfolioRouter } from './modules/portfolio';
 import { watchlistRouter } from './modules/watchlist';
@@ -43,6 +48,7 @@ export interface AppDependencies {
   walletController?: WalletController;
   instrumentController?: InstrumentController;
   marketDataController?: MarketDataController;
+  orderController?: OrderController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -124,6 +130,10 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createAdminInstrumentRouter(dependencies.instrumentController)
     : defaultAdminInstrumentRouter;
 
+  const activeOrderRouter = dependencies.orderController
+    ? createOrderRouter(dependencies.orderController)
+    : defaultOrderRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);
@@ -131,6 +141,7 @@ export function createApp(dependencies: AppDependencies = {}): Application {
   app.use('/api/v1/instruments', activeInstrumentRouter);
   app.use('/api/v1/market', activeMarketRouter);
   app.use('/api/v1/admin/instruments', activeAdminInstrumentRouter);
+  app.use('/api/v1/orders', activeOrderRouter);
   app.use('/api/v1/trading', tradingRouter);
   app.use('/api/v1/portfolio', portfolioRouter);
   app.use('/api/v1/watchlist', watchlistRouter);

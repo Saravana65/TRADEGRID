@@ -274,12 +274,64 @@ export interface InstrumentFilterQuery {
   limit?: number;
 }
 
-// Future domain types (Phase 4+ previews)
+// ============================================================================
+// Phase 4A: Order Management System Types
+// ============================================================================
+
 export type MarketStatus = 'PRE_OPEN' | 'OPEN' | 'HALTED' | 'CLOSED';
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'LIMIT' | 'MARKET';
 export type OrderTimeInForce = 'GTC' | 'IOC' | 'FOK';
-export type OrderStatus = 'PENDING' | 'ACCEPTED' | 'PARTIALLY_FILLED' | 'FILLED' | 'CANCELLED' | 'REJECTED';
+export type OrderStatus =
+  | 'PENDING'
+  | 'OPEN'
+  | 'PARTIALLY_FILLED'
+  | 'FILLED'
+  | 'CANCELLED'
+  | 'REJECTED';
+
+export interface Order {
+  id: number;
+  userId: number;
+  instrumentId: number;
+  symbol?: string;
+  instrumentName?: string;
+  exchange?: string;
+  currency?: string;
+  side: OrderSide;
+  orderType: OrderType;
+  quantity: string; // DECIMAL(18,4) represented as string
+  remainingQuantity: string; // DECIMAL(18,4) represented as string
+  limitPrice: string | null; // DECIMAL(18,4) represented as string, null for market orders
+  status: OrderStatus;
+  idempotencyKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderFilterQuery {
+  status?: OrderStatus;
+  side?: OrderSide;
+  orderType?: OrderType;
+  instrumentId?: number;
+  symbol?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface CreateOrderRequest {
+  instrumentId: number;
+  side: OrderSide;
+  orderType: OrderType;
+  quantity: string | number;
+  limitPrice?: string | number | null;
+  idempotencyKey?: string | null;
+}
+
+export interface CancelOrderResponse {
+  order: Order;
+  message: string;
+}
 
 export interface StockListing {
   id: number;

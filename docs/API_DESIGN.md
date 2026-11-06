@@ -385,7 +385,103 @@ Authorization: Bearer <access_jwt_token>
 
 ---
 
-## 7. Health & Diagnostic Endpoints (`/api/v1/health`)
+## 7. Order Management Endpoints (`/api/v1/orders`)
+
+All order management endpoints require a valid JWT token (`Authorization: Bearer <token>`).
+
+### 7.1 Place Order
+- **Endpoint:** `POST /api/v1/orders`
+- **Access:** Authenticated (`TRADER` or `ADMIN`)
+- **Request Body:**
+```json
+{
+  "instrumentId": 6,
+  "side": "BUY",
+  "orderType": "LIMIT",
+  "quantity": "10.0000",
+  "limitPrice": "250.0000",
+  "idempotencyKey": "order-req-tgrid-001"
+}
+```
+
+**Response Example (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 14,
+    "userId": 2,
+    "instrumentId": 6,
+    "symbol": "TGRID",
+    "instrumentName": "TradeGrid Core Technologies",
+    "exchange": "TRADEGRID",
+    "currency": "USD",
+    "side": "BUY",
+    "orderType": "LIMIT",
+    "quantity": "10.0000",
+    "remainingQuantity": "10.0000",
+    "limitPrice": "250.0000",
+    "status": "OPEN",
+    "idempotencyKey": "order-req-tgrid-001",
+    "createdAt": "2026-11-06T17:00:00.000Z",
+    "updatedAt": "2026-11-06T17:00:00.000Z"
+  },
+  "message": "Order submitted successfully",
+  "timestamp": "2026-11-06T17:00:00.000Z"
+}
+```
+
+---
+
+### 7.2 List User Orders
+- **Endpoint:** `GET /api/v1/orders`
+- **Access:** Authenticated (`TRADER` or `ADMIN`)
+- **Query Parameters:**
+  - `status` (string, optional): `OPEN`, `FILLED`, `CANCELLED`, `REJECTED`, etc.
+  - `side` (string, optional): `BUY` or `SELL`
+  - `orderType` (string, optional): `MARKET` or `LIMIT`
+  - `instrumentId` (integer, optional): Filter by instrument ID
+  - `symbol` (string, optional): Filter by symbol
+  - `page` (integer, optional, default: 1)
+  - `limit` (integer, optional, default: 20, max: 100)
+
+---
+
+### 7.3 Get Order by ID
+- **Endpoint:** `GET /api/v1/orders/:id`
+- **Access:** Authenticated (Enforces ownership; returns 403 Forbidden if not owner)
+
+---
+
+### 7.4 Cancel Order
+- **Endpoint:** `DELETE /api/v1/orders/:id`
+- **Access:** Authenticated (Owner only)
+- **Description:** Cancels an active `OPEN` or `PENDING` order. Transitions status to `CANCELLED`. Returns 422 if order is already filled or cancelled.
+
+**Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 14,
+    "userId": 2,
+    "instrumentId": 6,
+    "side": "BUY",
+    "orderType": "LIMIT",
+    "quantity": "10.0000",
+    "remainingQuantity": "10.0000",
+    "limitPrice": "250.0000",
+    "status": "CANCELLED",
+    "updatedAt": "2026-11-06T17:05:00.000Z"
+  },
+  "message": "Order #14 cancelled successfully",
+  "timestamp": "2026-11-06T17:05:00.000Z"
+}
+```
+
+---
+
+## 8. Health & Diagnostic Endpoints (`/api/v1/health`)
 
 | Method | Endpoint | Access | Description |
 |--------|----------|--------|-------------|
@@ -393,10 +489,10 @@ Authorization: Bearer <access_jwt_token>
 
 ---
 
-## 8. Future Endpoints (Phases 4 & 5 Roadmap)
+## 9. Future Endpoints (Phase 4B & Phase 5 Roadmap)
 
-- `/api/v1/orders`: Limit and market order placement with automated cash reservation.
 - `/api/v1/orderbook/:symbol`: Real-time L2 order book depth (bid/ask ladders).
+- `/api/v1/trades`: Execution tape and filled trade transaction ledger sync.
 - `/api/v1/portfolio`: Stock holdings, average cost basis, realized & unrealized P&L.
 - `/api/v1/admin/market/shock`: Simulated volatility injection and crash generator.
 - `/api/v1/social/chat`: Symbol-specific and global trader chat rooms.

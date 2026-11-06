@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 3 Stock Instruments & Market Data Complete ✅
-* **Previous Phase:** Phase 2 Virtual Wallet & Double-Entry Ledger Complete ✅
-* **Next Target:** Phase 4 (Matching Engine, In-Memory Limit Order Book, Order Execution)
+* **Current Status:** Phase 4A Order Management System Complete ✅
+* **Previous Phase:** Phase 3 Stock Instruments & Market Data Complete ✅
+* **Next Target:** Phase 4B (Continuous In-Memory Limit Order Book Matching & Trade Execution Fills)
 
 ---
 
@@ -74,20 +74,36 @@
 
 ---
 
-### D. Phase 4: Limit Order Book & Matching Engine (Planned Next)
+### D. Phase 4A: Order Management System (Completed)
 
-| Feature | Target Phase | Status |
+| Module / Component | Status | Details |
 |---|---|---|
-| **In-Memory Limit Order Book** | Phase 4 | Planned (Price-Time priority FIFO order book with bid/ask depth) |
-| **Order Matching Engine** | Phase 4 | Planned (Isolated per-symbol matching loop with atomic fill settlement) |
-| **Cash Reservation System** | Phase 4 | Planned (Lock available cash into reserved cash upon order accept) |
-| **Trade Execution Ledger Sync** | Phase 4 | Planned (Post double-entry journal entries for share purchases and sales) |
-| **Real-Time WebSocket Tape** | Phase 4 | Planned (Broadcast live fills and order book level updates via Socket.IO) |
-| **Portfolio Position Tracker** | Phase 4 | Planned (Average cost basis, realized & unrealized P&L calculations) |
+| **Orders Table Schema** | ✅ Completed | Migration `005_create_orders_table.ts` creating `orders` with `DECIMAL(18,4)` prices/quantities, unique `idempotency_key`, and indexes on `(user_id, status)` and `(instrument_id, status)`. |
+| **Server-Side Validation** | ✅ Completed | Zod `createOrderSchema` enforcing positive quantities, required positive limit price on limit orders, optional limit price on market orders, and tradability checks. |
+| **Pre-Trade Risk & Buying Power**| ✅ Completed | `OrderReservationService` validating buyer's purchasing power against `wallets.available_balance` without bypassing the double-entry ledger. |
+| **Order State Machine** | ✅ Completed | Implemented lifecycle states (`PENDING`, `OPEN`, `PARTIALLY_FILLED`, `FILLED`, `CANCELLED`, `REJECTED`) with strict transition guardrails preventing illegal cancellations. |
+| **Order Management REST APIs** | ✅ Completed | Endpoints for `POST /api/v1/orders`, `GET /api/v1/orders` (with filters & pagination), `GET /api/v1/orders/:id`, and `DELETE /api/v1/orders/:id` (cancellation). |
+| **Ownership Isolation** | ✅ Completed | Guaranteed account security: traders can only inspect and cancel their own orders (returns 403 Forbidden on foreign access). |
+| **Idempotent Order Placement** | ✅ Completed | Network retransmissions replay original accepted order without creating duplicate orders or reserving excess capital. |
+| **Frontend Trading Terminal OMS**| ✅ Completed | `TradingTerminalPage.tsx` featuring live Buy/Sell desk, Limit/Market modes, dynamic buying power calculation, order confirmation, and open orders / history deck. |
+| **Frontend Order Store** | ✅ Completed | Zustand `useOrderStore` managing order placement, cancellation, live open order status, and error alerts. |
+| **Automated Testing Suite** | ✅ Completed | **81 Vitest tests passing with 100% pass rate** (21 order management tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
 
 ---
 
-### E. Phase 5: Social, Contests & Advanced Hardening (Planned)
+### E. Phase 4B: Continuous Matching Engine (Planned Next)
+
+| Feature | Target Phase | Status |
+|---|---|---|
+| **In-Memory Limit Order Book** | Phase 4B | Planned (Price-Time priority FIFO order book with bid/ask depth) |
+| **Matching Loop & Trade Fills**| Phase 4B | Planned (Per-symbol single-threaded matching loop with partial and complete fills) |
+| **Double-Entry Trade Ledger Sync**| Phase 4B | Planned (Atomic settlement posting `TRADE_BUY` and `TRADE_SELL` journal entries) |
+| **Real-Time WebSocket Tape** | Phase 4B | Planned (Broadcast live trades and L2 depth updates via Socket.IO) |
+| **Portfolio Position Tracker** | Phase 4B | Planned (Average cost basis, realized & unrealized P&L calculations) |
+
+---
+
+### F. Phase 5: Social, Contests & Advanced Hardening (Planned)
 
 | Feature | Target Phase | Status |
 |---|---|---|

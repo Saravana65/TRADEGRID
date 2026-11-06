@@ -1,239 +1,372 @@
-import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useUIStore } from '../store/uiStore';
-import { formatCurrency } from '../utils/formatters';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { useMarketStore } from '../store/marketStore';
+import { useWalletStore } from '../store/walletStore';
+import { useOrderStore } from '../store/orderStore';
+import { formatCurrency, formatNumber, formatDate } from '../utils/formatters';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Badge } from '../components/common/Badge';
+import { OrderSide, OrderType } from '@tradegrid/shared-types';
 import {
   ArrowUpRight,
+  ArrowDownRight,
   AlertCircle,
   CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCw,
+  Search,
+  ExternalLink,
+  Ban,
 } from 'lucide-react';
 
-interface OrderBookRow {
-  price: string;
-  size: string;
-  total: string;
-}
-
-const mockBids: OrderBookRow[] = [
-  { price: '142.45', size: '150.00', total: '150.00' },
-  { price: '142.40', size: '320.00', total: '470.00' },
-  { price: '142.35', size: '510.00', total: '980.00' },
-  { price: '142.30', size: '750.00', total: '1730.00' },
-  { price: '142.25', size: '1200.00', total: '2930.00' },
-];
-
-const mockAsks: OrderBookRow[] = [
-  { price: '142.55', size: '180.00', total: '180.00' },
-  { price: '142.60', size: '420.00', total: '600.00' },
-  { price: '142.65', size: '610.00', total: '1210.00' },
-  { price: '142.70', size: '890.00', total: '2100.00' },
-  { price: '142.75', size: '1400.00', total: '3500.00' },
-];
-
 export const TradingTerminalPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const symbol = searchParams.get('symbol') || 'TGRID';
-  const { virtualCashBalance } = useUIStore();
 
-  const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY');
-  const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET'>('LIMIT');
-  const [quantity, setQuantity] = useState('10.00');
-  const [limitPrice, setLimitPrice] = useState('142.50');
-  const [timeframe, setTimeframe] = useState('15m');
-  const [orderSubmittedMessage, setOrderSubmittedMessage] = useState<string | null>(null);
+  // Stores
+  const {
+    instruments,
+    selectedInstrument,
+    selectedQuote,
+    fetchInstruments,
+    fetchInstrumentDetail,
+    isLoadingDetail,
+  } = useMarketStore();
 
+  const { balance: availableCash, fetchWalletSummary } = useWalletStore();
+  const {
+    orders,
+    isLoading: isLoadingOrders,
+    isSubmitting,
+    cancellingOrderId,
+    error: orderError,
+    successMessage,
+    fetchOrders,
+    createOrder,
+    cancelOrder,
+    clearError,
+    clearSuccess,
+  } = useOrderStore();
+
+  // Local Form State
+  const [orderSide, setOrderSide] = useState<OrderSide>('BUY');
+  const [orderType, setOrderType] = useState<OrderType>('LIMIT');
+  const [quantity, setQuantity] = useState('10.0000');
+  const [limitPrice, setLimitPrice] = useState('250.0000');
+  const [activeTab, setActiveTab] = useState<'open' | 'history'>('open');
+  const [symbolSearch, setSymbolSearch] = useState('');
+  const [showSymbolPicker, setShowSymbolPicker] = useState(false);
+
+  // Initial Data Fetching
+  useEffect(() => {
+    fetchInstruments();
+    fetchWalletSummary();
+    fetchOrders();
+  }, [fetchInstruments, fetchWalletSummary, fetchOrders]);
+
+  // Load details when symbol changes
+  useEffect(() => {
+    if (symbol) {
+      fetchInstrumentDetail(symbol);
+    }
+  }, [symbol, fetchInstrumentDetail]);
+
+  // Update limit price default when quote loads
+  useEffect(() => {
+    if (selectedQuote && parseFloat(selectedQuote.lastPrice) > 0) {
+      setLimitPrice(parseFloat(selectedQuote.lastPrice).toFixed(4));
+    }
+  }, [selectedQuote]);
+
+  // Calculations
   const parsedQty = parseFloat(quantity) || 0;
-  const parsedPrice = parseFloat(limitPrice) || 0;
-  const estimatedTotal = (parsedQty * parsedPrice).toFixed(4);
+  const effectivePrice =
+    orderType === 'LIMIT'
+      ? parseFloat(limitPrice) || 0
+      : parseFloat(selectedQuote?.lastPrice || '0') || 0;
+  const estimatedTotal = (parsedQty * effectivePrice).toFixed(4);
+  const parsedCash = parseFloat(availableCash || '0');
+  const hasInsufficientFunds = orderSide === 'BUY' && parseFloat(estimatedTotal) > parsedCash;
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  // Order Submission Handler
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    setOrderSubmittedMessage(
-      `Phase 1 Simulator: ${orderSide} order for ${parsedQty} shares of ${symbol} at $${limitPrice} verified. Automated matching activates in Phase 2.`
-    );
-    setTimeout(() => setOrderSubmittedMessage(null), 6000);
+    clearError();
+    clearSuccess();
+
+    if (!selectedInstrument) return;
+
+    try {
+      await createOrder({
+        instrumentId: selectedInstrument.id,
+        side: orderSide,
+        orderType,
+        quantity: parsedQty.toFixed(4),
+        limitPrice: orderType === 'LIMIT' ? (parseFloat(limitPrice) || 0).toFixed(4) : null,
+      });
+
+      // Refresh orders and wallet
+      fetchOrders();
+      fetchWalletSummary();
+    } catch {
+      // Error handled by store
+    }
   };
+
+  // Order Cancellation Handler
+  const handleCancelOrder = async (orderId: number) => {
+    try {
+      await cancelOrder(orderId);
+      fetchOrders();
+    } catch {
+      // Error handled by store
+    }
+  };
+
+  // Filter Orders
+  const openOrders = orders.filter((o) => o.status === 'OPEN' || o.status === 'PENDING');
+  const orderHistory = orders.filter((o) => o.status !== 'OPEN' && o.status !== 'PENDING');
+
+  const filteredInstruments = instruments.filter(
+    (inst) =>
+      inst.symbol.toLowerCase().includes(symbolSearch.toLowerCase()) ||
+      inst.name.toLowerCase().includes(symbolSearch.toLowerCase())
+  );
 
   return (
     <div className="space-y-4">
       {/* Symbol Desk Header Bar */}
       <div className="bg-card border border-card-border p-4 rounded-xl flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowSymbolPicker(!showSymbolPicker)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#090D16] border border-card-border hover:border-cyan-500/50 transition-colors"
+            >
               <span className="font-mono text-xl font-bold text-white tracking-wide">
-                {symbol}
+                {selectedInstrument?.symbol || symbol}
               </span>
-              <Badge variant="simulated">SIMULATED</Badge>
-            </div>
-            <span className="text-xs text-slate-400">TradeGrid Technologies Corp</span>
+              <Badge
+                variant={
+                  selectedInstrument?.dataClassification === 'REAL' ? 'cyan' : 'simulated'
+                }
+              >
+                {selectedInstrument?.dataClassification || 'SIMULATED'}
+              </Badge>
+              <Search className="w-3.5 h-3.5 text-slate-400 ml-1" />
+            </button>
+
+            {/* Quick Symbol Picker Dropdown */}
+            {showSymbolPicker && (
+              <div className="absolute top-full left-0 mt-2 w-72 max-h-80 bg-card border border-card-border rounded-xl shadow-2xl p-2 z-50 overflow-y-auto">
+                <input
+                  type="text"
+                  placeholder="Search symbols..."
+                  value={symbolSearch}
+                  onChange={(e) => setSymbolSearch(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-[#090D16] border border-card-border rounded-lg text-xs font-mono text-white mb-2 focus:outline-none focus:border-cyan-500"
+                  autoFocus
+                />
+                <div className="space-y-1">
+                  {filteredInstruments.slice(0, 8).map((inst) => (
+                    <button
+                      key={inst.id}
+                      onClick={() => {
+                        setSearchParams({ symbol: inst.symbol });
+                        setShowSymbolPicker(false);
+                      }}
+                      className="w-full text-left p-2 rounded-lg hover:bg-slate-800 flex items-center justify-between text-xs font-mono transition-colors"
+                    >
+                      <div>
+                        <span className="font-bold text-white mr-2">{inst.symbol}</span>
+                        <span className="text-[10px] text-slate-400 truncate block">
+                          {inst.name}
+                        </span>
+                      </div>
+                      <Badge variant={inst.dataClassification === 'REAL' ? 'cyan' : 'simulated'}>
+                        {inst.dataClassification}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-l border-card-border pl-4">
             <span className="text-[10px] text-slate-400 uppercase font-mono block">Last Price</span>
             <span className="font-mono text-lg font-bold text-slate-100 tabular-nums">
-              $142.50
+              {selectedQuote ? formatCurrency(selectedQuote.lastPrice) : '---'}
             </span>
           </div>
 
           <div className="border-l border-card-border pl-4">
             <span className="text-[10px] text-slate-400 uppercase font-mono block">24h Change</span>
-            <span className="font-mono text-sm font-semibold text-emerald-400 flex items-center gap-0.5 tabular-nums">
-              <ArrowUpRight className="w-3.5 h-3.5" /> +$4.30 (+3.11%)
-            </span>
+            {selectedQuote ? (
+              <span
+                className={`font-mono text-sm font-semibold flex items-center gap-0.5 tabular-nums ${
+                  parseFloat(selectedQuote.changePercent) >= 0
+                    ? 'text-emerald-400'
+                    : 'text-rose-400'
+                }`}
+              >
+                {parseFloat(selectedQuote.changePercent) >= 0 ? (
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                ) : (
+                  <ArrowDownRight className="w-3.5 h-3.5" />
+                )}
+                {formatCurrency(selectedQuote.changeAmount)} (
+                {selectedQuote.changePercent}%)
+              </span>
+            ) : (
+              <span className="font-mono text-sm text-slate-400">---</span>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
+        <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
           <div>
             <span className="text-slate-500 block text-[10px]">24H HIGH</span>
-            <span className="text-slate-200">$144.20</span>
+            <span className="text-emerald-400 font-semibold">
+              {selectedQuote ? formatCurrency(selectedQuote.highPrice) : '---'}
+            </span>
           </div>
           <div>
             <span className="text-slate-500 block text-[10px]">24H LOW</span>
-            <span className="text-slate-200">$137.80</span>
+            <span className="text-rose-400 font-semibold">
+              {selectedQuote ? formatCurrency(selectedQuote.lowPrice) : '---'}
+            </span>
           </div>
           <div>
             <span className="text-slate-500 block text-[10px]">VOLUME</span>
-            <span className="text-slate-200">1,254,300</span>
+            <span className="text-cyan-400 font-semibold">
+              {selectedQuote ? formatNumber(selectedQuote.volume) : '---'}
+            </span>
           </div>
+          <Link
+            to={`/markets/${selectedInstrument?.symbol || symbol}`}
+            className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-xs border border-cyan-500/30 px-2 py-1 rounded-lg hover:bg-cyan-500/10 transition-colors"
+          >
+            Full Chart <ExternalLink className="w-3 h-3" />
+          </Link>
         </div>
       </div>
 
-      {/* Main Terminal Workspace: Chart + Order Entry */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Left 3 Cols: Interactive Chart Area */}
-        <div className="lg:col-span-3 space-y-4">
+      {/* Main Terminal Workspace: Chart Preview + Order Entry Desk */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left 2 Cols: Terminal Summary & OMS Information */}
+        <div className="lg:col-span-2 space-y-4">
           <Card
-            title="Real-Time Price Chart"
-            subtitle="TradingView Lightweight Charts engine rendering simulated bars"
-            action={
-              <div className="flex items-center gap-1 bg-[#090D16] p-1 rounded-lg border border-card-border">
-                {['1m', '5m', '15m', '1h', '1D'].map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
-                    className={`px-2 py-0.5 text-xs font-mono font-medium rounded transition-colors ${
-                      timeframe === tf
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                        : 'text-slate-400 hover:text-slate-200'
+            title={`${selectedInstrument?.symbol || symbol} Instrument Overview`}
+            subtitle={`${selectedInstrument?.name || 'Loading company...'} • ${selectedInstrument?.exchange || 'TRADEGRID'} • ${selectedInstrument?.sector || 'General'}`}
+          >
+            <div className="p-4 bg-[#080C14] rounded-xl border border-card-border space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                <div className="p-3 bg-card rounded-lg border border-card-border">
+                  <span className="text-[10px] text-slate-400 block uppercase">Exchange</span>
+                  <span className="text-white font-bold">{selectedInstrument?.exchange}</span>
+                </div>
+                <div className="p-3 bg-card rounded-lg border border-card-border">
+                  <span className="text-[10px] text-slate-400 block uppercase">Trading Status</span>
+                  <span
+                    className={`font-bold ${
+                      selectedInstrument?.marketStatus === 'ACTIVE'
+                        ? 'text-emerald-400'
+                        : 'text-amber-400'
                     }`}
                   >
-                    {tf}
-                  </button>
-                ))}
-              </div>
-            }
-            bodyClassName="p-0"
-          >
-            {/* Chart Canvas Area */}
-            <div className="h-96 w-full bg-[#080C14] flex flex-col items-center justify-center border-b border-card-border relative overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none" />
-
-              {/* Synthetic Candlestick Preview Graphics */}
-              <div className="flex items-end justify-center gap-2 h-48 opacity-80 pointer-events-none">
-                <div className="w-2.5 h-24 bg-emerald-500/80 rounded-sm relative">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-emerald-400" />
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-emerald-400" />
+                    {selectedInstrument?.marketStatus}
+                  </span>
                 </div>
-                <div className="w-2.5 h-16 bg-rose-500/80 rounded-sm relative">
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-rose-400" />
-                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-rose-400" />
+                <div className="p-3 bg-card rounded-lg border border-card-border">
+                  <span className="text-[10px] text-slate-400 block uppercase">Previous Close</span>
+                  <span className="text-slate-200 font-bold">
+                    {selectedQuote ? formatCurrency(selectedQuote.previousClose) : '---'}
+                  </span>
                 </div>
-                <div className="w-2.5 h-32 bg-emerald-500/80 rounded-sm relative">
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-emerald-400" />
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-emerald-400" />
-                </div>
-                <div className="w-2.5 h-28 bg-emerald-500/80 rounded-sm relative">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-emerald-400" />
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-0.5 h-1 bg-emerald-400" />
-                </div>
-                <div className="w-2.5 h-20 bg-rose-500/80 rounded-sm relative">
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-rose-400" />
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-rose-400" />
-                </div>
-                <div className="w-2.5 h-36 bg-emerald-500/90 rounded-sm relative">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-emerald-400" />
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-emerald-400" />
+                <div className="p-3 bg-card rounded-lg border border-card-border">
+                  <span className="text-[10px] text-slate-400 block uppercase">Currency</span>
+                  <span className="text-indigo-400 font-bold">
+                    {selectedInstrument?.currency || 'USD'}
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-4 text-center z-10">
-                <span className="text-xs font-mono text-cyan-400 bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-800/50">
-                  TradingView Lightweight Charts Ready • WebSocket Ticks in Phase 2
-                </span>
+              <div className="p-3 bg-cyan-950/30 border border-cyan-800/40 rounded-lg flex items-start gap-2.5 text-xs font-mono text-cyan-300">
+                <AlertCircle className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Order Management System (Phase 4A):</strong> Orders submitted here
+                  are validated against buying power in MySQL and accepted as resting <code>OPEN</code>{' '}
+                  orders. Continuous matching engine execution activates in Phase 4B.
+                </div>
               </div>
-            </div>
-
-            {/* Bottom Chart Status Strip */}
-            <div className="px-4 py-2.5 bg-[#0A0E1A] flex items-center justify-between text-xs text-slate-400 font-mono">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" /> 15m OHLCV Stream Connected
-              </span>
-              <span>Candles derived strictly from server-side trades</span>
             </div>
           </Card>
 
-          {/* Depth / Order Book Preview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card title="Bid Depth (Buyers)" subtitle="Order book price levels waiting to buy">
-              <div className="space-y-1 font-mono text-xs">
-                <div className="grid grid-cols-3 text-slate-500 pb-1 border-b border-card-border text-[11px]">
-                  <span>Price ($)</span>
-                  <span className="text-right">Shares</span>
-                  <span className="text-right">Total ($)</span>
-                </div>
-                {mockBids.map((b) => (
-                  <div key={b.price} className="grid grid-cols-3 py-1 hover:bg-slate-800/30">
-                    <span className="text-emerald-400 font-semibold">{b.price}</span>
-                    <span className="text-right text-slate-300">{b.size}</span>
-                    <span className="text-right text-slate-400">{b.total}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card title="Ask Depth (Sellers)" subtitle="Order book price levels waiting to sell">
-              <div className="space-y-1 font-mono text-xs">
-                <div className="grid grid-cols-3 text-slate-500 pb-1 border-b border-card-border text-[11px]">
-                  <span>Price ($)</span>
-                  <span className="text-right">Shares</span>
-                  <span className="text-right">Total ($)</span>
-                </div>
-                {mockAsks.map((a) => (
-                  <div key={a.price} className="grid grid-cols-3 py-1 hover:bg-slate-800/30">
-                    <span className="text-rose-400 font-semibold">{a.price}</span>
-                    <span className="text-right text-slate-300">{a.size}</span>
-                    <span className="text-right text-slate-400">{a.total}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
+          {/* Quick Stats Banner */}
+          <div className="p-4 rounded-xl bg-card border border-card-border flex items-center justify-between text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="text-slate-300">OMS Engine Connected</span>
+            </div>
+            <div className="text-slate-400">
+              Open Orders: <strong className="text-white">{openOrders.length}</strong> | Order History:{' '}
+              <strong className="text-white">{orderHistory.length}</strong>
+            </div>
+            <button
+              onClick={() => fetchOrders()}
+              className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOrders ? 'animate-spin' : ''}`} /> Sync
+            </button>
           </div>
         </div>
 
-        {/* Right 1 Col: Order Entry Desk */}
+        {/* Right 1 Col: Live Order Entry Desk */}
         <div className="lg:col-span-1 space-y-4">
-          <Card title="Order Entry Desk" subtitle="Place synthetic limit & market orders">
-            {orderSubmittedMessage && (
-              <div className="p-3 mb-4 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2 animate-fadeIn">
+          <Card title="Order Entry Desk" subtitle="Submit validated limit & market orders">
+            {/* Feedback Notifications */}
+            {successMessage && (
+              <div className="p-3 mb-4 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{orderSubmittedMessage}</span>
+                <div className="flex-1">
+                  <span>{successMessage}</span>
+                  <button
+                    onClick={clearSuccess}
+                    className="block text-[10px] underline text-emerald-400 mt-1"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Buy / Sell Tabs */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-[#090D16] rounded-lg border border-card-border mb-4">
+            {orderError && (
+              <div className="p-3 mb-4 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
+                <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <span>{orderError}</span>
+                  <button
+                    onClick={clearError}
+                    className="block text-[10px] underline text-rose-400 mt-1"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Buy / Sell Tab Buttons */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-[#090D16] rounded-xl border border-card-border mb-4">
               <button
                 type="button"
                 onClick={() => setOrderSide('BUY')}
-                className={`py-2 rounded text-xs font-mono font-bold transition-all ${
+                className={`py-2 rounded-lg text-xs font-mono font-bold transition-all ${
                   orderSide === 'BUY'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -242,9 +375,9 @@ export const TradingTerminalPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setOrderSide('SELL')}
-                className={`py-2 rounded text-xs font-mono font-bold transition-all ${
+                className={`py-2 rounded-lg text-xs font-mono font-bold transition-all ${
                   orderSide === 'SELL'
-                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                    ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -257,24 +390,24 @@ export const TradingTerminalPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setOrderType('LIMIT')}
-                className={`flex-1 py-1.5 text-xs font-mono rounded border transition-colors ${
+                className={`flex-1 py-1.5 text-xs font-mono rounded-lg border transition-colors ${
                   orderType === 'LIMIT'
-                    ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/40'
+                    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 font-semibold'
                     : 'bg-transparent text-slate-400 border-card-border hover:bg-slate-800'
                 }`}
               >
-                LIMIT
+                LIMIT ORDER
               </button>
               <button
                 type="button"
                 onClick={() => setOrderType('MARKET')}
-                className={`flex-1 py-1.5 text-xs font-mono rounded border transition-colors ${
+                className={`flex-1 py-1.5 text-xs font-mono rounded-lg border transition-colors ${
                   orderType === 'MARKET'
-                    ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/40'
+                    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 font-semibold'
                     : 'bg-transparent text-slate-400 border-card-border hover:bg-slate-800'
                 }`}
               >
-                MARKET
+                MARKET ORDER
               </button>
             </div>
 
@@ -288,30 +421,55 @@ export const TradingTerminalPage: React.FC = () => {
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 required
+                disabled={isSubmitting}
               />
 
-              {orderType === 'LIMIT' && (
+              {orderType === 'LIMIT' ? (
                 <Input
                   label="Limit Price ($)"
                   type="number"
-                  step="0.01"
-                  min="0.01"
+                  step="0.0001"
+                  min="0.0001"
                   value={limitPrice}
                   onChange={(e) => setLimitPrice(e.target.value)}
                   required
+                  disabled={isSubmitting}
                 />
+              ) : (
+                <div className="p-3 rounded-lg bg-[#090D16] border border-card-border text-xs font-mono">
+                  <span className="text-[10px] text-slate-500 block uppercase">
+                    Execution Mode
+                  </span>
+                  <span className="text-cyan-400 font-semibold">
+                    Market Execution (Best available price)
+                  </span>
+                </div>
               )}
 
               {/* Order Calculations Summary */}
-              <div className="p-3 rounded-lg bg-[#090D16] border border-card-border text-xs space-y-2 font-mono">
+              <div className="p-3.5 rounded-xl bg-[#090D16] border border-card-border text-xs space-y-2 font-mono">
                 <div className="flex justify-between text-slate-400">
-                  <span>Available Cash:</span>
-                  <span className="text-emerald-400">{formatCurrency(virtualCashBalance)}</span>
+                  <span>Available Virtual Cash:</span>
+                  <span className="text-emerald-400 font-bold">
+                    {formatCurrency(availableCash)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Estimated Total:</span>
-                  <span className="text-slate-100 font-bold">${estimatedTotal}</span>
+                  <span
+                    className={`font-bold ${
+                      hasInsufficientFunds ? 'text-rose-400' : 'text-slate-100'
+                    }`}
+                  >
+                    ${estimatedTotal}
+                  </span>
                 </div>
+                {hasInsufficientFunds && (
+                  <div className="p-2 rounded bg-rose-950/40 border border-rose-800/40 text-rose-300 text-[11px] flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Insufficient funds to place this BUY order</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-slate-500 text-[10px]">
                   <span>Execution Fee:</span>
                   <span>$0.00 (Virtual)</span>
@@ -322,20 +480,209 @@ export const TradingTerminalPage: React.FC = () => {
                 type="submit"
                 variant={orderSide === 'BUY' ? 'success' : 'danger'}
                 className="w-full font-mono text-sm uppercase font-bold py-2.5"
+                disabled={
+                  isSubmitting ||
+                  hasInsufficientFunds ||
+                  parsedQty <= 0 ||
+                  isLoadingDetail ||
+                  selectedInstrument?.marketStatus !== 'ACTIVE'
+                }
               >
-                Place {orderSide} Order
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Submitting...
+                  </span>
+                ) : (
+                  `Submit ${orderSide} Order`
+                )}
               </Button>
             </form>
-
-            <div className="mt-4 p-3 rounded-lg bg-slate-900 border border-card-border/60 text-[11px] text-slate-400 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-              <span>
-                <strong>Matching Engine Guard:</strong> All orders are validated against buying power in MySQL with explicit transactions before reaching the order book.
-              </span>
-            </div>
           </Card>
         </div>
       </div>
+
+      {/* Bottom Full-Width Orders Management Deck */}
+      <Card
+        title="Order Management Center"
+        subtitle="Manage resting open orders and review historical order activity"
+        action={
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-[#090D16] p-1 rounded-lg border border-card-border">
+              <button
+                onClick={() => setActiveTab('open')}
+                className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+                  activeTab === 'open'
+                    ? 'bg-cyan-500/20 text-cyan-300 font-bold'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Open Orders ({openOrders.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+                  activeTab === 'history'
+                    ? 'bg-cyan-500/20 text-cyan-300 font-bold'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Order History ({orderHistory.length})
+              </button>
+            </div>
+            <button
+              onClick={() => fetchOrders()}
+              className="p-1.5 rounded-lg bg-[#090D16] border border-card-border text-slate-400 hover:text-slate-200"
+              title="Refresh Orders"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoadingOrders ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        }
+      >
+        {activeTab === 'open' ? (
+          openOrders.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 font-mono text-xs">
+              <Clock className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+              <span>No open orders resting on the book. Submit an order above to begin trading.</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left font-mono text-xs">
+                <thead>
+                  <tr className="border-b border-card-border text-slate-400 text-[11px] uppercase">
+                    <th className="py-2.5 px-3">Order ID</th>
+                    <th className="py-2.5 px-3">Symbol</th>
+                    <th className="py-2.5 px-3">Side</th>
+                    <th className="py-2.5 px-3">Type</th>
+                    <th className="py-2.5 px-3 text-right">Quantity</th>
+                    <th className="py-2.5 px-3 text-right">Remaining</th>
+                    <th className="py-2.5 px-3 text-right">Price</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3">Submitted</th>
+                    <th className="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-card-border/60">
+                  {openOrders.map((ord) => (
+                    <tr key={ord.id} className="hover:bg-slate-800/20 transition-colors">
+                      <td className="py-2.5 px-3 text-slate-400">#{ord.id}</td>
+                      <td className="py-2.5 px-3 font-bold text-white">{ord.symbol || '---'}</td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            ord.side === 'BUY'
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                          }`}
+                        >
+                          {ord.side}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-300">{ord.orderType}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-200">
+                        {parseFloat(ord.quantity).toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-slate-200">
+                        {parseFloat(ord.remainingQuantity).toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-white">
+                        {ord.limitPrice ? formatCurrency(ord.limitPrice) : 'MARKET'}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <Badge variant="cyan">{ord.status}</Badge>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-400 text-[11px]">
+                        {formatDate(ord.createdAt)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleCancelOrder(ord.id)}
+                          disabled={cancellingOrderId === ord.id}
+                          className="px-2.5 py-1 text-[11px]"
+                        >
+                          {cancellingOrderId === ord.id ? (
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <Ban className="w-3 h-3" /> Cancel
+                            </span>
+                          )}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : orderHistory.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 font-mono text-xs">
+            <CheckCircle className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+            <span>No historical order executions or cancellations recorded yet.</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-mono text-xs">
+              <thead>
+                <tr className="border-b border-card-border text-slate-400 text-[11px] uppercase">
+                  <th className="py-2.5 px-3">Order ID</th>
+                  <th className="py-2.5 px-3">Symbol</th>
+                  <th className="py-2.5 px-3">Side</th>
+                  <th className="py-2.5 px-3">Type</th>
+                  <th className="py-2.5 px-3 text-right">Quantity</th>
+                  <th className="py-2.5 px-3 text-right">Price</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-card-border/60">
+                {orderHistory.map((ord) => (
+                  <tr key={ord.id} className="hover:bg-slate-800/20 transition-colors">
+                    <td className="py-2.5 px-3 text-slate-400">#{ord.id}</td>
+                    <td className="py-2.5 px-3 font-bold text-white">{ord.symbol || '---'}</td>
+                    <td className="py-2.5 px-3">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          ord.side === 'BUY'
+                            ? 'bg-emerald-500/15 text-emerald-400'
+                            : 'bg-rose-500/15 text-rose-400'
+                        }`}
+                      >
+                        {ord.side}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-300">{ord.orderType}</td>
+                    <td className="py-2.5 px-3 text-right text-slate-200">
+                      {parseFloat(ord.quantity).toFixed(2)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-bold text-white">
+                      {ord.limitPrice ? formatCurrency(ord.limitPrice) : 'MARKET'}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <Badge
+                        variant={
+                          ord.status === 'FILLED'
+                            ? 'gain'
+                            : ord.status === 'CANCELLED'
+                            ? 'neutral'
+                            : 'loss'
+                        }
+                      >
+                        {ord.status}
+                      </Badge>
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-400 text-[11px]">
+                      {formatDate(ord.updatedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 };

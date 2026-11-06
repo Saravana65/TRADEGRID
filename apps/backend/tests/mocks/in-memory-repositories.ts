@@ -1,5 +1,16 @@
 import { Knex } from 'knex';
-import { UserRole, UserStatus, LedgerAccountType, TransactionType, LedgerEntryType } from '@tradegrid/shared-types';
+import {
+  UserRole,
+  UserStatus,
+  LedgerAccountType,
+  TransactionType,
+  LedgerEntryType,
+  Order,
+  OrderSide,
+  OrderType,
+  OrderStatus,
+  OrderFilterQuery,
+} from '@tradegrid/shared-types';
 import { IUserRepository, UserRecord, CreateUserData, SafeUserRecord } from '../../src/modules/users/user.repository';
 import { ISessionRepository, SessionRecord, CreateSessionData } from '../../src/modules/auth/session.repository';
 import { IWalletRepository, WalletRecord, CreateWalletData } from '../../src/modules/wallet/wallet.repository';
@@ -11,6 +22,10 @@ import {
   CreateTransactionData,
   CreateEntryData,
 } from '../../src/modules/wallet/ledger.repository';
+import {
+  IOrderRepository,
+  CreateOrderDbData,
+} from '../../src/modules/orders/order.repository';
 
 export class InMemoryUserRepository implements IUserRepository {
   private users: UserRecord[] = [];
@@ -799,3 +814,98 @@ export class InMemoryMarketDataRepository implements IMarketDataRepository {
     this.seedDefaults(instrumentRepo);
   }
 }
+
+export class InMemoryOrderRepository implements IOrderRepository {
+  private orders: Order[] = [];
+  private nextId = 1;
+
+  async create(data: CreateOrderDbData): Promise<Order> {
+    const now = new Date().toISOString();
+    const order: Order = {
+      id: this.nextId++,
+      userId: data.userId,
+      instrumentId: data.instrumentId,
+      symbol: 'TGRID',
+      instrumentName: 'TradeGrid Core Technologies',
+      exchange: 'TRADEGRID',
+      currency: 'USD',
+      side: data.side,
+      orderType: data.orderType,
+      quantity: data.quantity,
+      remainingQuantity: data.remainingQuantity,
+      limitPrice: data.limitPrice,
+      status: data.status,
+      idempotencyKey: data.idempotencyKey || null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.orders.push(order);
+    return { ...order };
+  }
+
+  async findById(id: number): Promise<Order | null> {
+    const order = this.orders.find((o) => o.id === id);
+    return order ? { ...order } : null;
+  }
+
+  async findByUserId(
+    userId: number,
+    filter: OrderFilterQuery = {}
+  ): Promise<{ orders: Order[]; total: number }> {
+    let result = this.orders.filter((o) => o.userId === userId);
+
+    if (filter.status) {
+      result = result.filter((o) => o.status === filter.status);
+    }
+    if (filter.side) {
+      result = result.filter((o) => o.side === filter.side);
+    }
+    if (filter.orderType) {
+      result = result.filter((o) => o.orderType === filter.orderType);
+    }
+    if (filter.instrumentId) {
+      result = result.filter((o) => o.instrumentId === filter.instrumentId);
+    }
+    if (filter.symbol) {
+      result = result.filter((o) => o.symbol?.toUpperCase() === filter.symbol?.toUpperCase());
+    }
+
+    const total = result.length;
+    const page = filter.page || 1;
+    const limit = filter.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const paginated = result.slice(offset, offset + limit);
+    return {
+      orders: paginated.map((o) => ({ ...o })),
+      total,
+    };
+  }
+
+  async findByIdempotencyKey(key: string): Promise<Order | null> {
+    const order = this.orders.find((o) => o.idempotencyKey === key);
+    return order ? { ...order } : null;
+  }
+
+  async updateStatus(
+    id: number,
+    status: OrderStatus,
+    remainingQuantity?: string
+  ): Promise<Order | null> {
+    const order = this.orders.find((o) => o.id === id);
+    if (!order) return null;
+
+    order.status = status;
+    if (remainingQuantity !== undefined) {
+      order.remainingQuantity = remainingQuantity;
+    }
+    order.updatedAt = new Date().toISOString();
+    return { ...order };
+  }
+
+  clear(): void {
+    this.orders = [];
+    this.nextId = 1;
+  }
+}
+

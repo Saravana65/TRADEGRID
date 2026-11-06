@@ -1,6 +1,6 @@
 # TRADEGRID – Database Design & Double-Entry Ledger Schema
 
-**Status:** Live & Implemented (Phases 1, 2 & 3).  
+**Status:** Live & Implemented (Phases 1, 2, 3 & 4A).  
 **Database Engine:** MySQL 8 with InnoDB engine.  
 **Migration Tool:** Knex.js migrations (`database/migrations/`).  
 **Application Scope:** Educational virtual stock exchange simulator. Virtual money only. Zero real-money banking or brokerage integrations. All fictional instruments explicitly marked SIMULATED; real instruments marked REAL with static reference pricing.
@@ -86,8 +86,10 @@ erDiagram
   ledger_transactions ||--|{ ledger_entries : contains
   ledger_accounts ||--o{ ledger_entries : posts_to
   users ||--o{ ledger_transactions : creates
+  users ||--o{ orders : places
   instruments ||--|| market_quotes : has_quote
   instruments ||--o{ market_candles : aggregates_candles
+  instruments ||--o{ orders : traded_in
 
   users {
     int id PK
@@ -180,6 +182,21 @@ erDiagram
     decimal close "DECIMAL(18,4)"
     bigint volume
     timestamp created_at
+  }
+
+  orders {
+    int id PK
+    int user_id FK
+    int instrument_id FK
+    string side "BUY or SELL"
+    string order_type "MARKET or LIMIT"
+    decimal quantity "DECIMAL(18,4)"
+    decimal remaining_quantity "DECIMAL(18,4)"
+    decimal limit_price "DECIMAL(18,4), nullable"
+    string status "PENDING, OPEN, PARTIALLY_FILLED, FILLED, CANCELLED, REJECTED"
+    string idempotency_key UK,nullable
+    timestamp created_at
+    timestamp updated_at
   }
 ```
 
@@ -361,6 +378,32 @@ erDiagram
   - `UNIQUE (instrument_id, interval, timestamp)` (Prevents duplicate interval bars)
   - `INDEX (instrument_id, interval, timestamp)` (Optimized for range queries: `WHERE instrument_id = ? AND interval = ? AND timestamp BETWEEN ? AND ?`)
 
+### 4.10 `orders` Table
+- **File:** `database/migrations/005_create_orders_table.ts`
+- **Engine:** InnoDB, UTF8MB4
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Unique Order identifier |
+| `user_id` | INT UNSIGNED | NOT NULL, FK(`users.id`) ON DELETE RESTRICT | Account owner |
+| `instrument_id` | INT UNSIGNED | NOT NULL, FK(`instruments.id`) ON DELETE RESTRICT | Target tradable asset |
+| `side` | ENUM('BUY','SELL') | NOT NULL | Order direction |
+| `order_type` | ENUM('MARKET','LIMIT') | NOT NULL | Execution instruction |
+| `quantity` | DECIMAL(18,4) | NOT NULL | Total shares ordered |
+| `remaining_quantity`| DECIMAL(18,4) | NOT NULL | Shares remaining to be filled |
+| `limit_price` | DECIMAL(18,4) | NULLABLE | Execution limit price (null for market) |
+| `status` | ENUM('PENDING','OPEN','PARTIALLY_FILLED','FILLED','CANCELLED','REJECTED') | NOT NULL, DEFAULT 'OPEN' | Lifecycle state |
+| `idempotency_key`| VARCHAR(128) | NULLABLE, UNIQUE | Client idempotency guard |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Submission timestamp |
+| `updated_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | Last transition timestamp |
+
+- **Indexes & Constraints:**
+  - `UNIQUE (idempotency_key)`
+  - `INDEX (user_id, status)` (Optimized for user's open orders & history)
+  - `INDEX (instrument_id, status)` (Optimized for order book matching queries)
+  - `INDEX (status)`
+  - `INDEX (created_at)`
+
 ---
 
 ## 5. System Accounts Pre-Seeded in Migration
@@ -417,3 +460,33 @@ If any failure occurs (deadlock, network timeout, constraint violation), the ent
    $$\text{high} \ge \max(\text{open}, \text{close}) \quad \text{and} \quad \text{low} \le \min(\text{open}, \text{close})$$
 3. **Fixed-Point Arithmetic:**
    All market prices and changes are persisted as `DECIMAL(18,4)`. Floating-point representations (`FLOAT`, `DOUBLE`) are strictly forbidden across storage and JSON transmission layers.
+
+---
+
+## 8. Order Management System (OMS) Lifecycle & State Machine
+
+```mermaid
+stateDiagram-v2
+  [*] --> PENDING : Submit Request
+  PENDING --> REJECTED : Validation / Purchasing Power Failure
+  PENDING --> OPEN : Accepted by OMS
+  OPEN --> PARTIALLY_FILLED : Partial Match (Phase 4B)
+  PARTIALLY_FILLED --> PARTIALLY_FILLED : Additional Partial Fill (Phase 4B)
+  PARTIALLY_FILLED --> FILLED : Complete Fill (Phase 4B)
+  OPEN --> FILLED : Complete Fill (Phase 4B)
+  OPEN --> CANCELLED : Trader Cancellation (DELETE /orders/:id)
+  PARTIALLY_FILLED --> CANCELLED : Trader Cancellation of Unfilled Remainder
+  CANCELLED --> [*]
+  FILLED --> [*]
+  REJECTED --> [*]
+```
+
+### Safe Status Transitions:
+| Transition | Allowed in Phase 4A | Rationale |
+|---|---|---|
+| `PENDING` $\to$ `OPEN` | Yes | Pre-trade risk checks pass; order placed in OMS. |
+| `PENDING` $\to$ `REJECTED` | Yes | Invalid instrument, halted trading, or insufficient purchasing power. |
+| `OPEN` $\to$ `CANCELLED` | Yes | Trader manually cancels active resting order. |
+| `OPEN` $\to$ `FILLED` | **NO (Reserved Phase 4B)** | Strict integrity: orders cannot be marked filled without matching engine trades. |
+| `FILLED` $\to$ `CANCELLED` | **FORBIDDEN (422)** | Fully executed orders cannot be reversed or cancelled. |
+| `CANCELLED` $\to$ `CANCELLED`| **FORBIDDEN (422)** | Idempotent cancel rejects double cancellation. |
