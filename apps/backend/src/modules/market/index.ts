@@ -1,16 +1,11 @@
-import { Router, Request, Response } from 'express';
-import { sendSuccess } from '../../utils/response';
-
-export const marketRouter = Router();
-
-/**
- * Phase 2 Market Data & Simulation Engine Placeholder
- * Will provide quotes, candlestick OHLCV bars, and tick generation.
- */
-marketRouter.get('/overview', (_req: Request, res: Response) => {
-  sendSuccess(res, {
-    module: 'market',
-    status: 'planned_phase_2',
-    features: ['Real-time quotes', 'Candlestick OHLCV bars', 'Order book depth', 'Simulation ticker'],
-  });
-});
+export * from './market-data-provider.interface';
+export * from './fixture-market-data.provider';
+export * from './instrument.repository';
+export * from './market-data.repository';
+export * from './instrument.service';
+export * from './market-data.service';
+export * from './instrument.controller';
+export * from './market-data.controller';
+export * from './instrument.router';
+export * from './market.router';
+export * from './admin-instrument.router';

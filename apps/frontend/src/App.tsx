@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MarketsPage } from './pages/MarketsPage';
+import { StockDetailPage } from './pages/StockDetailPage';
 import { PortfolioPage } from './pages/PortfolioPage';
 import { WatchlistPage } from './pages/WatchlistPage';
 import { NewsPage } from './pages/NewsPage';
@@ -73,6 +74,7 @@ export const App: React.FC = () => {
         >
           <Route index element={<DashboardPage />} />
           <Route path="markets" element={<MarketsPage />} />
+          <Route path="markets/:symbol" element={<StockDetailPage />} />
           <Route path="portfolio" element={<PortfolioPage />} />
           <Route path="watchlist" element={<WatchlistPage />} />
           <Route path="news" element={<NewsPage />} />

@@ -1,9 +1,9 @@
 # TRADEGRID – Database Design & Double-Entry Ledger Schema
 
-**Status:** Live & Implemented (Phases 1 & 2).  
+**Status:** Live & Implemented (Phases 1, 2 & 3).  
 **Database Engine:** MySQL 8 with InnoDB engine.  
 **Migration Tool:** Knex.js migrations (`database/migrations/`).  
-**Application Scope:** Educational virtual stock exchange simulator. Virtual money only. Zero real-money banking or brokerage integrations.
+**Application Scope:** Educational virtual stock exchange simulator. Virtual money only. Zero real-money banking or brokerage integrations. All fictional instruments explicitly marked SIMULATED; real instruments marked REAL with static reference pricing.
 
 ---
 
@@ -76,7 +76,7 @@ Total Debits: $5,000.0000 == Total Credits: $5,000.0000 (BALANCED)
 
 ---
 
-## 3. Entity-Relationship Model (Implemented Phases 1 & 2)
+## 3. Entity-Relationship Model (Implemented Phases 1, 2 & 3)
 
 ```mermaid
 erDiagram
@@ -86,6 +86,8 @@ erDiagram
   ledger_transactions ||--|{ ledger_entries : contains
   ledger_accounts ||--o{ ledger_entries : posts_to
   users ||--o{ ledger_transactions : creates
+  instruments ||--|| market_quotes : has_quote
+  instruments ||--o{ market_candles : aggregates_candles
 
   users {
     int id PK
@@ -132,6 +134,51 @@ erDiagram
     int account_id FK
     string entry_type "DEBIT or CREDIT"
     decimal amount "DECIMAL(19,4)"
+    timestamp created_at
+  }
+
+  instruments {
+    int id PK
+    string symbol "INDEX(symbol, exchange) UK"
+    string name
+    string exchange
+    string sector
+    string instrument_type
+    string currency
+    string market_status
+    string data_classification "REAL or SIMULATED"
+    timestamp created_at
+    timestamp updated_at
+  }
+
+  market_quotes {
+    int id PK
+    int instrument_id FK,UK
+    decimal last_price "DECIMAL(18,4)"
+    decimal previous_close "DECIMAL(18,4)"
+    decimal open "DECIMAL(18,4)"
+    decimal high "DECIMAL(18,4)"
+    decimal low "DECIMAL(18,4)"
+    bigint volume
+    decimal change_amount "DECIMAL(18,4)"
+    decimal change_percent "DECIMAL(18,4)"
+    string data_source
+    string data_classification "REAL or SIMULATED"
+    timestamp timestamp
+    timestamp created_at
+    timestamp updated_at
+  }
+
+  market_candles {
+    bigint id PK
+    int instrument_id FK
+    string interval "1m, 5m, 15m, 1h, 1d"
+    timestamp timestamp
+    decimal open "DECIMAL(18,4)"
+    decimal high "DECIMAL(18,4)"
+    decimal low "DECIMAL(18,4)"
+    decimal close "DECIMAL(18,4)"
+    bigint volume
     timestamp created_at
   }
 ```
@@ -240,6 +287,80 @@ erDiagram
   - `INDEX (account_id, created_at)`
   - `CHECK (amount > 0.0000)`
 
+### 4.7 `instruments` Table
+- **File:** `database/migrations/004_create_instruments_and_market_data_tables.ts`
+- **Engine:** InnoDB, UTF8MB4
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Unique Instrument ID |
+| `symbol` | VARCHAR(16) | NOT NULL | Ticker symbol (e.g. `RELIANCE`, `TGRID`) |
+| `name` | VARCHAR(128) | NOT NULL | Full entity or company name |
+| `exchange` | VARCHAR(16) | NOT NULL | Exchange identifier (`NSE`, `BSE`, `TRADEGRID`) |
+| `sector` | VARCHAR(64) | NOT NULL | Industry sector (e.g. `Technology`, `Energy`) |
+| `instrument_type`| ENUM('EQUITY','INDEX','ETF','CRYPTO') | NOT NULL, DEFAULT 'EQUITY' | Asset class |
+| `currency` | VARCHAR(3) | NOT NULL, DEFAULT 'INR' | Trading quote currency |
+| `market_status` | ENUM('ACTIVE','HALTED','CLOSED','DELISTED') | NOT NULL, DEFAULT 'ACTIVE' | Operational trading status |
+| `data_classification` | ENUM('REAL','SIMULATED') | NOT NULL | Regulatory data provenance flag |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Registration timestamp |
+| `updated_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | Last update timestamp |
+
+- **Indexes & Unique Constraints:**
+  - `UNIQUE (symbol, exchange)` (Guarantees symbols are unique per exchange; allows identical symbol across different venues)
+  - `INDEX (symbol)`
+  - `INDEX (exchange)`
+  - `INDEX (sector)`
+  - `INDEX (market_status)`
+  - `INDEX (data_classification)`
+
+### 4.8 `market_quotes` Table
+- **File:** `database/migrations/004_create_instruments_and_market_data_tables.ts`
+- **Engine:** InnoDB, UTF8MB4
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Quote record identifier |
+| `instrument_id` | INT UNSIGNED | NOT NULL, UNIQUE, FK(`instruments.id`) ON DELETE CASCADE | Target instrument (1:1 latest snapshot) |
+| `last_price` | DECIMAL(18,4) | NOT NULL | Most recent transaction / reference price |
+| `previous_close`| DECIMAL(18,4) | NOT NULL | Closing price from prior trading session |
+| `open` | DECIMAL(18,4) | NOT NULL | Session opening price |
+| `high` | DECIMAL(18,4) | NOT NULL | Session intraday high |
+| `low` | DECIMAL(18,4) | NOT NULL | Session intraday low |
+| `volume` | BIGINT UNSIGNED | NOT NULL, DEFAULT 0 | Cumulative trading session volume |
+| `change_amount` | DECIMAL(18,4) | NOT NULL | Absolute change: `last_price - previous_close` |
+| `change_percent`| DECIMAL(18,4) | NOT NULL | Percentage change: `(change_amount / previous_close) * 100` |
+| `data_source` | VARCHAR(64) | NOT NULL | Origin provider (`FIXTURE_PROVIDER`, `NSE_REFERENCE`, etc.) |
+| `data_classification` | ENUM('REAL','SIMULATED') | NOT NULL | Transparency classification tag |
+| `timestamp` | TIMESTAMP | NOT NULL | Timestamp of quote quote update |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Row insertion time |
+| `updated_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | Row modification time |
+
+- **Indexes & Constraints:**
+  - `UNIQUE (instrument_id)`
+  - `INDEX (data_classification)`
+  - `INDEX (timestamp)`
+
+### 4.9 `market_candles` Table
+- **File:** `database/migrations/004_create_instruments_and_market_data_tables.ts`
+- **Engine:** InnoDB, UTF8MB4
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | BIGINT UNSIGNED | PK, AUTO_INCREMENT | Historical candle bar identifier |
+| `instrument_id` | INT UNSIGNED | NOT NULL, FK(`instruments.id`) ON DELETE CASCADE | Associated instrument |
+| `interval` | ENUM('1m','5m','15m','1h','1d') | NOT NULL | Time bucket resolution |
+| `timestamp` | TIMESTAMP | NOT NULL | Start timestamp of bar interval |
+| `open` | DECIMAL(18,4) | NOT NULL | Bar open price |
+| `high` | DECIMAL(18,4) | NOT NULL | Bar high price ($\ge \max(open, close)$) |
+| `low` | DECIMAL(18,4) | NOT NULL | Bar low price ($\le \min(open, close)$) |
+| `close` | DECIMAL(18,4) | NOT NULL | Bar close price |
+| `volume` | BIGINT UNSIGNED | NOT NULL, DEFAULT 0 | Volume executed within interval bucket |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Record creation time |
+
+- **Indexes & Constraints:**
+  - `UNIQUE (instrument_id, interval, timestamp)` (Prevents duplicate interval bars)
+  - `INDEX (instrument_id, interval, timestamp)` (Optimized for range queries: `WHERE instrument_id = ? AND interval = ? AND timestamp BETWEEN ? AND ?`)
+
 ---
 
 ## 5. System Accounts Pre-Seeded in Migration
@@ -283,3 +404,16 @@ COMMIT;
 ```
 
 If any failure occurs (deadlock, network timeout, constraint violation), the entire transaction rolls back cleanly, maintaining 100% financial integrity.
+
+---
+
+## 7. Market Data Provenance & Integrity Safeguards
+
+1. **Strict Data Segregation:**
+   - Real market instruments (`data_classification: 'REAL'`) represent actual enterprise entities (e.g. NSE blue chips) and receive static reference catalog prices. They **never** receive fabricated random live fills or misleading simulated ticks.
+   - Fictional instruments (`data_classification: 'SIMULATED'`) represent TradeGrid simulation universe companies and are powered by algorithmic fixture generators.
+2. **Mathematical OHLCV Consistency:**
+   Every candle bar strictly enforces:
+   $$\text{high} \ge \max(\text{open}, \text{close}) \quad \text{and} \quad \text{low} \le \min(\text{open}, \text{close})$$
+3. **Fixed-Point Arithmetic:**
+   All market prices and changes are persisted as `DECIMAL(18,4)`. Floating-point representations (`FLOAT`, `DOUBLE`) are strictly forbidden across storage and JSON transmission layers.

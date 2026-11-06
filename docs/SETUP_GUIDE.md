@@ -2,7 +2,7 @@
 
 * **Project:** TRADEGRID Educational Stock Exchange Simulator
 * **Architecture:** Modular Monolith in an NPM Monorepo
-* **Current Phase:** Phase 2 Virtual Wallet & Double-Entry Ledger Complete
+* **Current Phase:** Phase 3 Stock Instruments & Market Data Complete
 
 ---
 
@@ -80,15 +80,15 @@ Verify that all unit and integration tests execute successfully:
 ```bash
 npm test
 ```
-*Expected result:* **33 tests passed** across `tests/health.test.ts` (3 tests), `tests/auth.test.ts` (14 tests), and `tests/wallet.test.ts` (16 tests).
+*Expected result:* **60 tests passed** across `tests/health.test.ts` (3 tests), `tests/auth.test.ts` (14 tests), `tests/wallet.test.ts` (16 tests), `tests/instruments.test.ts` (15 tests), and `tests/market.test.ts` (12 tests).
 
 ### Step 4: Run Database Migrations & Seeds
 If you have MySQL 8 running locally on port 3306:
 ```bash
-# Run migrations (creates users, refresh_tokens, wallets, and ledger tables)
+# Run migrations (creates users, refresh_tokens, wallets, ledger, instruments, and market data tables)
 npm run migrate:latest
 
-# Seed initial admin, trader accounts, and initial balanced journal grants
+# Seed initial admin, trader accounts, initial balanced journal grants, and instrument/market catalog
 npm run seed:run
 ```
 

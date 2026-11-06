@@ -19,7 +19,16 @@ import {
 } from './modules/wallet';
 import { AuthController } from './modules/auth/auth.controller';
 import { UsersController } from './modules/users/users.controller';
-import { marketRouter } from './modules/market';
+import {
+  instrumentRouter as defaultInstrumentRouter,
+  createInstrumentRouter,
+  marketRouter as defaultMarketRouter,
+  createMarketRouter,
+  adminInstrumentRouter as defaultAdminInstrumentRouter,
+  createAdminInstrumentRouter,
+  InstrumentController,
+  MarketDataController,
+} from './modules/market';
 import { tradingRouter } from './modules/trading';
 import { portfolioRouter } from './modules/portfolio';
 import { watchlistRouter } from './modules/watchlist';
@@ -32,6 +41,8 @@ export interface AppDependencies {
   authController?: AuthController;
   usersController?: UsersController;
   walletController?: WalletController;
+  instrumentController?: InstrumentController;
+  marketDataController?: MarketDataController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -101,11 +112,25 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createAdminWalletRouter(dependencies.walletController)
     : defaultAdminWalletRouter;
 
+  const activeInstrumentRouter = dependencies.instrumentController
+    ? createInstrumentRouter(dependencies.instrumentController)
+    : defaultInstrumentRouter;
+
+  const activeMarketRouter = dependencies.marketDataController
+    ? createMarketRouter(dependencies.marketDataController)
+    : defaultMarketRouter;
+
+  const activeAdminInstrumentRouter = dependencies.instrumentController
+    ? createAdminInstrumentRouter(dependencies.instrumentController)
+    : defaultAdminInstrumentRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);
   app.use('/api/v1/admin/wallets', activeAdminWalletRouter);
-  app.use('/api/v1/market', marketRouter);
+  app.use('/api/v1/instruments', activeInstrumentRouter);
+  app.use('/api/v1/market', activeMarketRouter);
+  app.use('/api/v1/admin/instruments', activeAdminInstrumentRouter);
   app.use('/api/v1/trading', tradingRouter);
   app.use('/api/v1/portfolio', portfolioRouter);
   app.use('/api/v1/watchlist', watchlistRouter);

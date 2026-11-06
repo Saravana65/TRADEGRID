@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 2 Virtual Wallet & Double-Entry Ledger Complete ✅
-* **Previous Phase:** Phase 1 Foundation Complete ✅
-* **Next Target:** Phase 3 (Matching Engine, In-Memory Limit Order Book, Market Simulation Engine)
+* **Current Status:** Phase 3 Stock Instruments & Market Data Complete ✅
+* **Previous Phase:** Phase 2 Virtual Wallet & Double-Entry Ledger Complete ✅
+* **Next Target:** Phase 4 (Matching Engine, In-Memory Limit Order Book, Order Execution)
 
 ---
 
@@ -52,28 +52,50 @@
 
 ---
 
-### C. Phase 3: Core Trading & Market Simulation (Planned Next)
+### C. Phase 3: Stock Instruments & Market Data (Completed)
 
-| Feature | Target Phase | Status |
+| Module / Component | Status | Details |
 |---|---|---|
-| **In-Memory Limit Order Book** | Phase 3 | Planned (Price-Time priority LOB with bid/ask depth) |
-| **Order Matching Engine** | Phase 3 | Planned (Single-threaded per symbol isolation, atomic fills) |
-| **Cash Reservation on Limit Buy** | Phase 3 | Planned (Lock available cash into reserved cash upon order accept) |
-| **Continuous Market Simulation Engine** | Phase 3 | Planned (Geometric Brownian motion drift + mean reversion) |
-| **Real-Time WebSocket Quotes** | Phase 3 | Planned (Socket.IO quote and order book depth broadcasts) |
-| **Candlestick OHLCV Aggregator** | Phase 3 | Planned (1m, 5m, 15m bar generation) |
+| **Instrument Master Schema** | ✅ Completed | Migration `004_create_instruments_and_market_data_tables.ts` creating `instruments` with composite uniqueness on `(symbol, exchange)` and sector/exchange indexing. |
+| **Market Quotes Subsystem** | ✅ Completed | `market_quotes` table with `DECIMAL(18,4)` pricing precision, intraday stats (O/H/L/C, volume, change, %), and `UNIQUE(instrument_id)`. |
+| **Multi-Interval OHLCV Candles**| ✅ Completed | `market_candles` table with composite index/unique constraint `(instrument_id, interval, timestamp)` supporting `1m`, `5m`, `15m`, `1h`, `1d` intervals. |
+| **Mathematical OHLCV Guard** | ✅ Completed | Strict validation ensuring high/low envelope consistency ($\text{high} \ge \max(\text{open}, \text{close})$ and $\text{low} \le \min(\text{open}, \text{close})$). |
+| **Pluggable Market Provider** | ✅ Completed | `MarketDataProvider` interface decoupling data ingestion; implemented `FixtureMarketDataProvider` for deterministic local development. |
+| **Seed Equities Catalog** | ✅ Completed | Seed `002_seed_instruments_and_market_data.ts` creating 5 real NSE reference stocks and 12 simulated TradeGrid companies with realistic historical candles. |
+| **Data Provenance Segregation**| ✅ Completed | Strict separation of `REAL` reference equities (static catalog pricing) vs. `SIMULATED` equities (synthetic ticks) to prevent deceptive financial presentation. |
+| **Instrument Master REST APIs**| ✅ Completed | `GET /api/v1/instruments` with multi-facet filters (`search`, `exchange`, `sector`, `classification`), single instrument detail, and metadata endpoints. |
+| **Administrative Instruments** | ✅ Completed | `POST /api/v1/admin/instruments`, `PUT /api/v1/admin/instruments/:id`, and `PATCH /api/v1/admin/instruments/:id/status` protected by `ADMIN` RBAC. |
+| **Market Data REST APIs** | ✅ Completed | `GET /api/v1/market/quotes`, `GET /api/v1/market/quotes/:symbol`, and `GET /api/v1/market/candles/:symbol` with query validation. |
+| **Market Overview & Breadth** | ✅ Completed | `GET /api/v1/market/overview` providing Top 5 Gainers, Top 5 Losers, Top 5 Most Active, and Advancing/Declining breadth metrics. |
+| **Frontend Market Store** | ✅ Completed | Zustand `useMarketStore` managing catalog filtering, active quote selection, candle resolutions, and overview polling. |
+| **Markets Explorer UI** | ✅ Completed | `MarketsPage.tsx` with instant symbol/name search, sector & exchange filters, real/simulated tabs, market breadth widgets, and tickers. |
+| **TradingView Lightweight Charts**| ✅ Completed | `StockDetailPage.tsx` with responsive Candlestick and Volume histogram charts, interval toggles (`1m` to `1d`), stat cards, and data provenance badges. |
+| **Automated Testing Suite** | ✅ Completed | **60 Vitest tests passing with 100% pass rate** (15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
 
 ---
 
-### D. Phase 4: Social, Contests & Advanced Hardening (Planned)
+### D. Phase 4: Limit Order Book & Matching Engine (Planned Next)
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Simulated Volatility & Panic Bots** | Phase 4 | Planned |
-| **Admin News Catalyst Injector** | Phase 4 | Planned |
-| **Trading Competitions & Contests** | Phase 4 | Planned |
-| **Live Leaderboards** | Phase 4 | Planned |
-| **Global & Symbol Chat Rooms** | Phase 4 | Planned |
-| **TimescaleDB Time-Series Archival** | Phase 4 | Planned |
-| **Redis Distributed Caching** | Phase 4 | Planned |
-| **Prometheus & Grafana Monitoring** | Phase 4 | Planned |
+| **In-Memory Limit Order Book** | Phase 4 | Planned (Price-Time priority FIFO order book with bid/ask depth) |
+| **Order Matching Engine** | Phase 4 | Planned (Isolated per-symbol matching loop with atomic fill settlement) |
+| **Cash Reservation System** | Phase 4 | Planned (Lock available cash into reserved cash upon order accept) |
+| **Trade Execution Ledger Sync** | Phase 4 | Planned (Post double-entry journal entries for share purchases and sales) |
+| **Real-Time WebSocket Tape** | Phase 4 | Planned (Broadcast live fills and order book level updates via Socket.IO) |
+| **Portfolio Position Tracker** | Phase 4 | Planned (Average cost basis, realized & unrealized P&L calculations) |
+
+---
+
+### E. Phase 5: Social, Contests & Advanced Hardening (Planned)
+
+| Feature | Target Phase | Status |
+|---|---|---|
+| **Simulated Volatility & Panic Bots** | Phase 5 | Planned |
+| **Admin News Catalyst Injector** | Phase 5 | Planned |
+| **Trading Competitions & Contests** | Phase 5 | Planned |
+| **Live Leaderboards** | Phase 5 | Planned |
+| **Global & Symbol Chat Rooms** | Phase 5 | Planned |
+| **TimescaleDB Time-Series Archival** | Phase 5 | Planned |
+| **Redis Distributed Caching** | Phase 5 | Planned |
+| **Prometheus & Grafana Monitoring** | Phase 5 | Planned |

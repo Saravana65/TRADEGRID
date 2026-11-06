@@ -1,6 +1,6 @@
 # TRADEGRID – Market Simulation Engine (Design)
 
-**Status:** Design only. No simulation code is in the repository.
+**Status:** Phase 3 Implemented (Instrument Master, Quotes, Candles, Fixture Provider). Phase 4 Target: Continuous Matching Engine.
 
 TRADEGRID must **not** be a chart whose last price is `random()`. Prices should look like a market: a slow baseline, bursts of volatility, reactions to news, and **real trader flow** hitting a book.
 
@@ -12,7 +12,33 @@ This engine is **separate** from matching. It outputs:
 
 It does **not** write trader cash or invent fills. Fills happen only in the matching engine.
 
-## 1. Hybrid model (plain language)
+---
+
+## 1. Implemented Phase 3 Market Data Subsystem
+
+Phase 3 establishes the foundation for all market data ingestion, storage, and visualization:
+
+1. **Instrument Master (`instruments` table):**
+   - Unique symbol per exchange (`UNIQUE(symbol, exchange)`).
+   - Segregates instruments by `data_classification` (`REAL` vs. `SIMULATED`).
+2. **Latest Market Quotes (`market_quotes` table):**
+   - High-precision fixed-point pricing (`DECIMAL(18,4)`).
+   - Intraday statistics: `last_price`, `previous_close`, `open`, `high`, `low`, `volume`, `change_amount`, `change_percent`.
+   - Data provenance metadata (`data_source`, `data_classification`).
+3. **Multi-Interval Historical Candles (`market_candles` table):**
+   - Resolutions: `1m`, `5m`, `15m`, `1h`, `1d`.
+   - Mathematical consistency: $\text{high} \ge \max(\text{open}, \text{close})$ and $\text{low} \le \min(\text{open}, \text{close})$.
+4. **Pluggable Provider Architecture (`MarketDataProvider`):**
+   - Decoupled interface for quote & candle ingestion.
+   - `FixtureMarketDataProvider` currently provides deterministic simulated OHLCV data.
+   - Ready for adapter integration with licensed external real-market providers.
+5. **Data Segregation Safeguards:**
+   - Real market references (e.g. NSE blue chips) receive static catalog pricing.
+   - Fictional instruments (e.g. `TGRID`, `NEXUS`, `SOLARIS`) are explicitly tagged `SIMULATED`.
+
+---
+
+## 2. Hybrid Simulation Model (Phase 4 Design)
 
 Think of each stock as having a “true-ish” value the class is simulating (like a company), while the **visible price** is whatever last traded on the book.
 
@@ -76,7 +102,7 @@ fair_value := round_to_tick(exp(log_p))
 
 `mu_dt` includes sentiment and event drift. `sigma` is stock volatility × event vol multiplier × market vol.
 
-**Java:** compute with `BigDecimal` after the increment, or use `MathContext` and convert once per tick. Do not store the official price in a `double` column.
+**TypeScript / Node.js:** compute with high-precision decimal math (or scaled integer cents/pips) after the increment, and persist strictly as `DECIMAL(18,4)`. Do not store or transmit prices using JavaScript IEEE-754 `Number` floating point.
 
 ## 5. Events (crash, rally, news)
 
@@ -102,7 +128,7 @@ Store in `exchange_settings`:
 - `simulation_seed` (BIGINT)
 - `tick_index` (how many ticks have run)
 
-RNG: `new Random(seed)` is weak but OK for class demos; prefer `SplittableRandom` with a documented seed, or a per-stock stream `hash(seed, stock_id, tick_index)` so adding a stock does not reshuffle others.
+RNG: `Math.random()` is non-deterministic and forbidden for simulation; prefer a deterministic PRNG (e.g. Mulberry32, PCG, or XorShift) with a per-stock stream `hash(seed, stock_id, tick_index)` so adding a stock does not reshuffle others.
 
 **Replay:** same seed + same tick index + same event table + same incoming student orders ⇒ same fair values and same sim orders. Human orders are part of the tape; tests inject them from fixtures.
 

@@ -132,3 +132,120 @@ export const walletTransactionsQuerySchema = z.object({
 });
 
 export type WalletTransactionsQueryInput = z.infer<typeof walletTransactionsQuerySchema>;
+
+// ============================================================================
+// Phase 3: Stock Instruments & Market Data Validation Schemas
+// ============================================================================
+
+/**
+ * Symbol validation regex: 1-16 uppercase alphanumeric characters, allowing dots and hyphens
+ */
+export const symbolRegex = /^[A-Z0-9.\-_]{1,16}$/;
+
+/**
+ * Create Instrument Schema (Admin only)
+ */
+export const createInstrumentSchema = z.object({
+  symbol: z
+    .string({ required_error: 'Symbol is required' })
+    .min(1, 'Symbol must be at least 1 character')
+    .max(16, 'Symbol cannot exceed 16 characters')
+    .transform((val) => val.trim().toUpperCase())
+    .refine((val) => symbolRegex.test(val), {
+      message: 'Symbol must be uppercase alphanumeric (e.g. RELIANCE, TGRID)',
+    }),
+  name: z
+    .string({ required_error: 'Company name is required' })
+    .min(2, 'Name must be at least 2 characters')
+    .max(128, 'Name cannot exceed 128 characters')
+    .trim(),
+  exchange: z
+    .string({ required_error: 'Exchange is required' })
+    .min(1, 'Exchange must be at least 1 character')
+    .max(16, 'Exchange cannot exceed 16 characters')
+    .transform((val) => val.trim().toUpperCase()),
+  sector: z
+    .string({ required_error: 'Sector is required' })
+    .min(2, 'Sector must be at least 2 characters')
+    .max(64, 'Sector cannot exceed 64 characters')
+    .trim(),
+  instrumentType: z
+    .enum(['EQUITY', 'INDEX', 'ETF'])
+    .default('EQUITY'),
+  currency: z
+    .string()
+    .length(3, 'Currency must be a 3-letter ISO code')
+    .transform((val) => val.trim().toUpperCase())
+    .default('USD'),
+  marketStatus: z
+    .enum(['ACTIVE', 'HALTED', 'SUSPENDED', 'DELISTED'])
+    .default('ACTIVE'),
+  dataClassification: z
+    .enum(['REAL', 'SIMULATED'])
+    .default('SIMULATED'),
+});
+
+export type CreateInstrumentInput = z.infer<typeof createInstrumentSchema>;
+
+/**
+ * Update Instrument Schema (Admin only)
+ */
+export const updateInstrumentSchema = z.object({
+  name: z.string().min(2).max(128).trim().optional(),
+  sector: z.string().min(2).max(64).trim().optional(),
+  currency: z.string().length(3).transform((val) => val.trim().toUpperCase()).optional(),
+  marketStatus: z.enum(['ACTIVE', 'HALTED', 'SUSPENDED', 'DELISTED']).optional(),
+});
+
+export type UpdateInstrumentInput = z.infer<typeof updateInstrumentSchema>;
+
+/**
+ * Update Instrument Status Schema (Admin only)
+ */
+export const updateInstrumentStatusSchema = z.object({
+  marketStatus: z.enum(['ACTIVE', 'HALTED', 'SUSPENDED', 'DELISTED'], {
+    required_error: 'Market status is required',
+  }),
+});
+
+export type UpdateInstrumentStatusInput = z.infer<typeof updateInstrumentStatusSchema>;
+
+/**
+ * Instrument Filter Query Schema
+ */
+export const instrumentQuerySchema = z.object({
+  q: z.string().trim().optional(),
+  exchange: z.string().trim().transform((val) => val.toUpperCase()).optional(),
+  sector: z.string().trim().optional(),
+  classification: z.enum(['REAL', 'SIMULATED']).optional(),
+  status: z.enum(['ACTIVE', 'HALTED', 'SUSPENDED', 'DELISTED']).optional(),
+  page: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.max(1, parseInt(String(val), 10) || 1) : 1)),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(String(val), 10) || 50)) : 50)),
+});
+
+export type InstrumentQueryInput = z.infer<typeof instrumentQuerySchema>;
+
+/**
+ * Candle Query Schema
+ */
+export const candleQuerySchema = z.object({
+  interval: z
+    .enum(['1m', '5m', '15m', '1h', '1d'], {
+      errorMap: () => ({ message: 'Interval must be one of: 1m, 5m, 15m, 1h, 1d' }),
+    })
+    .default('1h'),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(1000, Math.max(1, parseInt(String(val), 10) || 100)) : 100)),
+});
+
+export type CandleQueryInput = z.infer<typeof candleQuerySchema>;

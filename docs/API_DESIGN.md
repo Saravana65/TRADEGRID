@@ -1,6 +1,6 @@
 # TRADEGRID – API Design & Contract Specification
 
-**Status:** Live & Implemented (Phases 1 & 2).  
+**Status:** Live & Implemented (Phases 1, 2 & 3).  
 **Base URL:** `http://localhost:5000/api/v1`  
 **WebSocket Relay:** `http://localhost:5000` (Socket.IO namespace `/market`)  
 **Format:** JSON with strict UTF-8 encoding. All monetary numbers and prices transmitted as strings to avoid floating-point truncation.
@@ -248,7 +248,144 @@ Authorization: Bearer <access_jwt_token>
 
 ---
 
-## 5. Health & Diagnostic Endpoints (`/api/v1/health`)
+## 5. Stock Instrument Master Endpoints (`/api/v1/instruments`)
+
+### 5.1 List & Search Instruments
+- **Endpoint:** `GET /api/v1/instruments`
+- **Access:** Public
+- **Query Parameters:**
+  - `search` (string, optional): Case-insensitive search on symbol or company name
+  - `exchange` (string, optional): Filter by exchange (`NSE`, `BSE`, `TRADEGRID`)
+  - `sector` (string, optional): Filter by industry sector (`Technology`, `Finance`, `Energy`, etc.)
+  - `classification` (string, optional): Filter by data provenance (`REAL`, `SIMULATED`)
+  - `status` (string, optional): Filter by status (`ACTIVE`, `HALTED`, `CLOSED`, `DELISTED`)
+  - `page` (integer, optional, default: `1`): Current page
+  - `limit` (integer, optional, default: `20`, max: `100`): Items per page
+
+**Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": 6,
+        "symbol": "TGRID",
+        "name": "TradeGrid Core Technologies",
+        "exchange": "TRADEGRID",
+        "sector": "Technology",
+        "instrumentType": "EQUITY",
+        "currency": "USD",
+        "marketStatus": "ACTIVE",
+        "dataClassification": "SIMULATED",
+        "createdAt": "2026-11-06T08:00:00.000Z",
+        "updatedAt": "2026-11-06T08:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "total": 17,
+      "page": 1,
+      "limit": 20,
+      "totalPages": 1
+    }
+  },
+  "message": "Instruments retrieved successfully",
+  "timestamp": "2026-11-06T08:00:00.000Z"
+}
+```
+
+---
+
+### 5.2 Get Instrument by Symbol
+- **Endpoint:** `GET /api/v1/instruments/:symbol`
+- **Access:** Public
+- **Response (200 OK):** Single `Instrument` object. Returns `404 Not Found` if symbol does not exist.
+
+---
+
+### 5.3 Metadata Endpoints
+- **Endpoints:**
+  - `GET /api/v1/instruments/meta/sectors`: Returns array of distinct active industry sectors.
+  - `GET /api/v1/instruments/meta/exchanges`: Returns array of distinct active exchanges.
+- **Access:** Public
+
+---
+
+### 5.4 Administrative Instrument Management (`/api/v1/admin/instruments`)
+
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| `POST` | `/api/v1/admin/instruments` | Restricted to `ADMIN` | Create new instrument. Enforces `UNIQUE(symbol, exchange)`. Returns 409 Conflict if duplicate. |
+| `PUT`  | `/api/v1/admin/instruments/:id` | Restricted to `ADMIN` | Update instrument metadata (`name`, `sector`, `marketStatus`). |
+| `PATCH`| `/api/v1/admin/instruments/:id/status` | Restricted to `ADMIN` | Modify instrument trading status (`ACTIVE`, `HALTED`, `CLOSED`, `DELISTED`). |
+
+---
+
+## 6. Market Data & OHLCV Endpoints (`/api/v1/market`)
+
+### 6.1 List Latest Quotes
+- **Endpoint:** `GET /api/v1/market/quotes`
+- **Access:** Public
+- **Query Parameters:**
+  - `classification` (string, optional): Filter by `REAL` or `SIMULATED`
+- **Description:** Returns current market quote snapshots for all active instruments with full financial metrics (`lastPrice`, `previousClose`, `open`, `high`, `low`, `volume`, `changeAmount`, `changePercent`, `dataSource`, `dataClassification`).
+
+---
+
+### 6.2 Get Quote by Symbol
+- **Endpoint:** `GET /api/v1/market/quotes/:symbol`
+- **Access:** Public
+- **Description:** Returns the latest price snapshot and intraday performance for a single symbol.
+
+---
+
+### 6.3 Historical OHLCV Candles
+- **Endpoint:** `GET /api/v1/market/candles/:symbol`
+- **Access:** Public
+- **Query Parameters:**
+  - `interval` (required): Timeframe resolution (`1m`, `5m`, `15m`, `1h`, `1d`)
+  - `from` (ISO string, optional): Start timestamp
+  - `to` (ISO string, optional): End timestamp
+  - `limit` (integer, optional, default: `100`, max: `500`): Maximum candle bars returned
+
+**Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "symbol": "TGRID",
+    "interval": "15m",
+    "candles": [
+      {
+        "timestamp": 1730880000000,
+        "open": 248.5000,
+        "high": 252.1000,
+        "low": 247.9000,
+        "close": 250.7500,
+        "volume": 125400
+      }
+    ],
+    "count": 1
+  },
+  "message": "Historical candles retrieved successfully",
+  "timestamp": "2026-11-06T08:00:00.000Z"
+}
+```
+
+---
+
+### 6.4 Market Overview Summary
+- **Endpoint:** `GET /api/v1/market/overview`
+- **Access:** Public
+- **Description:** Returns aggregate market health including:
+  - `topGainers`: Top 5 instruments sorted by descending `changePercent`
+  - `topLosers`: Top 5 instruments sorted by ascending `changePercent`
+  - `mostActive`: Top 5 instruments sorted by descending `volume`
+  - `breadth`: Total active instruments, advancing count ($\Delta > 0$), declining count ($\Delta < 0$), and unchanged count ($\Delta == 0$)
+
+---
+
+## 7. Health & Diagnostic Endpoints (`/api/v1/health`)
 
 | Method | Endpoint | Access | Description |
 |--------|----------|--------|-------------|
@@ -256,9 +393,10 @@ Authorization: Bearer <access_jwt_token>
 
 ---
 
-## 6. Future Endpoints (Phases 3 & 4 Roadmap)
+## 8. Future Endpoints (Phases 4 & 5 Roadmap)
 
-- `/api/v1/stocks`: Listed equities universe and real-time quotes.
-- `/api/v1/orders`: Limit and market order placement with cash reservation.
-- `/api/v1/portfolio`: Stock positions and unrealized profit & loss.
-- `/api/v1/admin/market/shock`: Simulated market crash and volatility injection.
+- `/api/v1/orders`: Limit and market order placement with automated cash reservation.
+- `/api/v1/orderbook/:symbol`: Real-time L2 order book depth (bid/ask ladders).
+- `/api/v1/portfolio`: Stock holdings, average cost basis, realized & unrealized P&L.
+- `/api/v1/admin/market/shock`: Simulated volatility injection and crash generator.
+- `/api/v1/social/chat`: Symbol-specific and global trader chat rooms.

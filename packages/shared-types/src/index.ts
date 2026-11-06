@@ -188,7 +188,93 @@ export interface AdminAdjustmentResult {
   createdAt: string;
 }
 
-// Future domain types (Phase 3+ previews)
+// ============================================================================
+// Phase 3: Stock Instruments and Market Data Types
+// ============================================================================
+
+export type DataClassification = 'REAL' | 'SIMULATED';
+export type InstrumentStatus = 'ACTIVE' | 'HALTED' | 'SUSPENDED' | 'DELISTED';
+export type InstrumentType = 'EQUITY' | 'INDEX' | 'ETF';
+export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '1d';
+
+export interface Instrument {
+  id: number;
+  symbol: string;
+  name: string;
+  exchange: string;
+  sector: string;
+  instrumentType: InstrumentType;
+  currency: string;
+  marketStatus: InstrumentStatus;
+  dataClassification: DataClassification;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarketQuote {
+  id: number;
+  instrumentId: number;
+  symbol: string;
+  name: string;
+  exchange: string;
+  sector: string;
+  lastPrice: string; // DECIMAL(18,4) formatted string
+  previousClose: string;
+  openPrice: string;
+  highPrice: string;
+  lowPrice: string;
+  volume: string; // BIGINT formatted string
+  changeAmount: string;
+  changePercent: string;
+  dataSource: string;
+  dataClassification: DataClassification;
+  timestamp: string;
+  updatedAt: string;
+}
+
+export interface Candle {
+  timestamp: string; // ISO string
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+}
+
+export interface CandlesResponse {
+  symbol: string;
+  instrumentId: number;
+  exchange: string;
+  interval: CandleInterval;
+  dataClassification: DataClassification;
+  dataSource: string;
+  candles: Candle[];
+}
+
+export interface MarketOverviewSummary {
+  totalInstruments: number;
+  activeInstruments: number;
+  haltedInstruments: number;
+  advancingCount: number;
+  decliningCount: number;
+  unchangedCount: number;
+  totalVolume: string;
+  realInstrumentsCount: number;
+  simulatedInstrumentsCount: number;
+  timestamp: string;
+}
+
+export interface InstrumentFilterQuery {
+  q?: string;
+  exchange?: string;
+  sector?: string;
+  classification?: DataClassification;
+  status?: InstrumentStatus;
+  page?: number;
+  limit?: number;
+}
+
+// Future domain types (Phase 4+ previews)
 export type MarketStatus = 'PRE_OPEN' | 'OPEN' | 'HALTED' | 'CLOSED';
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'LIMIT' | 'MARKET';
