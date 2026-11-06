@@ -34,8 +34,16 @@ import {
   createOrderRouter,
   OrderController,
 } from './modules/orders';
-import { tradingRouter } from './modules/trading';
-import { portfolioRouter } from './modules/portfolio';
+import {
+  tradeRouter as defaultTradeRouter,
+  createTradeRouter,
+  TradeController,
+} from './modules/trading';
+import {
+  portfolioRouter as defaultPortfolioRouter,
+  createPortfolioRouter,
+  PortfolioController,
+} from './modules/portfolio';
 import { watchlistRouter } from './modules/watchlist';
 import { newsRouter } from './modules/news';
 import { competitionsRouter } from './modules/competitions';
@@ -49,6 +57,8 @@ export interface AppDependencies {
   instrumentController?: InstrumentController;
   marketDataController?: MarketDataController;
   orderController?: OrderController;
+  tradeController?: TradeController;
+  portfolioController?: PortfolioController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -134,6 +144,14 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createOrderRouter(dependencies.orderController)
     : defaultOrderRouter;
 
+  const activeTradeRouter = dependencies.tradeController
+    ? createTradeRouter(dependencies.tradeController)
+    : defaultTradeRouter;
+
+  const activePortfolioRouter = dependencies.portfolioController
+    ? createPortfolioRouter(dependencies.portfolioController)
+    : defaultPortfolioRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);
@@ -142,8 +160,9 @@ export function createApp(dependencies: AppDependencies = {}): Application {
   app.use('/api/v1/market', activeMarketRouter);
   app.use('/api/v1/admin/instruments', activeAdminInstrumentRouter);
   app.use('/api/v1/orders', activeOrderRouter);
-  app.use('/api/v1/trading', tradingRouter);
-  app.use('/api/v1/portfolio', portfolioRouter);
+  app.use('/api/v1/trades', activeTradeRouter);
+  app.use('/api/v1/trading', activeTradeRouter);
+  app.use('/api/v1/portfolio', activePortfolioRouter);
   app.use('/api/v1/watchlist', watchlistRouter);
   app.use('/api/v1/news', newsRouter);
   app.use('/api/v1/competitions', competitionsRouter);

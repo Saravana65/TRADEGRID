@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useMarketStore } from '../store/marketStore';
 import { useWalletStore } from '../store/walletStore';
 import { useOrderStore } from '../store/orderStore';
+import { tradeApiService } from '../services/trade.service';
 import { formatCurrency, formatNumber, formatDate } from '../utils/formatters';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Badge } from '../components/common/Badge';
-import { OrderSide, OrderType } from '@tradegrid/shared-types';
+import { OrderSide, OrderType, OrderBook, Trade } from '@tradegrid/shared-types';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -20,6 +21,7 @@ import {
   Search,
   ExternalLink,
   Ban,
+  Activity,
 } from 'lucide-react';
 
 export const TradingTerminalPage: React.FC = () => {
@@ -60,6 +62,33 @@ export const TradingTerminalPage: React.FC = () => {
   const [symbolSearch, setSymbolSearch] = useState('');
   const [showSymbolPicker, setShowSymbolPicker] = useState(false);
 
+  // Phase 4B: Live Order Book & Trade Tape State
+  const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
+  const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
+  const [isLoadingBook, setIsLoadingBook] = useState(false);
+
+  // Fetch Order Book & Market Tape
+  const fetchMarketDepth = useCallback(async () => {
+    if (!symbol) return;
+    try {
+      setIsLoadingBook(true);
+      const [bookData, tapeData] = await Promise.allSettled([
+        tradeApiService.getOrderBook(symbol, 10),
+        tradeApiService.getRecentMarketTrades(symbol, 30),
+      ]);
+      if (bookData.status === 'fulfilled') {
+        setOrderBook(bookData.value);
+      }
+      if (tapeData.status === 'fulfilled') {
+        setRecentTrades(tapeData.value);
+      }
+    } catch {
+      // Silently catch polling errors
+    } finally {
+      setIsLoadingBook(false);
+    }
+  }, [symbol]);
+
   // Initial Data Fetching
   useEffect(() => {
     fetchInstruments();
@@ -67,12 +96,21 @@ export const TradingTerminalPage: React.FC = () => {
     fetchOrders();
   }, [fetchInstruments, fetchWalletSummary, fetchOrders]);
 
-  // Load details when symbol changes
+  // Load details & order book when symbol changes
   useEffect(() => {
     if (symbol) {
       fetchInstrumentDetail(symbol);
+      fetchMarketDepth();
     }
-  }, [symbol, fetchInstrumentDetail]);
+  }, [symbol, fetchInstrumentDetail, fetchMarketDepth]);
+
+  // Periodic polling for order book and tape (every 5 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchMarketDepth();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [fetchMarketDepth]);
 
   // Update limit price default when quote loads
   useEffect(() => {
@@ -108,9 +146,10 @@ export const TradingTerminalPage: React.FC = () => {
         limitPrice: orderType === 'LIMIT' ? (parseFloat(limitPrice) || 0).toFixed(4) : null,
       });
 
-      // Refresh orders and wallet
+      // Refresh orders, wallet, and order book
       fetchOrders();
       fetchWalletSummary();
+      fetchMarketDepth();
     } catch {
       // Error handled by store
     }
@@ -121,19 +160,34 @@ export const TradingTerminalPage: React.FC = () => {
     try {
       await cancelOrder(orderId);
       fetchOrders();
+      fetchMarketDepth();
     } catch {
       // Error handled by store
     }
   };
 
   // Filter Orders
-  const openOrders = orders.filter((o) => o.status === 'OPEN' || o.status === 'PENDING');
-  const orderHistory = orders.filter((o) => o.status !== 'OPEN' && o.status !== 'PENDING');
+  const openOrders = orders.filter(
+    (o) => o.status === 'OPEN' || o.status === 'PARTIALLY_FILLED' || o.status === 'PENDING'
+  );
+  const orderHistory = orders.filter(
+    (o) => o.status !== 'OPEN' && o.status !== 'PARTIALLY_FILLED' && o.status !== 'PENDING'
+  );
 
   const filteredInstruments = instruments.filter(
     (inst) =>
       inst.symbol.toLowerCase().includes(symbolSearch.toLowerCase()) ||
       inst.name.toLowerCase().includes(symbolSearch.toLowerCase())
+  );
+
+  // Maximum quantity for relative depth bars
+  const maxAskQty = Math.max(
+    ...(orderBook?.asks.map((a) => parseFloat(a.quantity)) || [1]),
+    1
+  );
+  const maxBidQty = Math.max(
+    ...(orderBook?.bids.map((b) => parseFloat(b.quantity)) || [1]),
+    1
   );
 
   return (
@@ -255,9 +309,9 @@ export const TradingTerminalPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Terminal Workspace: Chart Preview + Order Entry Desk */}
+      {/* Main Terminal Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left 2 Cols: Terminal Summary & OMS Information */}
+        {/* Left 2 Cols: Terminal Summary, LOB & Trade Tape */}
         <div className="lg:col-span-2 space-y-4">
           <Card
             title={`${selectedInstrument?.symbol || symbol} Instrument Overview`}
@@ -298,29 +352,196 @@ export const TradingTerminalPage: React.FC = () => {
               <div className="p-3 bg-cyan-950/30 border border-cyan-800/40 rounded-lg flex items-start gap-2.5 text-xs font-mono text-cyan-300">
                 <AlertCircle className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <strong>Order Management System (Phase 4A):</strong> Orders submitted here
-                  are validated against buying power in MySQL and accepted as resting <code>OPEN</code>{' '}
-                  orders. Continuous matching engine execution activates in Phase 4B.
+                  <strong>Continuous Matching Engine & Atomic Settlement (Phase 4B):</strong> Orders
+                  submitted match against resting counterparty orders according to strict price-time
+                  priority. Trades atomically settle through the double-entry virtual cash ledger and
+                  real-time equity positions.
                 </div>
               </div>
             </div>
           </Card>
 
+          {/* Phase 4B: Live Order Book & Trade Tape Deck */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Live Order Book */}
+            <Card
+              title="Order Book (LOB)"
+              subtitle="Live bids & asks depth ladder (FIFO)"
+              action={
+                <button
+                  onClick={fetchMarketDepth}
+                  className="p-1 rounded bg-[#090D16] border border-card-border text-slate-400 hover:text-slate-200"
+                  title="Refresh Depth"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBook ? 'animate-spin' : ''}`} />
+                </button>
+              }
+            >
+              <div className="p-3 bg-[#080C14] rounded-xl border border-card-border font-mono text-xs space-y-2">
+                <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-card-border/60 pb-1.5 font-semibold">
+                  <span>Price (USD)</span>
+                  <span className="text-right">Size</span>
+                  <span className="text-right">Total</span>
+                </div>
+
+                {/* Asks (Sell Orders) - Display in reverse to place best ask closest to mid price */}
+                <div className="space-y-1">
+                  {!orderBook || orderBook.asks.length === 0 ? (
+                    <div className="py-3 text-center text-slate-500 text-[11px]">
+                      No resting asks on the book
+                    </div>
+                  ) : (
+                    [...orderBook.asks].reverse().slice(0, 6).map((ask, idx) => {
+                      const depthPct = Math.min(
+                        100,
+                        Math.round((parseFloat(ask.quantity) / maxAskQty) * 100)
+                      );
+                      return (
+                        <div
+                          key={`ask-${idx}`}
+                          className="relative grid grid-cols-3 py-0.5 px-1 rounded hover:bg-rose-950/20 tabular-nums overflow-hidden"
+                        >
+                          <div
+                            className="absolute top-0 right-0 bottom-0 bg-rose-500/10 pointer-events-none"
+                            style={{ width: `${depthPct}%` }}
+                          />
+                          <span className="text-rose-400 font-semibold relative z-10">
+                            {formatCurrency(ask.price)}
+                          </span>
+                          <span className="text-right text-slate-300 relative z-10">
+                            {parseFloat(ask.quantity).toFixed(2)}
+                          </span>
+                          <span className="text-right text-slate-400 relative z-10">
+                            {parseFloat(ask.total).toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Spread & Mid-Price Bar */}
+                <div className="py-1.5 px-2 bg-card rounded border border-card-border/80 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">
+                    Spread:{' '}
+                    <strong className="text-slate-200">
+                      {orderBook?.spread ? formatCurrency(orderBook.spread) : '---'}
+                    </strong>
+                  </span>
+                  <span className="text-cyan-400 font-bold">
+                    Mid: {orderBook?.midPrice ? formatCurrency(orderBook.midPrice) : '---'}
+                  </span>
+                </div>
+
+                {/* Bids (Buy Orders) */}
+                <div className="space-y-1">
+                  {!orderBook || orderBook.bids.length === 0 ? (
+                    <div className="py-3 text-center text-slate-500 text-[11px]">
+                      No resting bids on the book
+                    </div>
+                  ) : (
+                    orderBook.bids.slice(0, 6).map((bid, idx) => {
+                      const depthPct = Math.min(
+                        100,
+                        Math.round((parseFloat(bid.quantity) / maxBidQty) * 100)
+                      );
+                      return (
+                        <div
+                          key={`bid-${idx}`}
+                          className="relative grid grid-cols-3 py-0.5 px-1 rounded hover:bg-emerald-950/20 tabular-nums overflow-hidden"
+                        >
+                          <div
+                            className="absolute top-0 right-0 bottom-0 bg-emerald-500/10 pointer-events-none"
+                            style={{ width: `${depthPct}%` }}
+                          />
+                          <span className="text-emerald-400 font-semibold relative z-10">
+                            {formatCurrency(bid.price)}
+                          </span>
+                          <span className="text-right text-slate-300 relative z-10">
+                            {parseFloat(bid.quantity).toFixed(2)}
+                          </span>
+                          <span className="text-right text-slate-400 relative z-10">
+                            {parseFloat(bid.total).toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            {/* Recent Executed Trades Tape */}
+            <Card
+              title="Recent Trades"
+              subtitle="Live exchange executions tape"
+              action={
+                <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-400">
+                  <Activity className="w-3.5 h-3.5 animate-pulse" /> Live
+                </div>
+              }
+            >
+              <div className="p-3 bg-[#080C14] rounded-xl border border-card-border font-mono text-xs space-y-2">
+                <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-card-border/60 pb-1.5 font-semibold">
+                  <span>Price (USD)</span>
+                  <span className="text-right">Quantity</span>
+                  <span className="text-right">Time</span>
+                </div>
+
+                <div className="space-y-1 max-h-[268px] overflow-y-auto pr-1">
+                  {recentTrades.length === 0 ? (
+                    <div className="py-12 text-center text-slate-500 text-[11px]">
+                      No recent trade executions yet
+                    </div>
+                  ) : (
+                    recentTrades.slice(0, 10).map((trd) => {
+                      const dateObj = new Date(trd.createdAt);
+                      const timeStr = dateObj.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      });
+                      return (
+                        <div
+                          key={trd.id}
+                          className="grid grid-cols-3 py-1 px-1 rounded hover:bg-slate-800/40 tabular-nums items-center text-[11px]"
+                        >
+                          <span className="font-semibold text-emerald-400">
+                            {formatCurrency(trd.price)}
+                          </span>
+                          <span className="text-right text-slate-200">
+                            {parseFloat(trd.quantity).toFixed(2)}
+                          </span>
+                          <span className="text-right text-slate-500 text-[10px]">
+                            {timeStr}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </Card>
+          </div>
+
           {/* Quick Stats Banner */}
           <div className="p-4 rounded-xl bg-card border border-card-border flex items-center justify-between text-xs font-mono">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              <span className="text-slate-300">OMS Engine Connected</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-slate-300">Matching Engine & Settlement Active</span>
             </div>
             <div className="text-slate-400">
-              Open Orders: <strong className="text-white">{openOrders.length}</strong> | Order History:{' '}
-              <strong className="text-white">{orderHistory.length}</strong>
+              Open / Partial Orders: <strong className="text-white">{openOrders.length}</strong> | Executed Trades:{' '}
+              <strong className="text-white">{recentTrades.length}</strong>
             </div>
             <button
-              onClick={() => fetchOrders()}
+              onClick={() => {
+                fetchOrders();
+                fetchMarketDepth();
+              }}
               className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOrders ? 'animate-spin' : ''}`} /> Sync
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOrders ? 'animate-spin' : ''}`} /> Sync All
             </button>
           </div>
         </div>
@@ -359,94 +580,112 @@ export const TradingTerminalPage: React.FC = () => {
               </div>
             )}
 
-            {/* Buy / Sell Tab Buttons */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-[#090D16] rounded-xl border border-card-border mb-4">
-              <button
-                type="button"
-                onClick={() => setOrderSide('BUY')}
-                className={`py-2 rounded-lg text-xs font-mono font-bold transition-all ${
-                  orderSide === 'BUY'
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                BUY
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderSide('SELL')}
-                className={`py-2 rounded-lg text-xs font-mono font-bold transition-all ${
-                  orderSide === 'SELL'
-                    ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                SELL
-              </button>
-            </div>
-
-            {/* Order Type Toggle */}
-            <div className="flex items-center gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => setOrderType('LIMIT')}
-                className={`flex-1 py-1.5 text-xs font-mono rounded-lg border transition-colors ${
-                  orderType === 'LIMIT'
-                    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 font-semibold'
-                    : 'bg-transparent text-slate-400 border-card-border hover:bg-slate-800'
-                }`}
-              >
-                LIMIT ORDER
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderType('MARKET')}
-                className={`flex-1 py-1.5 text-xs font-mono rounded-lg border transition-colors ${
-                  orderType === 'MARKET'
-                    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 font-semibold'
-                    : 'bg-transparent text-slate-400 border-card-border hover:bg-slate-800'
-                }`}
-              >
-                MARKET ORDER
-              </button>
-            </div>
-
-            {/* Order Form */}
             <form onSubmit={handlePlaceOrder} className="space-y-4">
-              <Input
-                label="Quantity (Shares)"
-                type="number"
-                step="1"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                required
-                disabled={isSubmitting}
-              />
+              {/* Buy / Sell Tabs */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-[#090D16] rounded-xl border border-card-border">
+                <button
+                  type="button"
+                  onClick={() => setOrderSide('BUY')}
+                  className={`py-2 text-xs font-mono font-bold rounded-lg transition-colors ${
+                    orderSide === 'BUY'
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  BUY
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderSide('SELL')}
+                  className={`py-2 text-xs font-mono font-bold rounded-lg transition-colors ${
+                    orderSide === 'SELL'
+                      ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  SELL
+                </button>
+              </div>
 
-              {orderType === 'LIMIT' ? (
-                <Input
-                  label="Limit Price ($)"
-                  type="number"
-                  step="0.0001"
-                  min="0.0001"
-                  value={limitPrice}
-                  onChange={(e) => setLimitPrice(e.target.value)}
-                  required
-                  disabled={isSubmitting}
-                />
-              ) : (
-                <div className="p-3 rounded-lg bg-[#090D16] border border-card-border text-xs font-mono">
-                  <span className="text-[10px] text-slate-500 block uppercase">
-                    Execution Mode
-                  </span>
-                  <span className="text-cyan-400 font-semibold">
-                    Market Execution (Best available price)
-                  </span>
+              {/* Order Type Tabs */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderType('LIMIT')}
+                  className={`py-1.5 text-xs font-mono rounded-lg border transition-colors ${
+                    orderType === 'LIMIT'
+                      ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
+                      : 'bg-card border-card-border text-slate-400 hover:text-white'
+                  }`}
+                >
+                  LIMIT ORDER
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderType('MARKET')}
+                  className={`py-1.5 text-xs font-mono rounded-lg border transition-colors ${
+                    orderType === 'MARKET'
+                      ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
+                      : 'bg-card border-card-border text-slate-400 hover:text-white'
+                  }`}
+                >
+                  MARKET ORDER
+                </button>
+              </div>
+
+              {/* Limit Price Input (Only for LIMIT orders) */}
+              {orderType === 'LIMIT' && (
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1.5">
+                    Limit Price (USD)
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    min="0.0001"
+                    value={limitPrice}
+                    onChange={(e) => setLimitPrice(e.target.value)}
+                    placeholder="Enter limit price"
+                    required
+                  />
+                  <div className="flex justify-between items-center mt-1 text-[11px] text-slate-500 font-mono">
+                    <span>Last Market Price:</span>
+                    <span>
+                      {selectedQuote ? formatCurrency(selectedQuote.lastPrice) : '$0.00'}
+                    </span>
+                  </div>
                 </div>
               )}
 
-              {/* Order Calculations Summary */}
+              {/* Quantity Input */}
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1.5">
+                  Quantity (Shares)
+                </label>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  min="0.0001"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="Enter share count"
+                  required
+                />
+                <div className="flex gap-2 mt-1.5">
+                  {['1', '5', '10', '25', '50'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setQuantity(`${preset}.0000`)}
+                      className="flex-1 py-1 text-[10px] font-mono bg-card border border-card-border rounded hover:border-cyan-500 text-slate-400 hover:text-white transition-colors"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Estimated Total Calculation */}
               <div className="p-3.5 rounded-xl bg-[#090D16] border border-card-border text-xs space-y-2 font-mono">
                 <div className="flex justify-between text-slate-400">
                   <span>Available Virtual Cash:</span>
@@ -516,7 +755,7 @@ export const TradingTerminalPage: React.FC = () => {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                Open Orders ({openOrders.length})
+                Active Orders ({openOrders.length})
               </button>
               <button
                 onClick={() => setActiveTab('history')}
@@ -582,14 +821,20 @@ export const TradingTerminalPage: React.FC = () => {
                       <td className="py-2.5 px-3 text-right text-slate-200">
                         {parseFloat(ord.quantity).toFixed(2)}
                       </td>
-                      <td className="py-2.5 px-3 text-right text-slate-200">
+                      <td className="py-2.5 px-3 text-right font-bold text-cyan-300">
                         {parseFloat(ord.remainingQuantity).toFixed(2)}
                       </td>
                       <td className="py-2.5 px-3 text-right font-bold text-white">
                         {ord.limitPrice ? formatCurrency(ord.limitPrice) : 'MARKET'}
                       </td>
                       <td className="py-2.5 px-3">
-                        <Badge variant="cyan">{ord.status}</Badge>
+                        {ord.status === 'PARTIALLY_FILLED' ? (
+                          <Badge variant="amber">
+                            PARTIAL ({parseFloat(ord.remainingQuantity).toFixed(2)} left)
+                          </Badge>
+                        ) : (
+                          <Badge variant="cyan">{ord.status}</Badge>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-slate-400 text-[11px]">
                         {formatDate(ord.createdAt)}
@@ -665,6 +910,8 @@ export const TradingTerminalPage: React.FC = () => {
                         variant={
                           ord.status === 'FILLED'
                             ? 'gain'
+                            : ord.status === 'PARTIALLY_FILLED'
+                            ? 'amber'
                             : ord.status === 'CANCELLED'
                             ? 'neutral'
                             : 'loss'

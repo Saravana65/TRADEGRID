@@ -349,3 +349,43 @@ export const orderIdParamSchema = z.object({
 });
 
 export type OrderIdParamInput = z.infer<typeof orderIdParamSchema>;
+
+// ============================================================================
+// Phase 4B: Trades, Order Book, and Portfolio Validation Schemas
+// ============================================================================
+
+export const tradeQuerySchema = z.object({
+  symbol: z.string().trim().optional(),
+  instrumentId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? parseInt(String(val), 10) : undefined)),
+  page: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.max(1, parseInt(String(val), 10) || 1) : 1)),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(String(val), 10) || 20)) : 20)),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+
+export type TradeQueryInput = z.infer<typeof tradeQuerySchema>;
+
+export const orderBookQuerySchema = z.object({
+  depth: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(50, Math.max(1, parseInt(String(val), 10) || 10)) : 10)),
+});
+
+export type OrderBookQueryInput = z.infer<typeof orderBookQuerySchema>;
+
+export const portfolioQuerySchema = z.object({
+  exchange: z.string().trim().optional(),
+});
+
+export type PortfolioQueryInput = z.infer<typeof portfolioQuerySchema>;
+

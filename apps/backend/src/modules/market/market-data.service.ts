@@ -19,12 +19,15 @@ import {
   fixtureMarketDataProvider,
 } from './fixture-market-data.provider';
 import { MarketDataProvider } from './market-data-provider.interface';
+import { MatchingEngine, matchingEngine as defaultMatchingEngine } from '../matching/matching-engine';
 
 export class MarketDataService {
   constructor(
     private readonly marketDataRepo: IMarketDataRepository = marketDataRepository,
     private readonly instrumentRepo: IInstrumentRepository = instrumentRepository,
-    private readonly provider: MarketDataProvider = fixtureMarketDataProvider
+    private readonly provider: MarketDataProvider = fixtureMarketDataProvider,
+    private readonly matchingEngine: MatchingEngine = defaultMatchingEngine,
+    private readonly tradeServiceInstance?: any
   ) {}
 
   /**
@@ -142,6 +145,28 @@ export class MarketDataService {
    */
   async getMarketSummary(): Promise<MarketOverviewSummary> {
     return this.marketDataRepo.getMarketSummary();
+  }
+
+  /**
+   * Retrieves aggregated Order Book bids and asks depth levels for an instrument symbol.
+   */
+  async getOrderBook(symbol: string, depth: number = 10) {
+    const instrument = await this.instrumentRepo.findBySymbol(symbol);
+    if (!instrument) {
+      throw new AppError(404, 'INSTRUMENT_NOT_FOUND', `Instrument '${symbol.toUpperCase()}' not found`);
+    }
+    return this.matchingEngine.getOrderBookDepth(instrument.id, depth, instrument.symbol);
+  }
+
+  /**
+   * Retrieves recent public trade executions for an instrument symbol.
+   */
+  async getRecentTrades(symbol: string, limit: number = 50) {
+    if (this.tradeServiceInstance) {
+      return this.tradeServiceInstance.getRecentTrades(symbol, limit);
+    }
+    const { tradeService } = await import('../trading/trade.service');
+    return tradeService.getRecentTrades(symbol, limit);
   }
 }
 

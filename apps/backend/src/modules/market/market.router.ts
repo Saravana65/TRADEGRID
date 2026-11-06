@@ -24,6 +24,10 @@ export function createMarketRouter(
   router.get('/most-active', controller.getMostActive);
   router.get('/summary', controller.getSummary);
 
+  // Phase 4B: Live Order Book & Public Trades
+  router.get('/orderbook/:symbol', controller.getOrderBook);
+  router.get('/trades/:symbol', controller.getRecentTrades);
+
   return router;
 }
 

@@ -357,3 +357,84 @@ export interface NewsItem {
   impactScore?: number;
   affectedSymbols?: string[];
 }
+
+// ============================================================================
+// Phase 4B: Matching Engine, Trades, Order Book, and Portfolio Types
+// ============================================================================
+
+export type TradeStatus = 'SETTLED' | 'FAILED' | 'PENDING';
+
+export interface Trade {
+  id: number;
+  tradeReference: string;
+  buyOrderId: number;
+  sellOrderId: number;
+  instrumentId: number;
+  symbol?: string;
+  buyerId: number;
+  sellerId: number;
+  price: string; // DECIMAL(18,4)
+  quantity: string; // DECIMAL(18,4)
+  tradeAmount: string; // DECIMAL(18,4) = price * quantity
+  buyerFee: string;
+  sellerFee: string;
+  status: TradeStatus;
+  settlementTransactionId?: number | null;
+  createdAt: string;
+}
+
+export interface TradeFilterQuery {
+  symbol?: string;
+  instrumentId?: number;
+  page?: number;
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface OrderBookLevel {
+  price: string;
+  quantity: string;
+  orderCount: number;
+  total: string;
+}
+
+export interface OrderBook {
+  symbol: string;
+  instrumentId: number;
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+  timestamp: string;
+  spread?: string;
+  midPrice?: string | null;
+}
+
+export interface PortfolioPosition {
+  id: number;
+  userId: number;
+  instrumentId: number;
+  symbol: string;
+  name: string;
+  exchange: string;
+  dataClassification: DataClassification;
+  quantity: string; // DECIMAL(18,4)
+  averageBuyPrice: string; // DECIMAL(18,4)
+  currentPrice: string;
+  marketValue: string;
+  unrealizedPnL: string;
+  returnPercent: string;
+  realizedPnL: string;
+  updatedAt: string;
+}
+
+export interface PortfolioSummaryResponse {
+  userId: number;
+  cashBalance: string;
+  totalInvested: string;
+  totalPortfolioValue: string;
+  totalUnrealizedPnL: string;
+  totalRealizedPnL: string;
+  positions: PortfolioPosition[];
+  updatedAt: string;
+}
+

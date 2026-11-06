@@ -17,15 +17,31 @@ import {
   IOrderReservationService,
   orderReservationService as defaultReservationService,
 } from './order-reservation.service';
+import { MatchingEngine, matchingEngine as defaultMatchingEngine } from '../matching/matching-engine';
 
 export class OrderService {
+  private readonly matchingEngine: MatchingEngine;
+  private readonly knexInstance: Knex;
+
   constructor(
     private readonly orderRepo: IOrderRepository = defaultOrderRepo,
     private readonly instrumentRepo: IInstrumentRepository = defaultInstrumentRepo,
     private readonly marketDataRepo: IMarketDataRepository = defaultMarketDataRepo,
     private readonly reservationService: IOrderReservationService = defaultReservationService,
-    private readonly knexInstance: Knex = db
-  ) {}
+    matchingEngineOrKnex?: MatchingEngine | Knex,
+    knexParam?: Knex
+  ) {
+    if (matchingEngineOrKnex && typeof (matchingEngineOrKnex as any).matchOrder === 'function') {
+      this.matchingEngine = matchingEngineOrKnex as MatchingEngine;
+      this.knexInstance = knexParam || db;
+    } else if (matchingEngineOrKnex) {
+      this.matchingEngine = defaultMatchingEngine;
+      this.knexInstance = matchingEngineOrKnex as Knex;
+    } else {
+      this.matchingEngine = defaultMatchingEngine;
+      this.knexInstance = db;
+    }
+  }
 
   /**
    * Helper to execute in an existing transaction or create a new managed transaction.
@@ -154,7 +170,10 @@ export class OrderService {
         `[OMS] Order #${order.id} accepted for User #${userId}: ${order.side} ${order.quantity} ${instrument.symbol} (${order.orderType})`
       );
 
-      return order;
+      // Phase 4B: Continuous Matching Engine Execution
+      const { remainingOrder } = await this.matchingEngine.matchOrder(order, instrument.symbol);
+
+      return remainingOrder;
     });
   }
 
@@ -241,7 +260,7 @@ export class OrderService {
         );
       }
 
-      if (order.status !== 'OPEN' && order.status !== 'PENDING') {
+      if (order.status !== 'OPEN' && order.status !== 'PENDING' && order.status !== 'PARTIALLY_FILLED') {
         throw new AppError(
           422,
           'INVALID_STATE_TRANSITION',
@@ -253,6 +272,9 @@ export class OrderService {
       if (!updated) {
         throw new AppError(500, 'ORDER_UPDATE_FAILED', `Failed to cancel order #${orderId}`);
       }
+
+      // Phase 4B: Remove cancelled order from in-memory Order Book
+      this.matchingEngine.cancelOrder(order.id, order.instrumentId);
 
       logger.info(`[OMS] Order #${orderId} cancelled by User #${userId}`);
       return updated;

@@ -75,6 +75,11 @@ export interface IOrderRepository {
     remainingQuantity?: string,
     trx?: Knex.Transaction
   ): Promise<Order | null>;
+  update(
+    id: number,
+    data: { status?: OrderStatus; remainingQuantity?: string },
+    trx?: Knex.Transaction
+  ): Promise<Order | null>;
 }
 
 export class KnexOrderRepository implements IOrderRepository {
@@ -223,6 +228,31 @@ export class KnexOrderRepository implements IOrderRepository {
       return null;
     }
 
+    return this.findById(id, trx);
+  }
+
+  async update(
+    id: number,
+    data: { status?: OrderStatus; remainingQuantity?: string },
+    trx?: Knex.Transaction
+  ): Promise<Order | null> {
+    const qb = this.getQueryBuilder(trx);
+    const knexContext = trx || this.knexInstance;
+
+    const payload: Record<string, any> = {
+      updated_at: knexContext.fn.now(),
+    };
+    if (data.status) {
+      payload.status = data.status;
+    }
+    if (data.remainingQuantity !== undefined) {
+      payload.remaining_quantity = data.remainingQuantity;
+    }
+
+    const affected = await qb.where({ id }).update(payload);
+    if (affected === 0) {
+      return null;
+    }
     return this.findById(id, trx);
   }
 }

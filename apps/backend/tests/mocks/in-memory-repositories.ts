@@ -26,6 +26,17 @@ import {
   IOrderRepository,
   CreateOrderDbData,
 } from '../../src/modules/orders/order.repository';
+import {
+  ITradeRepository,
+  TradeRecord,
+  CreateTradeData,
+} from '../../src/modules/trading/trade.repository';
+import {
+  IPositionRepository,
+  PositionRecord,
+  UpsertPositionData,
+} from '../../src/modules/portfolio/position.repository';
+import { TradeFilterQuery } from '@tradegrid/shared-types';
 
 export class InMemoryUserRepository implements IUserRepository {
   private users: UserRecord[] = [];
@@ -903,8 +914,167 @@ export class InMemoryOrderRepository implements IOrderRepository {
     return { ...order };
   }
 
+  async update(
+    id: number,
+    data: { status?: OrderStatus; remainingQuantity?: string }
+  ): Promise<Order | null> {
+    const order = this.orders.find((o) => o.id === id);
+    if (!order) return null;
+
+    if (data.status) {
+      order.status = data.status;
+    }
+    if (data.remainingQuantity !== undefined) {
+      order.remainingQuantity = data.remainingQuantity;
+    }
+    order.updatedAt = new Date().toISOString();
+    return { ...order };
+  }
+
   clear(): void {
     this.orders = [];
+    this.nextId = 1;
+  }
+}
+
+export class InMemoryTradeRepository implements ITradeRepository {
+  private trades: TradeRecord[] = [];
+  private nextId = 1;
+
+  async create(data: CreateTradeData): Promise<TradeRecord> {
+    const record: TradeRecord = {
+      id: this.nextId++,
+      trade_reference: data.trade_reference,
+      buy_order_id: data.buy_order_id,
+      sell_order_id: data.sell_order_id,
+      instrument_id: data.instrument_id,
+      buyer_id: data.buyer_id,
+      seller_id: data.seller_id,
+      price: data.price,
+      quantity: data.quantity,
+      trade_amount: data.trade_amount,
+      buyer_fee: data.buyer_fee || '0.0000',
+      seller_fee: data.seller_fee || '0.0000',
+      status: data.status || 'SETTLED',
+      settlement_transaction_id: data.settlement_transaction_id || null,
+      created_at: new Date(),
+    };
+    this.trades.push(record);
+    return { ...record };
+  }
+
+  async findById(id: number): Promise<TradeRecord | null> {
+    const trade = this.trades.find((t) => t.id === id);
+    return trade ? { ...trade } : null;
+  }
+
+  async findByReference(reference: string): Promise<TradeRecord | null> {
+    const trade = this.trades.find((t) => t.trade_reference === reference);
+    return trade ? { ...trade } : null;
+  }
+
+  async findByUserId(
+    userId: number,
+    filter: TradeFilterQuery = {}
+  ): Promise<{ trades: TradeRecord[]; total: number }> {
+    let result = this.trades.filter((t) => t.buyer_id === userId || t.seller_id === userId);
+
+    if (filter.instrumentId) {
+      result = result.filter((t) => t.instrument_id === filter.instrumentId);
+    }
+    if (filter.startDate) {
+      result = result.filter((t) => new Date(t.created_at) >= new Date(filter.startDate!));
+    }
+    if (filter.endDate) {
+      result = result.filter((t) => new Date(t.created_at) <= new Date(filter.endDate!));
+    }
+
+    const total = result.length;
+    const page = filter.page || 1;
+    const limit = filter.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const paginated = result.slice(offset, offset + limit);
+    return {
+      trades: paginated.map((t) => ({ ...t })),
+      total,
+    };
+  }
+
+  async findByInstrumentId(instrumentId: number, limit: number = 50): Promise<TradeRecord[]> {
+    const filtered = this.trades
+      .filter((t) => t.instrument_id === instrumentId)
+      .slice(0, limit);
+    return filtered.map((t) => ({ ...t }));
+  }
+
+  async findByOrderId(orderId: number): Promise<TradeRecord[]> {
+    const filtered = this.trades.filter(
+      (t) => t.buy_order_id === orderId || t.sell_order_id === orderId
+    );
+    return filtered.map((t) => ({ ...t }));
+  }
+
+  clear(): void {
+    this.trades = [];
+    this.nextId = 1;
+  }
+}
+
+export class InMemoryPositionRepository implements IPositionRepository {
+  private positions: PositionRecord[] = [];
+  private nextId = 1;
+
+  async findByUserAndInstrument(
+    userId: number,
+    instrumentId: number
+  ): Promise<PositionRecord | null> {
+    const pos = this.positions.find(
+      (p) => p.user_id === userId && p.instrument_id === instrumentId
+    );
+    return pos ? { ...pos } : null;
+  }
+
+  async findByUserId(userId: number): Promise<PositionRecord[]> {
+    return this.positions.filter((p) => p.user_id === userId).map((p) => ({ ...p }));
+  }
+
+  async upsertPosition(data: UpsertPositionData): Promise<PositionRecord> {
+    const existing = this.positions.find(
+      (p) => p.user_id === data.user_id && p.instrument_id === data.instrument_id
+    );
+
+    if (existing) {
+      existing.quantity = data.quantity;
+      existing.average_buy_price = data.average_buy_price;
+      existing.realized_pnl = data.realized_pnl;
+      existing.updated_at = new Date();
+      return { ...existing };
+    }
+
+    const record: PositionRecord = {
+      id: this.nextId++,
+      user_id: data.user_id,
+      instrument_id: data.instrument_id,
+      quantity: data.quantity,
+      average_buy_price: data.average_buy_price,
+      realized_pnl: data.realized_pnl,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.positions.push(record);
+    return { ...record };
+  }
+
+  async lockPosition(
+    userId: number,
+    instrumentId: number
+  ): Promise<PositionRecord | null> {
+    return this.findByUserAndInstrument(userId, instrumentId);
+  }
+
+  clear(): void {
+    this.positions = [];
     this.nextId = 1;
   }
 }
