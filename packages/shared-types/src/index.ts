@@ -69,7 +69,126 @@ export interface HealthCheckResponse {
   timestamp: string;
 }
 
-// Future domain types (Phase 2+ previews for architectural alignment)
+// ============================================================================
+// Phase 2: Wallet & Double-Entry Ledger Types
+// ============================================================================
+
+export type LedgerAccountType =
+  | 'USER_WALLET'
+  | 'SYSTEM_EQUITY_ISSUANCE'
+  | 'SYSTEM_ADJUSTMENT'
+  | 'SYSTEM_FEE';
+
+export type TransactionType =
+  | 'INITIAL_SIGNUP_GRANT'
+  | 'ADMIN_CREDIT'
+  | 'ADMIN_DEBIT'
+  | 'SYSTEM_ADJUSTMENT'
+  | 'TRADE_BUY'
+  | 'TRADE_SELL'
+  | 'FEE';
+
+export type LedgerEntryType = 'DEBIT' | 'CREDIT';
+
+export interface Wallet {
+  id: number;
+  userId: number;
+  currency: string;
+  availableBalance: string; // DECIMAL(19,4) represented as string
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LedgerAccount {
+  id: number;
+  accountType: LedgerAccountType;
+  ownerUserId: number | null;
+  currency: string;
+  createdAt: string;
+}
+
+export interface LedgerTransaction {
+  id: number;
+  transactionReference: string;
+  transactionType: TransactionType;
+  description: string;
+  idempotencyKey: string | null;
+  createdBy: number | null;
+  createdAt: string;
+}
+
+export interface LedgerEntry {
+  id: number;
+  ledgerTransactionId: number;
+  accountId: number;
+  entryType: LedgerEntryType;
+  amount: string; // DECIMAL(19,4) string
+  createdAt: string;
+}
+
+export interface WalletSummaryResponse {
+  walletId: number;
+  userId: number;
+  currency: string;
+  availableBalance: string;
+  totalCredited: string;
+  totalDebited: string;
+  isConsistentWithLedger: boolean;
+  updatedAt: string;
+}
+
+export interface WalletTransactionItem {
+  id: number;
+  transactionReference: string;
+  transactionType: TransactionType;
+  description: string;
+  amount: string;
+  direction: 'INFLOW' | 'OUTFLOW';
+  balanceAfter?: string;
+  createdAt: string;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export type WalletTransactionsResponse = PaginatedResult<WalletTransactionItem>;
+
+export interface TransactionDetailResponse {
+  id: number;
+  transaction_reference: string;
+  transaction_type: TransactionType;
+  description: string;
+  idempotency_key: string | null;
+  created_by: number | null;
+  created_at: string;
+  entries: Array<{
+    id: number;
+    ledger_transaction_id: number;
+    account_id: number;
+    entry_type: LedgerEntryType;
+    amount: string;
+    created_at: string;
+  }>;
+}
+
+export interface AdminAdjustmentResult {
+  transactionReference: string;
+  userId: number;
+  amount: string;
+  operation: 'CREDIT' | 'DEBIT';
+  newBalance: string;
+  description: string;
+  createdAt: string;
+}
+
+// Future domain types (Phase 3+ previews)
 export type MarketStatus = 'PRE_OPEN' | 'OPEN' | 'HALTED' | 'CLOSED';
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'LIMIT' | 'MARKET';
@@ -90,17 +209,6 @@ export interface StockListing {
   status: 'ACTIVE' | 'HALTED';
 }
 
-export interface PortfolioSummary {
-  userId: number;
-  cashBalance: string;
-  reservedCash: string;
-  totalPortfolioValue: string;
-  dailyPnL: string;
-  dailyPnLPercent: string;
-  unrealizedPnL: string;
-  currency: string;
-}
-
 export interface NewsItem {
   id: string;
   title: string;
@@ -108,6 +216,6 @@ export interface NewsItem {
   source: string;
   publishedAt: string;
   isSimulated: boolean;
-  impactScore?: number; // -1.0 to 1.0
+  impactScore?: number;
   affectedSymbols?: string[];
 }

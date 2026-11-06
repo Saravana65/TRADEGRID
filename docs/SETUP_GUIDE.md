@@ -2,7 +2,7 @@
 
 * **Project:** TRADEGRID Educational Stock Exchange Simulator
 * **Architecture:** Modular Monolith in an NPM Monorepo
-* **Current Phase:** Phase 1 Foundation
+* **Current Phase:** Phase 2 Virtual Wallet & Double-Entry Ledger Complete
 
 ---
 
@@ -53,6 +53,10 @@ Never commit your local `.env` file into version control!
    JWT_REFRESH_SECRET=tradegrid_dev_refresh_secret_key_minimum_32_characters_long_67890
    JWT_ACCESS_EXPIRES_IN=15m
    JWT_REFRESH_EXPIRES_IN=7d
+
+   # Phase 2: Virtual Wallet & Double-Entry Ledger
+   INITIAL_WALLET_BALANCE=100000.0000
+   DEFAULT_CURRENCY=USD
    ```
 
 ---
@@ -65,10 +69,10 @@ Run `npm install` from the monorepo root. NPM workspaces will automatically link
 npm install
 ```
 
-### Step 2: Build Shared Packages
-Compile the TypeScript declaration files for the shared packages:
+### Step 2: Build Shared Packages & Applications
+Compile the TypeScript declaration files and verify all workspaces build cleanly:
 ```bash
-npm run build:packages
+npm run build
 ```
 
 ### Step 3: Run the Automated Test Suite
@@ -76,15 +80,15 @@ Verify that all unit and integration tests execute successfully:
 ```bash
 npm test
 ```
-*Expected result:* 17 tests passed across `tests/health.test.ts` and `tests/auth.test.ts`.
+*Expected result:* **33 tests passed** across `tests/health.test.ts` (3 tests), `tests/auth.test.ts` (14 tests), and `tests/wallet.test.ts` (16 tests).
 
-### Step 4: Run Database Migrations & Seeds (Optional / When MySQL is running)
+### Step 4: Run Database Migrations & Seeds
 If you have MySQL 8 running locally on port 3306:
 ```bash
-# Run migrations (creates users and user_sessions tables)
+# Run migrations (creates users, refresh_tokens, wallets, and ledger tables)
 npm run migrate:latest
 
-# Seed initial admin and trader accounts
+# Seed initial admin, trader accounts, and initial balanced journal grants
 npm run seed:run
 ```
 
@@ -131,12 +135,12 @@ To run the complete isolated stack including MySQL 8, Backend, and Frontend with
 
 ## 5. Development Credentials
 
-When testing the authentication flow, you can register new accounts via `/register` or use the pre-configured demo credentials:
+When testing the authentication flow, you can register new accounts via `/register` (which immediately receives a $100,000 demo capital grant in its virtual wallet) or use the pre-configured demo credentials:
 
-| Role | Email | Password | Access Level |
+| Role | Email | Password | Access Level & Initial Capital |
 |---|---|---|---|
-| **Administrator** | `admin@tradegrid.internal` | `Admin@12345` | Full access to exchange halts, user management, and catalyst injection |
-| **Trader Demo** | `trader@tradegrid.internal` | `Trader@12345` | Trader terminal, order book, watchlist, and portfolio tracking |
+| **Administrator** | `admin@tradegrid.internal` | `Admin@12345` | Full admin privileges: circuit breakers, virtual funds credit/debit console, session halts. Balance: $100,000.00 |
+| **Trader Demo** | `trader@tradegrid.internal` | `Trader@12345` | Trading terminal, order history, append-only cash ledger, and portfolio. Balance: $100,000.00 |
 
 ---
 
@@ -153,7 +157,7 @@ Run these commands from the root directory:
 * `npm test`: Runs backend test suite via Vitest.
 * `npm run migrate:latest`: Executes pending Knex database migrations.
 * `npm run migrate:rollback`: Rolls back the last migration batch.
-* `npm run seed:run`: Seeds default accounts into MySQL.
+* `npm run seed:run`: Seeds default accounts and balanced ledger entries into MySQL.
 
 ---
 
@@ -165,3 +169,5 @@ Run these commands from the root directory:
   * *Solution:* Another process is listening on port 5000. Stop the existing process or change `PORT=5001` in your `.env`.
 * **Issue: `Invalid credentials` error on login**
   * *Solution:* Ensure you use the exact seed password `Admin@12345` or `Trader@12345` (case-sensitive) or register a fresh user.
+* **Issue: `INSUFFICIENT_FUNDS` on debit**
+  * *Solution:* The debit amount exceeds the user's available materialized cash balance. Deposit or credit virtual funds first.

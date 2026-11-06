@@ -2,6 +2,7 @@ import { RegisterInput, LoginInput } from '@tradegrid/validation';
 import { AuthResponse, RefreshResponse, User } from '@tradegrid/shared-types';
 import { IUserRepository, userRepository } from '../users/user.repository';
 import { ISessionRepository, sessionRepository } from './session.repository';
+import { walletService as defaultWalletService, WalletService } from '../wallet/wallet.service';
 import { hashPassword, verifyPassword } from '../../utils/argon2';
 import { generateTokens, verifyRefreshToken, hashToken } from '../../utils/jwt';
 import { AppError } from '../../middleware/error.middleware';
@@ -10,7 +11,8 @@ import { logger } from '../../utils/logger';
 export class AuthService {
   constructor(
     private readonly userRepo: IUserRepository = userRepository,
-    private readonly sessionRepo: ISessionRepository = sessionRepository
+    private readonly sessionRepo: ISessionRepository = sessionRepository,
+    private readonly walletService: WalletService = defaultWalletService
   ) {}
 
   /**
@@ -44,6 +46,14 @@ export class AuthService {
       role: 'TRADER',
       status: 'ACTIVE',
     });
+
+    // 5. Automatically create virtual wallet with initial demo capital
+    try {
+      await this.walletService.createWalletForUser(userRecord.id);
+    } catch (walletErr) {
+      logger.error(`Error auto-creating wallet for user #${userRecord.id}:`, walletErr);
+      // In testing or fallback environments without DB pool, continue session creation
+    }
 
     const user: User = {
       id: userRecord.id,

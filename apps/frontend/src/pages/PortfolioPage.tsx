@@ -1,5 +1,5 @@
-import React from 'react';
-import { useUIStore } from '../store/uiStore';
+import React, { useEffect } from 'react';
+import { useWalletStore } from '../store/walletStore';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import { Card } from '../components/common/Card';
 import { StatCard } from '../components/common/StatCard';
@@ -42,11 +42,15 @@ const mockHoldings: PositionRow[] = [
 ];
 
 export const PortfolioPage: React.FC = () => {
-  const { virtualCashBalance } = useUIStore();
+  const { balance, fetchWalletSummary } = useWalletStore();
+
+  useEffect(() => {
+    fetchWalletSummary();
+  }, [fetchWalletSummary]);
 
   const totalInvested = mockHoldings.reduce((sum, pos) => sum + parseFloat(pos.marketValue), 0);
   const totalUnrealizedPnL = mockHoldings.reduce((sum, pos) => sum + parseFloat(pos.unrealizedPnL), 0);
-  const totalNetWorth = parseFloat(virtualCashBalance) + totalInvested;
+  const totalNetWorth = parseFloat(balance) + totalInvested;
 
   const columns: TableColumn<PositionRow>[] = [
     {
@@ -139,7 +143,7 @@ export const PortfolioPage: React.FC = () => {
         />
         <StatCard
           title="Virtual Available Cash"
-          value={formatCurrency(virtualCashBalance)}
+          value={formatCurrency(balance)}
           change="Available"
           changeType="neutral"
           subtitle="Unreserved funds"

@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useUIStore } from '../store/uiStore';
+import { useWalletStore } from '../store/walletStore';
 import { formatCurrency, formatPercent, formatDate } from '../utils/formatters';
 import { StatCard } from '../components/common/StatCard';
 import { Card } from '../components/common/Card';
@@ -110,7 +110,11 @@ const mockNews: NewsItem[] = [
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
-  const { virtualCashBalance } = useUIStore();
+  const { balance, fetchWalletSummary } = useWalletStore();
+
+  useEffect(() => {
+    fetchWalletSummary();
+  }, [fetchWalletSummary]);
 
   const gainers = [...mockListings].filter((s) => parseFloat(s.changePercent) > 0);
   const losers = [...mockListings].filter((s) => parseFloat(s.changePercent) < 0);
@@ -200,7 +204,7 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Portfolio Value"
-          value={formatCurrency(virtualCashBalance)}
+          value={formatCurrency(balance)}
           change="+0.00%"
           changeType="neutral"
           subtitle="All assets virtual"
@@ -208,7 +212,7 @@ export const DashboardPage: React.FC = () => {
         />
         <StatCard
           title="Available Virtual Cash"
-          value={formatCurrency(virtualCashBalance)}
+          value={formatCurrency(balance)}
           change="Unencumbered"
           changeType="neutral"
           subtitle="Ready for order deployment"

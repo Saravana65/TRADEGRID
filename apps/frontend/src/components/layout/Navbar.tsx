@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
+import { useWalletStore } from '../../store/walletStore';
 import { formatCurrency } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
@@ -10,11 +11,19 @@ import {
   LogOut,
   Shield,
   Menu,
+  CheckCircle,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { user, logout } = useAuthStore();
-  const { virtualCashBalance, exchangeStatus, toggleSidebar } = useUIStore();
+  const { user, logout, isAuthenticated } = useAuthStore();
+  const { exchangeStatus, toggleSidebar } = useUIStore();
+  const { balance, summary, fetchWalletSummary, isLoadingWallet } = useWalletStore();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchWalletSummary();
+    }
+  }, [isAuthenticated, fetchWalletSummary]);
 
   return (
     <header className="h-16 bg-card border-b border-card-border px-4 lg:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
@@ -55,14 +64,26 @@ export const Navbar: React.FC = () => {
       {/* Right: Virtual Cash Display + User Profile + Logout */}
       <div className="flex items-center gap-4">
         {/* Virtual Cash Pill */}
-        <div className="hidden sm:flex items-center gap-2 bg-[#0D1424] px-3.5 py-1.5 rounded-lg border border-card-border">
+        <div
+          className="hidden sm:flex items-center gap-2 bg-[#0D1424] px-3.5 py-1.5 rounded-lg border border-card-border cursor-pointer hover:border-cyan-500/40 transition-colors"
+          title={
+            summary?.isConsistentWithLedger
+              ? 'Double-entry ledger verified: Available balance strictly reconciles with journal entries.'
+              : 'Virtual cash balance'
+          }
+        >
           <Wallet className="w-4 h-4 text-emerald-400" />
           <div className="flex flex-col text-right">
-            <span className="text-[10px] uppercase font-mono text-slate-400 leading-none">
-              Virtual Cash
-            </span>
+            <div className="flex items-center gap-1 justify-end">
+              <span className="text-[10px] uppercase font-mono text-slate-400 leading-none">
+                Virtual Cash ({summary?.currency || 'USD'})
+              </span>
+              {summary?.isConsistentWithLedger && (
+                <CheckCircle className="w-2.5 h-2.5 text-emerald-400" />
+              )}
+            </div>
             <span className="text-sm font-bold font-mono text-emerald-400 tabular-nums">
-              {formatCurrency(virtualCashBalance)}
+              {isLoadingWallet ? 'Syncing...' : formatCurrency(balance)}
             </span>
           </div>
         </div>

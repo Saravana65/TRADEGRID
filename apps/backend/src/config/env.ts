@@ -44,6 +44,10 @@ const envSchema = z.object({
   ARGON2_MEMORY_COST: z.string().default('65536').transform((val) => parseInt(val, 10)),
   ARGON2_TIME_COST: z.string().default('3').transform((val) => parseInt(val, 10)),
   ARGON2_PARALLELISM: z.string().default('1').transform((val) => parseInt(val, 10)),
+
+  // Phase 2: Wallet & Ledger
+  INITIAL_WALLET_BALANCE: z.string().default('100000.0000'),
+  DEFAULT_CURRENCY: z.string().default('USD'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -73,4 +77,6 @@ export const config = parsed.success
       ARGON2_MEMORY_COST: 65536,
       ARGON2_TIME_COST: 3,
       ARGON2_PARALLELISM: 1,
+      INITIAL_WALLET_BALANCE: '100000.0000',
+      DEFAULT_CURRENCY: 'USD',
     };

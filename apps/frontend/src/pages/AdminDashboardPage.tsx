@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { apiClient } from '../services/api';
+import { walletApiService } from '../services/wallet.service';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
+import { Input } from '../components/common/Input';
 import { Table, TableColumn } from '../components/common/Table';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatCurrency } from '../utils/formatters';
 import {
   ShieldAlert,
   Power,
@@ -15,6 +17,10 @@ import {
   CheckCircle,
   AlertOctagon,
   RefreshCw,
+  Wallet,
+  X,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from 'lucide-react';
 
 interface ManagedUser {
@@ -52,6 +58,16 @@ export const AdminDashboardPage: React.FC = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
 
+  // Wallet adjustment modal state
+  const [targetUser, setTargetUser] = useState<ManagedUser | null>(null);
+  const [adjustmentType, setAdjustmentType] = useState<'CREDIT' | 'DEBIT'>('CREDIT');
+  const [amount, setAmount] = useState<string>('5000.0000');
+  const [reason, setReason] = useState<string>('Administrative tournament award');
+  const [idempotencyKey, setIdempotencyKey] = useState<string>('');
+  const [isSubmittingAdjustment, setIsSubmittingAdjustment] = useState<boolean>(false);
+  const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
+  const [adjustmentSuccess, setAdjustmentSuccess] = useState<string | null>(null);
+
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
     try {
@@ -81,18 +97,75 @@ export const AdminDashboardPage: React.FC = () => {
     setTimeout(() => setAdminNotice(null), 5000);
   };
 
-  const handleToggleUserStatus = (targetUser: ManagedUser) => {
-    const nextStatus = targetUser.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+  const handleToggleUserStatus = (target: ManagedUser) => {
+    const nextStatus = target.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
     setUsersList(
-      usersList.map((u) => (u.id === targetUser.id ? { ...u, status: nextStatus } : u))
+      usersList.map((u) => (u.id === target.id ? { ...u, status: nextStatus } : u))
     );
-    setAdminNotice(`Trader @${targetUser.username} status updated to ${nextStatus}.`);
+    setAdminNotice(`Trader @${target.username} status updated to ${nextStatus}.`);
     setTimeout(() => setAdminNotice(null), 5000);
   };
 
   const handleInjectShock = (type: string) => {
     setAdminNotice(`⚡ SIMULATED SHOCK: Triggered [${type}]. Market Simulation Engine prepared for Phase 2.`);
     setTimeout(() => setAdminNotice(null), 5000);
+  };
+
+  const openAdjustmentModal = (selectedUser: ManagedUser, type: 'CREDIT' | 'DEBIT') => {
+    setTargetUser(selectedUser);
+    setAdjustmentType(type);
+    setAmount('5000.0000');
+    setReason(
+      type === 'CREDIT'
+        ? 'Administrative virtual grant / prize'
+        : 'Administrative virtual clawback / fee'
+    );
+    setIdempotencyKey(`adm-${selectedUser.id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
+    setAdjustmentError(null);
+    setAdjustmentSuccess(null);
+  };
+
+  const handleExecuteAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetUser) return;
+
+    setIsSubmittingAdjustment(true);
+    setAdjustmentError(null);
+    setAdjustmentSuccess(null);
+
+    try {
+      const input = {
+        amount,
+        reason,
+        idempotencyKey: idempotencyKey || undefined,
+      };
+
+      const result =
+        adjustmentType === 'CREDIT'
+          ? await walletApiService.adminCredit(targetUser.id, input)
+          : await walletApiService.adminDebit(targetUser.id, input);
+
+      setAdjustmentSuccess(
+        `Successfully ${adjustmentType.toLowerCase()}ed ${formatCurrency(result.amount)} to @${targetUser.username}. New balance: ${formatCurrency(result.newBalance)}. Ref: ${result.transactionReference}`
+      );
+      setAdminNotice(
+        `✅ LEDGER AUDIT: ${adjustmentType} of ${formatCurrency(result.amount)} posted to @${targetUser.username} (Tx: ${result.transactionReference})`
+      );
+
+      // Close modal after brief pause
+      setTimeout(() => {
+        setTargetUser(null);
+        setAdjustmentSuccess(null);
+      }, 2500);
+    } catch (err: any) {
+      const message =
+        err.response?.data?.error?.message ||
+        err.message ||
+        `Failed to execute ${adjustmentType.toLowerCase()}`;
+      setAdjustmentError(message);
+    } finally {
+      setIsSubmittingAdjustment(false);
+    }
   };
 
   const columns: TableColumn<ManagedUser>[] = [
@@ -134,23 +207,38 @@ export const AdminDashboardPage: React.FC = () => {
     },
     {
       key: 'actions',
-      header: 'Control',
+      header: 'Operations & Ledger',
       align: 'right',
       render: (row) => {
-        if (row.role === 'ADMIN') {
-          return <span className="text-slate-500 text-xs italic">Protected</span>;
-        }
         return (
-          <button
-            onClick={() => handleToggleUserStatus(row)}
-            className={`px-2.5 py-1 rounded text-xs font-mono font-medium transition-colors ${
-              row.status === 'ACTIVE'
-                ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/40 border border-rose-500/30'
-                : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/40 border border-emerald-500/30'
-            }`}
-          >
-            {row.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
-          </button>
+          <div className="flex items-center justify-end gap-1.5">
+            <button
+              onClick={() => openAdjustmentModal(row, 'CREDIT')}
+              className="px-2 py-1 rounded text-xs font-mono font-medium bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 border border-cyan-500/30 transition-colors"
+              title="Credit Virtual Funds"
+            >
+              + Credit
+            </button>
+            <button
+              onClick={() => openAdjustmentModal(row, 'DEBIT')}
+              className="px-2 py-1 rounded text-xs font-mono font-medium bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30 transition-colors"
+              title="Debit Virtual Funds"
+            >
+              - Debit
+            </button>
+            {row.role !== 'ADMIN' && (
+              <button
+                onClick={() => handleToggleUserStatus(row)}
+                className={`px-2 py-1 rounded text-xs font-mono font-medium transition-colors ${
+                  row.status === 'ACTIVE'
+                    ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/40 border border-rose-500/30'
+                    : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/40 border border-emerald-500/30'
+                }`}
+              >
+                {row.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+              </button>
+            )}
+          </div>
         );
       },
     },
@@ -179,13 +267,13 @@ export const AdminDashboardPage: React.FC = () => {
           <Badge variant="amber">ADMIN PRIVILEGE</Badge>
         </div>
         <p className="text-xs text-slate-400 mt-1">
-          Supervisory cockpit for circuit breakers, session halts, trader management, and synthetic catalyst injection.
+          Supervisory cockpit for circuit breakers, session halts, trader management, and double-entry virtual fund adjustments.
         </p>
       </div>
 
       {adminNotice && (
         <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-800/50 text-cyan-200 text-xs flex items-center gap-2 animate-fadeIn">
-          <Activity className="w-4 h-4 text-cyan-400" />
+          <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
           <span>{adminNotice}</span>
         </div>
       )}
@@ -237,23 +325,23 @@ export const AdminDashboardPage: React.FC = () => {
         </Card>
 
         {/* System Health */}
-        <Card title="Engine Health" subtitle="Phase 1 Service status">
+        <Card title="Engine Health" subtitle="Phase 2 Ledger & Backend status">
           <div className="space-y-2 text-xs font-mono">
             <div className="flex justify-between items-center py-1 border-b border-card-border">
-              <span className="text-slate-400">Backend Server:</span>
+              <span className="text-slate-400">Double-Entry Ledger:</span>
               <span className="text-emerald-400 flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5" /> Node.js 24 (Port 5000)
+                <CheckCircle className="w-3.5 h-3.5" /> Balanced Journal
               </span>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-card-border">
               <span className="text-slate-400">Database Engine:</span>
               <span className="text-emerald-400 flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5" /> MySQL 8 Pool
+                <CheckCircle className="w-3.5 h-3.5" /> MySQL 8 Row Locks
               </span>
             </div>
             <div className="flex justify-between items-center py-1">
-              <span className="text-slate-400">WebSocket Relay:</span>
-              <span className="text-cyan-400">Socket.IO Handshake Ready</span>
+              <span className="text-slate-400">Idempotency Shield:</span>
+              <span className="text-cyan-400">Active (Unique Keys)</span>
             </div>
           </div>
         </Card>
@@ -306,10 +394,10 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* User Management Desk */}
+      {/* User Management & Ledger Adjustment Desk */}
       <Card
-        title="Trader Registry Management"
-        subtitle="Oversee participant access, view registered traders, and enforce sanctions"
+        title="Trader Registry & Virtual Ledger Management"
+        subtitle="Oversee participant access, view registered traders, and execute audited virtual funds adjustments"
         action={
           <Button
             variant="ghost"
@@ -324,6 +412,145 @@ export const AdminDashboardPage: React.FC = () => {
       >
         <Table columns={columns} data={usersList} keyExtractor={(item) => item.id} />
       </Card>
+
+      {/* Wallet Adjustment Modal */}
+      {targetUser && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-card-border rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-card-border pb-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-cyan-400" />
+                <h3 className="font-bold text-white text-base">
+                  Double-Entry Virtual Funds Adjustment
+                </h3>
+              </div>
+              <button
+                onClick={() => setTargetUser(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleExecuteAdjustment} className="space-y-4">
+              <div className="p-3 bg-[#090D16] rounded-xl border border-card-border text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Target Trader:</span>
+                  <span className="text-white font-mono font-bold">
+                    @{targetUser.username} (#{targetUser.id})
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Trader Email:</span>
+                  <span className="text-slate-300 font-mono">{targetUser.email}</span>
+                </div>
+              </div>
+
+              {/* Operation Selection */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Ledger Operation
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustmentType('CREDIT')}
+                    className={`p-2.5 rounded-xl border text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                      adjustmentType === 'CREDIT'
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
+                        : 'bg-[#090D16] text-slate-400 border-card-border hover:text-slate-200'
+                    }`}
+                  >
+                    <ArrowDownLeft className="w-4 h-4" />
+                    CREDIT (+ Inflow)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustmentType('DEBIT')}
+                    className={`p-2.5 rounded-xl border text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                      adjustmentType === 'DEBIT'
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/50'
+                        : 'bg-[#090D16] text-slate-400 border-card-border hover:text-slate-200'
+                    }`}
+                  >
+                    <ArrowUpRight className="w-4 h-4" />
+                    DEBIT (- Outflow)
+                  </button>
+                </div>
+              </div>
+
+              {/* Amount Input */}
+              <Input
+                label="Virtual Amount (USD)"
+                type="text"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="e.g. 5000.0000"
+                helperText="DECIMAL(19,4) precision strictly enforced."
+                required
+              />
+
+              {/* Reason / Audit Memo Input */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Mandatory Audit Reason / Memo
+                </label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="State the regulatory or operational reason for this adjustment..."
+                  rows={2}
+                  className="w-full bg-[#090D16] border border-card-border rounded-xl text-xs text-slate-200 p-2.5 focus:outline-none focus:border-cyan-500"
+                  required
+                />
+              </div>
+
+              {/* Idempotency Key */}
+              <Input
+                label="Idempotency Key"
+                type="text"
+                value={idempotencyKey}
+                onChange={(e) => setIdempotencyKey(e.target.value)}
+                placeholder="Unique key to prevent duplicate submissions"
+                helperText="Pre-generated key prevents double-spending on network retransmissions."
+              />
+
+              {/* Error / Success Feedback */}
+              {adjustmentError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-mono">
+                  {adjustmentError}
+                </div>
+              )}
+              {adjustmentSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-mono flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{adjustmentSuccess}</span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-card-border">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setTargetUser(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant={adjustmentType === 'CREDIT' ? 'primary' : 'danger'}
+                  size="sm"
+                  isLoading={isSubmittingAdjustment}
+                >
+                  Confirm & Post to Ledger
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,266 +1,285 @@
-# TRADEGRID – Database Design (Proposed)
+# TRADEGRID – Database Design & Double-Entry Ledger Schema
 
-**Status:** Proposed schema for Phase 1. **Not created in MySQL. No Flyway scripts exist yet.**
+**Status:** Live & Implemented (Phases 1 & 2).  
+**Database Engine:** MySQL 8 with InnoDB engine.  
+**Migration Tool:** Knex.js migrations (`database/migrations/`).  
+**Application Scope:** Educational virtual stock exchange simulator. Virtual money only. Zero real-money banking or brokerage integrations.
 
-Existing check: [DATABASE_DOCUMENTATION.md](DATABASE_DOCUMENTATION.md) — the repository still has **no** `.sql` files. This design does not duplicate live tables; it is the first schema proposal.
+---
 
-Educational simulator only. No real-money accounts.
+## 1. Accounting Principles & Financial Rules
 
-## 1. Design rules
+| Principle | Technical Implementation | Architectural Rationale |
+|-----------|--------------------------|-------------------------|
+| **Fixed-Point Precision** | `DECIMAL(19,4)` | Binary floating point (`FLOAT`, `DOUBLE`) suffers from IEEE 754 precision inaccuracies (e.g. `0.1 + 0.2 != 0.3`). `DECIMAL(19,4)` provides 15 integral digits and 4 fractional digits, accommodating up to 999 trillion units down to 1/100th of a cent without rounding drift. |
+| **Double-Entry Equality** | $\sum \text{Debits} == \sum \text{Credits}$ | Every economic movement must have balanced source and destination entries. No balance is created from thin air without an explicit counterparty equity or adjustment account. |
+| **Ledger Immutability** | Insert-Only / Append-Only | Historical rows in `ledger_entries` and `ledger_transactions` are never updated or deleted. Errors are remediated via compensating transactions (e.g., administrative reversals). |
+| **Materialized Balance Consistency** | `wallets.available_balance` | Stored as a row-level materialized cache for $O(1)$ fast reads, but mathematically verifiable at any time by summing the historical ledger entries for the user's ledger account. |
+| **Pessimistic Row-Level Locking** | `SELECT ... FOR UPDATE` | Prevents race conditions and double-spending when concurrent requests occur (e.g., simultaneous trades or withdrawals). |
+| **Idempotency Guard** | `ledger_transactions.idempotency_key` | Unique constraint guarantees that network retransmissions replay the original transaction without double-crediting or double-debiting. |
 
-| Rule | Why |
-|------|-----|
-| `DECIMAL` for money, prices, quantities, fees | Binary floating point (`FLOAT`/`DOUBLE`) cannot represent 0.1 exactly |
-| InnoDB + explicit transactions | Atomic fill: trade + cash + position together |
-| Soft states on orders (`NEW`, `PARTIAL`, `FILLED`, …) | History stays queryable |
-| Ledger rows are insert-only | You can rebuild cash from the ledger if a cache column drifts |
-| UUID or BIGINT PKs | BIGINT auto-increment is enough and simpler for a student project |
-| No secrets in SQL | Passwords stored hashed; connection strings stay in env vars |
+---
 
-**Proposed numeric types**
+## 2. Double-Entry Chart of Accounts
 
-| Use | Type | Example scale |
-|-----|------|----------------|
-| Cash, fees, P&amp;L | `DECIMAL(19,4)` | 100000.0000 virtual INR/USD |
-| Price | `DECIMAL(18,4)` | 1523.2500 |
-| Quantity | `DECIMAL(18,4)` | Allow fractional shares for teaching; lot size can still be 1 |
-| Ratios / volatility | `DECIMAL(12,8)` | Internal simulation only |
+In TRADEGRID, accounts follow standard financial asset and equity classification:
 
-**Decision needed:** currency code (e.g. `INR`) and starting cash (e.g. `100000.0000`).
+```
+                      +-----------------------------+
+                      |       CHART OF ACCOUNTS     |
+                      +-----------------------------+
+                                     |
+           +-------------------------+-------------------------+
+           |                                                   |
+    [ ASSET ACCOUNTS ]                                 [ EQUITY ACCOUNTS ]
+           |                                                   |
+  +------------------+                              +-----------------------+
+  |   USER_WALLET    |                              | SYSTEM_EQUITY_ISSUANCE|
+  |  (User Balances) |                              |  (Virtual Cash Grants)|
+  +------------------+                              +-----------------------+
+           |                                                   |
+           |                                        +-----------------------+
+           |                                        |   SYSTEM_ADJUSTMENT   |
+           |                                        |  (Clawbacks & Admin)  |
+           |                                        +-----------------------+
+           |                                                   |
+           |                                        +-----------------------+
+           |                                        |      SYSTEM_FEE       |
+           |                                        |   (Transaction Fees)  |
+           |                                        +-----------------------+
+```
 
-## 2. Entity-relationship (logical)
+### Debit & Credit Conventions
+
+| Account Type | Category | Increases On | Decreases On | Normal Balance |
+|--------------|----------|--------------|--------------|----------------|
+| `USER_WALLET` | Asset | **DEBIT** (+ Cash in user's possession) | **CREDIT** (- Cash spent or withdrawn) | Debit (Positive) |
+| `SYSTEM_EQUITY_ISSUANCE` | Equity | **DEBIT** (Capital retraction) | **CREDIT** (Issuance of virtual capital grant) | Credit |
+| `SYSTEM_ADJUSTMENT` | Equity / Offset | **DEBIT** (Clawback offset) | **CREDIT** (Adjustment offset) | Balanced |
+| `SYSTEM_FEE` | Revenue | **DEBIT** (Fee waiver/refund) | **CREDIT** (Fee collection) | Credit |
+
+### Example Journal Entries
+
+#### A. Initial Signup Virtual Grant ($100,000.00 USD)
+```
+DEBIT   USER_WALLET (User #2)                 $100,000.0000   (Asset Increases)
+CREDIT  SYSTEM_EQUITY_ISSUANCE (System)       $100,000.0000   (Equity Increases)
+Total Debits: $100,000.0000 == Total Credits: $100,000.0000 (BALANCED)
+```
+
+#### B. Administrative Clawback / Debit ($5,000.00 USD)
+```
+DEBIT   SYSTEM_ADJUSTMENT (System)             $5,000.0000   (Offset Debit)
+CREDIT  USER_WALLET (User #2)                  $5,000.0000   (Asset Decreases)
+Total Debits: $5,000.0000 == Total Credits: $5,000.0000 (BALANCED)
+```
+
+---
+
+## 3. Entity-Relationship Model (Implemented Phases 1 & 2)
 
 ```mermaid
 erDiagram
-  users ||--o{ user_roles : has
-  roles ||--o{ user_roles : grants
-  users ||--|| accounts : cash
-  users ||--o{ orders : places
-  users ||--o{ positions : holds
-  users ||--o{ watchlists : owns
-  users ||--o{ competition_participants : joins
-  sectors ||--o{ stocks : contains
-  stocks ||--o{ orders : listed
-  stocks ||--o{ trades : printed
-  stocks ||--o{ positions : held
-  stocks ||--o{ price_bars : history
-  stocks ||--o{ quotes : snapshot
-  orders ||--o{ trades : buy_side
-  orders ||--o{ trades : sell_side
-  orders ||--o{ order_audit : history
-  trading_sessions ||--o{ orders : constrains
-  market_events ||--o{ market_event_impacts : affects
-  competitions ||--o{ competition_participants : includes
-  users ||--o{ audit_logs : actor
-  accounts ||--o{ cash_ledger : entries
+  users ||--o{ refresh_tokens : has
+  users ||--|| wallets : owns
+  users ||--o{ ledger_accounts : owns
+  ledger_transactions ||--|{ ledger_entries : contains
+  ledger_accounts ||--o{ ledger_entries : posts_to
+  users ||--o{ ledger_transactions : creates
+
+  users {
+    int id PK
+    string email UK
+    string username UK
+    string password_hash
+    string role
+    string status
+    timestamp created_at
+    timestamp updated_at
+  }
+
+  wallets {
+    int id PK
+    int user_id FK,UK
+    string currency
+    decimal available_balance "DECIMAL(19,4)"
+    timestamp created_at
+    timestamp updated_at
+  }
+
+  ledger_accounts {
+    int id PK
+    string account_type
+    int owner_user_id FK,nullable
+    string currency
+    timestamp created_at
+    timestamp updated_at
+  }
+
+  ledger_transactions {
+    int id PK
+    string transaction_reference UK
+    string transaction_type
+    string description
+    string idempotency_key UK,nullable
+    int created_by FK,nullable
+    timestamp created_at
+  }
+
+  ledger_entries {
+    int id PK
+    int ledger_transaction_id FK
+    int account_id FK
+    string entry_type "DEBIT or CREDIT"
+    decimal amount "DECIMAL(19,4)"
+    timestamp created_at
+  }
 ```
 
-## 3. Table inventory
+---
 
-Core identity
+## 4. Implemented Table Schema (Knex Migrations)
 
-| Table | Purpose |
-|-------|---------|
-| `users` | Login identity, status, display name |
-| `roles` | `TRADER`, `ADMIN` (optional `MODERATOR`) |
-| `user_roles` | Many-to-many |
-| `accounts` | One cash account per user (virtual) |
-| `cash_ledger` | Append-only money movements |
+### 4.1 `users` Table
+- **File:** `database/migrations/001_create_users_table.ts`
+- **Engine:** InnoDB, UTF8MB4
 
-Listings and sessions
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Unique identifier for user |
+| `email` | VARCHAR(255) | NOT NULL, UNIQUE, INDEX | User login email |
+| `username` | VARCHAR(50) | NOT NULL, UNIQUE, INDEX | Unique trader handle |
+| `password_hash` | VARCHAR(255) | NOT NULL | Argon2id cryptographic hash |
+| `role` | ENUM('TRADER','ADMIN') | NOT NULL, DEFAULT 'TRADER' | Authorization role |
+| `status` | ENUM('ACTIVE','SUSPENDED')| NOT NULL, DEFAULT 'ACTIVE' | Account state |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Registration timestamp |
+| `updated_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | Last profile update |
 
-| Table | Purpose |
-|-------|---------|
-| `sectors` | Sector grouping for events |
-| `stocks` | Symbol, name, tick, lot, status |
-| `trading_sessions` | Open/halt/close windows |
-| `exchange_settings` | Fees, halt bands, simulation seed |
+### 4.2 `refresh_tokens` Table
+- **File:** `database/migrations/002_create_refresh_tokens_table.ts`
+- **Engine:** InnoDB, UTF8MB4
 
-Orders and executions
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Token record identifier |
+| `user_id` | INT UNSIGNED | NOT NULL, FK(`users.id`) ON DELETE CASCADE | Target user |
+| `token_hash` | VARCHAR(64) | NOT NULL, UNIQUE, INDEX | SHA-256 hash of refresh token |
+| `expires_at` | TIMESTAMP | NOT NULL | Absolute expiration (7 days) |
+| `is_revoked` | BOOLEAN | NOT NULL, DEFAULT FALSE | Revocation status flag |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Issuance timestamp |
 
-| Table | Purpose |
-|-------|---------|
-| `orders` | Working and historical orders |
-| `trades` | Each execution (one row per fill) |
-| `order_audit` | Status changes / cancels |
+### 4.3 `ledger_accounts` Table
+- **File:** `database/migrations/003_create_wallet_and_ledger_tables.ts`
+- **Engine:** InnoDB, UTF8MB4
 
-Portfolio and market data
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Account identifier |
+| `account_type` | ENUM('USER_WALLET', 'SYSTEM_EQUITY_ISSUANCE', 'SYSTEM_ADJUSTMENT', 'SYSTEM_FEE') | NOT NULL | Classification type |
+| `owner_user_id` | INT UNSIGNED | NULLABLE, FK(`users.id`) ON DELETE RESTRICT | Owning trader ID (NULL for system accounts) |
+| `currency` | VARCHAR(3) | NOT NULL, DEFAULT 'USD' | ISO currency code |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Account creation |
+| `updated_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | Last update |
 
-| Table | Purpose |
-|-------|---------|
-| `positions` | Shares per user per stock |
-| `quotes` | Latest bid/ask/last (cache; rebuildable) |
-| `price_bars` | OHLCV for charts |
-| `price_ticks` | Optional high-resolution ticks |
+- **Indexes:**
+  - Unique composite index: `(account_type, owner_user_id, currency)`
+  - Index: `(owner_user_id)`
 
-Simulation, risk, social features
+### 4.4 `wallets` Table
+- **File:** `database/migrations/003_create_wallet_and_ledger_tables.ts`
+- **Engine:** InnoDB, UTF8MB4
 
-| Table | Purpose |
-|-------|---------|
-| `market_events` | Admin-injected or scheduled events |
-| `market_event_impacts` | Per-stock or per-sector multipliers / curves |
-| `risk_limits` | Per-user or global caps |
-| `watchlists` / `watchlist_items` | Trader UI |
-| `competitions` / `competition_participants` | Contests |
-| `audit_logs` | Admin and security actions |
-| `idempotency_keys` | Prevent duplicate order submits |
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Wallet record ID |
+| `user_id` | INT UNSIGNED | NOT NULL, UNIQUE, FK(`users.id`) ON DELETE RESTRICT | Owning trader (1:1 constraint) |
+| `currency` | VARCHAR(3) | NOT NULL, DEFAULT 'USD' | Trading currency |
+| `available_balance` | DECIMAL(19,4) | NOT NULL, DEFAULT 0.0000 | Materialized cash balance |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Creation time |
+| `updated_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | Last transaction update |
 
-## 4. Column sketch (authoritative fields)
+- **Indexes & Constraints:**
+  - `UNIQUE (user_id)`
+  - `CHECK (available_balance >= 0.0000)` (Application-enforced + MySQL check where supported)
 
-### `users`
+### 4.5 `ledger_transactions` Table
+- **File:** `database/migrations/003_create_wallet_and_ledger_tables.ts`
+- **Engine:** InnoDB, UTF8MB4
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | BIGINT PK | |
-| `email` | VARCHAR(255) UNIQUE NOT NULL | Login |
-| `password_hash` | VARCHAR(255) NOT NULL | BCrypt; never plaintext |
-| `display_name` | VARCHAR(80) | |
-| `status` | ENUM/VARCHAR | `ACTIVE`, `SUSPENDED` |
-| `created_at` | TIMESTAMP | |
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Journal transaction ID |
+| `transaction_reference` | VARCHAR(64) | NOT NULL, UNIQUE, INDEX | Unique business reference (e.g. `GRNT-2-1718...`) |
+| `transaction_type` | ENUM('INITIAL_SIGNUP_GRANT', 'ADMIN_CREDIT', 'ADMIN_DEBIT', 'SYSTEM_ADJUSTMENT', 'TRADE_BUY', 'TRADE_SELL', 'FEE') | NOT NULL | Business operation type |
+| `description` | VARCHAR(255) | NOT NULL | Regulatory / audit trail explanation |
+| `idempotency_key` | VARCHAR(128) | NULLABLE, UNIQUE, INDEX | Client or caller idempotency key |
+| `created_by` | INT UNSIGNED | NULLABLE, FK(`users.id`) ON DELETE SET NULL | Admin or system user who authorized the entry |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Append-only execution time |
 
-### `accounts`
+- **Indexes:**
+  - `UNIQUE (transaction_reference)`
+  - `UNIQUE (idempotency_key)`
+  - `INDEX (created_at)`
+  - `INDEX (transaction_type)`
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | BIGINT PK | |
-| `user_id` | BIGINT UNIQUE FK | One account v1 |
-| `currency` | CHAR(3) | e.g. `INR` |
-| `cash_available` | DECIMAL(19,4) | Free cash |
-| `cash_reserved` | DECIMAL(19,4) | Locked for open buys |
-| `version` | BIGINT | Optimistic lock |
+### 4.6 `ledger_entries` Table
+- **File:** `database/migrations/003_create_wallet_and_ledger_tables.ts`
+- **Engine:** InnoDB, UTF8MB4
 
-Invariant: `cash_available >= 0`, `cash_reserved >= 0`. Enforce in application **and** `CHECK` if MySQL version allows.
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INT UNSIGNED | PK, AUTO_INCREMENT | Entry line ID |
+| `ledger_transaction_id` | INT UNSIGNED | NOT NULL, FK(`ledger_transactions.id`) ON DELETE CASCADE | Parent journal transaction |
+| `account_id` | INT UNSIGNED | NOT NULL, FK(`ledger_accounts.id`) ON DELETE RESTRICT | Account credited or debited |
+| `entry_type` | ENUM('DEBIT', 'CREDIT') | NOT NULL | Double-entry movement type |
+| `amount` | DECIMAL(19,4) | NOT NULL | Magnitude of the line item (always positive) |
+| `created_at` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Line insertion time |
 
-### `cash_ledger`
+- **Indexes & Constraints:**
+  - `INDEX (ledger_transaction_id)`
+  - `INDEX (account_id, created_at)`
+  - `CHECK (amount > 0.0000)`
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | BIGINT PK | |
-| `account_id` | BIGINT FK | |
-| `amount` | DECIMAL(19,4) | Signed; debit negative |
-| `balance_after` | DECIMAL(19,4) | |
-| `type` | VARCHAR | `RESERVE`, `RELEASE`, `TRADE`, `FEE`, `GRANT` |
-| `ref_type` / `ref_id` | | Order or trade id |
-| `created_at` | TIMESTAMP | |
+---
 
-### `stocks`
+## 5. System Accounts Pre-Seeded in Migration
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | BIGINT PK | |
-| `symbol` | VARCHAR(16) UNIQUE | `TGRID` |
-| `name` | VARCHAR(120) | |
-| `sector_id` | BIGINT FK | |
-| `tick_size` | DECIMAL(18,4) | |
-| `lot_size` | DECIMAL(18,4) | |
-| `status` | VARCHAR | `ACTIVE`, `HALTED`, `DELISTED` |
-| `baseline_price` | DECIMAL(18,4) | Simulation anchor |
-| `volatility` | DECIMAL(12,8) | Per-name vol |
+To enable double-entry accounting from the first transaction, Migration 003 pre-populates default system counterparties:
 
-### `orders`
+| Account Type | Description |
+|--------------|-------------|
+| `SYSTEM_EQUITY_ISSUANCE` | Source equity account for new user registration virtual grants ($100,000 demo capital) |
+| `SYSTEM_ADJUSTMENT` | Counterparty account for admin virtual funds credits, clawbacks, and adjustments |
+| `SYSTEM_FEE` | Repository account for future market and trading fees (Phase 3+) |
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | BIGINT PK | |
-| `client_order_id` | VARCHAR(64) | Idempotency with user_id |
-| `user_id` | BIGINT FK | Null or system user for simulation liquidity |
-| `stock_id` | BIGINT FK | |
-| `side` | VARCHAR | `BUY`, `SELL` |
-| `type` | VARCHAR | `MARKET`, `LIMIT`, `STOP`, `STOP_LIMIT` |
-| `tif` | VARCHAR | `GTC`, `IOC`, `FOK`, `DAY` |
-| `limit_price` | DECIMAL(18,4) | Null for market |
-| `stop_price` | DECIMAL(18,4) | Stop types |
-| `quantity` | DECIMAL(18,4) | Original |
-| `filled_quantity` | DECIMAL(18,4) | |
-| `reserved_cash` | DECIMAL(19,4) | Buys |
-| `reserved_qty` | DECIMAL(18,4) | Sells |
-| `fee_rate_bps` | DECIMAL(10,4) | Snapshot at accept |
-| `status` | VARCHAR | See lifecycle |
-| `source` | VARCHAR | `TRADER`, `SIMULATION` |
-| `session_id` | BIGINT FK | |
-| `created_at` / `updated_at` | TIMESTAMP | |
+---
 
-Unique `(user_id, client_order_id)` where `client_order_id` is not null.
+## 6. Concurrency & Integrity Assurance
 
-### `trades`
+### Atomic Transaction Sequence
+Balance mutations are wrapped in a strict MySQL transaction:
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | BIGINT PK | |
-| `stock_id` | BIGINT FK | |
-| `buy_order_id` | BIGINT FK | |
-| `sell_order_id` | BIGINT FK | |
-| `price` | DECIMAL(18,4) | Execution price |
-| `quantity` | DECIMAL(18,4) | |
-| `buy_fee` / `sell_fee` | DECIMAL(19,4) | |
-| `executed_at` | TIMESTAMP(3) | |
+```sql
+START TRANSACTION;
 
-### `positions`
+-- 1. Acquire exclusive pessimistic lock on the target wallet row
+SELECT * FROM wallets WHERE user_id = ? FOR UPDATE;
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | BIGINT PK | |
-| `user_id` + `stock_id` | UNIQUE | |
-| `quantity` | DECIMAL(18,4) | Long only in v1 unless shorts approved |
-| `qty_reserved` | DECIMAL(18,4) | Open sells |
-| `avg_cost` | DECIMAL(18,4) | For unrealized P&amp;L |
-| `version` | BIGINT | Optimistic lock |
+-- 2. Verify sufficient funds if debiting:
+-- IF available_balance < requested_amount THEN ROLLBACK and RAISE 422;
 
-### Other tables (short)
+-- 3. Insert parent ledger transaction with unique reference & idempotency key
+INSERT INTO ledger_transactions (transaction_reference, transaction_type, description, idempotency_key, created_by)
+VALUES (?, ?, ?, ?, ?);
 
-- `trading_sessions`: `status` (`PREOPEN`,`OPEN`,`HALT`,`CLOSED`), `opened_at`, `closed_at`.
-- `quotes`: `bid`, `bid_size`, `ask`, `ask_size`, `last`, `last_size`, `updated_at`.
-- `price_bars`: `timeframe` (`1m`,`5m`,`1d`), `open,high,low,close,volume`, unique `(stock_id,timeframe,bar_start)`.
-- `market_events`: `type` (`CRASH`,`RALLY`,`NEWS`,`SECTOR_SHOCK`,`LIQUIDITY_DRY`), `severity`, `starts_at`, `ends_at`, `seed_offset`.
-- `market_event_impacts`: `target_type` (`STOCK`/`SECTOR`/`MARKET`), `drift_delta`, `vol_multiplier`, `decay_seconds`.
-- `risk_limits`: `max_order_notional`, `max_position_qty`, `allow_short` (default false).
-- `audit_logs`: `actor_user_id`, `action`, `entity`, `payload_json`, `ip`, `created_at`.
-- `idempotency_keys`: `user_id`, `key`, `request_hash`, `response_json`, `created_at`.
-- `competitions`: name, start/end, starting cash, fee schedule snapshot.
+-- 4. Insert balanced double-entry lines (DEBIT + CREDIT)
+INSERT INTO ledger_entries (ledger_transaction_id, account_id, entry_type, amount) VALUES (?, ?, 'DEBIT', ?);
+INSERT INTO ledger_entries (ledger_transaction_id, account_id, entry_type, amount) VALUES (?, ?, 'CREDIT', ?);
 
-## 5. Keys and indexes
+-- 5. Update materialized wallet balance
+UPDATE wallets SET available_balance = ? WHERE user_id = ?;
 
-| Table | Indexes |
-|-------|---------|
-| `orders` | `(stock_id, status, side, limit_price, created_at)` for recovery; `(user_id, created_at)` |
-| `trades` | `(stock_id, executed_at)`, `(buy_order_id)`, `(sell_order_id)` |
-| `cash_ledger` | `(account_id, created_at)` |
-| `price_bars` | unique `(stock_id, timeframe, bar_start)` |
-| `audit_logs` | `(created_at)`, `(actor_user_id)` |
-| `quotes` | PK `stock_id` |
+COMMIT;
+```
 
-Foreign keys: all `user_id`, `stock_id`, `order_id` references with `ON DELETE RESTRICT` so history is not silently dropped.
-
-## 6. Transactions
-
-Settlement unit = **one fill** (or a batch of fills for one incoming order) in a **single DB transaction**:
-
-1. `SELECT … FOR UPDATE` account and position rows.
-2. Insert `trades`.
-3. Update order filled qty/status.
-4. Insert `cash_ledger`; update `accounts`.
-5. Update `positions` and `avg_cost`.
-6. Update `quotes` / last.
-7. Commit.
-
-Isolation: **READ COMMITTED** plus row locks is enough if matching is single-threaded per symbol. Still lock account/position rows so a user trading **two symbols at once** cannot double-spend cash.
-
-## 7. History and audit
-
-| Data | Retention idea |
-|------|----------------|
-| Orders, trades, ledger | Keep for the life of the course project |
-| Price ticks | Optional; downsample to bars |
-| Audit logs | Append-only; no updates |
-| Simulation seed | Stored in `exchange_settings` so tests replay |
-
-## 8. What will not be in v1 schema
-
-- Real KYC / bank tables
-- Multi-currency wallets
-- Brokerage sub-accounts
-- Duplicate “wallet” tables besides `accounts` + `cash_ledger`
-
-Flyway location (future): `backend/src/main/resources/db/migration/V1__init.sql` — **not written in this phase**.
-
-When scripts are added, copy the live column list back into [DATABASE_DOCUMENTATION.md](DATABASE_DOCUMENTATION.md) from the files, not from this proposal if they diverge.
+If any failure occurs (deadlock, network timeout, constraint violation), the entire transaction rolls back cleanly, maintaining 100% financial integrity.

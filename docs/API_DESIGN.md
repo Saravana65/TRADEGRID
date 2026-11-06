@@ -1,133 +1,264 @@
-# TRADEGRID – API Design (Proposed)
+# TRADEGRID – API Design & Contract Specification
 
-**Status:** Proposed contract. **No controllers exist yet.** Paths below are a blueprint so frontend and backend can grow together.
+**Status:** Live & Implemented (Phases 1 & 2).  
+**Base URL:** `http://localhost:5000/api/v1`  
+**WebSocket Relay:** `http://localhost:5000` (Socket.IO namespace `/market`)  
+**Format:** JSON with strict UTF-8 encoding. All monetary numbers and prices transmitted as strings to avoid floating-point truncation.
 
-Base URL (dev): `http://localhost:8080/api`  
-WebSocket (dev): `ws://localhost:8080/ws`
+---
 
-All timestamps ISO-8601 UTC. Money and prices as **strings** in JSON (e.g. `"1523.2500"`) so JavaScript numbers cannot round them.
+## 1. Global API Standards
 
-## 1. Conventions
-
-| Topic | Rule |
-|-------|------|
-| Auth | `Authorization: Bearer <token>` after login (JWT **or** session cookie — see [SECURITY.md](SECURITY.md); **needs approval**) |
-| Errors | `{ "code": "INSUFFICIENT_FUNDS", "message": "...", "details": {} }` |
-| Idempotency | Header `Idempotency-Key` on `POST /orders` |
-| Pagination | `?cursor=` or `?page=&size=` on lists |
-| Roles | `TRADER`, `ADMIN` |
-
-## 2. Authentication
-
-| Method | Path | Role | Purpose |
-|--------|------|------|---------|
-| POST | `/auth/register` | Public (or admin-only if you lock registration) | Create trader |
-| POST | `/auth/login` | Public | Issue token/session |
-| POST | `/auth/logout` | Auth | Invalidate |
-| GET | `/auth/me` | Auth | Current user + roles |
-
-## 3. Users (admin)
-
-| Method | Path | Role | Purpose |
-|--------|------|------|---------|
-| GET | `/admin/users` | ADMIN | List / filter |
-| PATCH | `/admin/users/{id}` | ADMIN | Suspend / activate |
-| POST | `/admin/users/{id}/grant-cash` | ADMIN | Virtual grant (ledger `GRANT`) |
-
-## 4. Exchange and stocks
-
-| Method | Path | Role | Purpose |
-|--------|------|------|---------|
-| GET | `/stocks` | Auth | List active listings |
-| GET | `/stocks/{symbol}` | Auth | Detail + session flags |
-| GET | `/exchange/session` | Auth | Global session status |
-| POST | `/admin/exchange/session/start` | ADMIN | Open trading |
-| POST | `/admin/exchange/session/halt` | ADMIN | Pause matching |
-| POST | `/admin/exchange/session/resume` | ADMIN | Resume |
-| POST | `/admin/exchange/session/close` | ADMIN | Close |
-| POST | `/admin/stocks` | ADMIN | Create listing |
-| PATCH | `/admin/stocks/{symbol}` | ADMIN | Tick, lot, halt one name, baseline |
-
-## 5. Market data (read)
-
-| Method | Path | Role | Purpose |
-|--------|------|------|---------|
-| GET | `/market/{symbol}/quote` | Auth | Bid/ask/last |
-| GET | `/market/{symbol}/depth` | Auth | Aggregated book |
-| GET | `/market/{symbol}/bars?tf=1m` | Auth | OHLCV |
-| GET | `/market/{symbol}/trades` | Auth | Recent prints |
-
-## 6. Orders (trader)
-
-| Method | Path | Role | Purpose |
-|--------|------|------|---------|
-| POST | `/orders` | TRADER | Place order |
-| DELETE | `/orders/{id}` | TRADER | Cancel remaining |
-| GET | `/orders` | TRADER | Own orders |
-| GET | `/orders/{id}` | TRADER | Status |
-
-Example place-order body:
-
+### Standard Success Envelope
 ```json
 {
-  "clientOrderId": "ui-uuid-1",
-  "symbol": "TGRID",
-  "side": "BUY",
-  "type": "LIMIT",
-  "tif": "GTC",
-  "quantity": "10.0000",
-  "limitPrice": "100.0000",
-  "stopPrice": null
+  "success": true,
+  "data": { ... },
+  "message": "Operation completed successfully",
+  "timestamp": "2026-11-06T12:00:00.000Z"
 }
 ```
 
-Example responses: `201` with order snapshot; `400` with `INVALID_TICK`; `409` duplicate idempotency; `422` `INSUFFICIENT_FUNDS`.
+### Standard Error Envelope
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INSUFFICIENT_FUNDS",
+    "message": "Insufficient virtual funds. Available: $100000.0000, Requested: $150000.0000",
+    "details": null
+  },
+  "timestamp": "2026-11-06T12:00:00.000Z"
+}
+```
 
-## 7. Portfolio and analytics
+### Authentication Header
+Protected endpoints require:
+```http
+Authorization: Bearer <access_jwt_token>
+```
 
-| Method | Path | Role | Purpose |
-|--------|------|------|---------|
-| GET | `/portfolio` | TRADER | Cash + positions + unrealized P&amp;L |
-| GET | `/portfolio/ledger` | TRADER | Cash movements |
-| GET | `/analytics/me` | TRADER | Realized P&amp;L, win/loss counts |
-| GET | `/admin/analytics/market` | ADMIN | Volume, participants |
-| GET | `/admin/orders` | ADMIN | Cross-user order blotter |
-| GET | `/admin/trades` | ADMIN | Tape |
+---
 
-Unrealized P&amp;L is computed server-side from `avg_cost` and last price. The UI must not calculate official P&amp;L.
+## 2. Authentication Endpoints (`/api/v1/auth`)
 
-## 8. Watchlists, events, competitions
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| `POST` | `/api/v1/auth/register` | Public | Register trader account and automatically initialize virtual wallet with $100,000 initial grant. |
+| `POST` | `/api/v1/auth/login` | Public | Authenticate user via Argon2id hash verification and issue access & refresh tokens. |
+| `POST` | `/api/v1/auth/refresh` | Public | Rotate refresh token and issue a fresh 15-minute access token. |
+| `POST` | `/api/v1/auth/logout` | Authenticated | Revoke refresh token and terminate session. |
+| `GET`  | `/api/v1/auth/me` | Authenticated | Fetch current authenticated user profile and role (`TRADER` or `ADMIN`). |
 
-| Method | Path | Role | Purpose |
-|--------|------|------|---------|
-| GET/POST/DELETE | `/watchlists` … | TRADER | Watchlists |
-| GET | `/events` | Auth | Visible news/events |
-| POST | `/admin/events` | ADMIN | Inject crash/rally/news |
-| GET/POST | `/competitions` | Auth / ADMIN | Contests |
-| POST | `/competitions/{id}/join` | TRADER | Join |
+---
 
-## 9. WebSocket topics (proposed STOMP)
+## 3. Virtual Wallet & Ledger Endpoints (`/api/v1/wallet`)
 
-| Topic | Payload | Who |
-|-------|---------|-----|
-| `/topic/session` | Session status | All authed |
-| `/topic/quotes/{symbol}` | Quote | Authed |
-| `/topic/depth/{symbol}` | Depth | Authed |
-| `/topic/trades/{symbol}` | Public prints (no account ids) | Authed |
-| `/user/queue/fills` | Private fills | Owner |
-| `/user/queue/orders` | Private order status | Owner |
-| `/user/queue/portfolio` | Cash/position snapshot | Owner |
-| `/topic/events` | Market events | Authed |
+### 3.1 Get Wallet Summary
+- **Endpoint:** `GET /api/v1/wallet`
+- **Access:** Authenticated (`TRADER` or `ADMIN`)
+- **Description:** Returns the user's materialized available cash balance, currency, cumulative debits/credits, and mathematical reconciliation status with the ledger.
 
-Handshake requires the same auth as REST. Subscribe only to symbols the user is allowed to see (all listings in v1). Admins may use extra `/topic/admin/...` if needed.
+**Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "walletId": 2,
+    "userId": 2,
+    "currency": "USD",
+    "availableBalance": "100000.0000",
+    "totalCredited": "100000.0000",
+    "totalDebited": "0.0000",
+    "isConsistentWithLedger": true,
+    "updatedAt": "2026-11-06T12:00:00.000Z"
+  },
+  "message": "Wallet summary retrieved successfully",
+  "timestamp": "2026-11-06T12:00:00.000Z"
+}
+```
 
-## 10. Error codes (initial set)
+---
 
-`UNAUTHORIZED`, `FORBIDDEN`, `VALIDATION_ERROR`, `INVALID_TICK`, `INVALID_LOT`, `SESSION_CLOSED`, `SYMBOL_HALTED`, `INSUFFICIENT_FUNDS`, `INSUFFICIENT_SHARES`, `ORDER_NOT_FOUND`, `ORDER_NOT_CANCELABLE`, `DUPLICATE_ORDER`, `RATE_LIMITED`, `INTERNAL_ERROR`.
+### 3.2 List Wallet Transactions
+- **Endpoint:** `GET /api/v1/wallet/transactions`
+- **Access:** Authenticated (`TRADER` or `ADMIN`)
+- **Query Parameters:**
+  - `page` (integer, optional, default: `1`): Current page index
+  - `limit` (integer, optional, default: `20`, max: `100`): Items per page
+  - `type` (string, optional): Filter by `INITIAL_SIGNUP_GRANT`, `ADMIN_CREDIT`, `ADMIN_DEBIT`, `SYSTEM_ADJUSTMENT`, `TRADE_BUY`, `TRADE_SELL`, `FEE`
+  - `startDate` (ISO string, optional): Inclusive start date
+  - `endDate` (ISO string, optional): Inclusive end date
 
-## 11. Out of scope for this document
+**Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "transactionReference": "GRNT-2-1718910000000-a1b2c3d4",
+        "transactionType": "INITIAL_SIGNUP_GRANT",
+        "description": "Initial virtual demo trading capital",
+        "amount": "100000.0000",
+        "direction": "INFLOW",
+        "createdAt": "2026-11-06T12:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1
+    }
+  },
+  "message": "Wallet transactions retrieved successfully",
+  "timestamp": "2026-11-06T12:00:00.000Z"
+}
+```
 
-- Exact HTTP status mapping in Spring `@ControllerAdvice` (to be implemented later).
-- OpenAPI file generation (add when the first controller exists).
+---
 
-This file is **not** a claim that endpoints already respond.
+### 3.3 Get Transaction Details (Journal Line Items)
+- **Endpoint:** `GET /api/v1/wallet/transactions/:id`
+- **Access:** Authenticated (Owner of transaction or `ADMIN`)
+- **Description:** Returns the parent transaction record and all balanced double-entry lines (`DEBIT` and `CREDIT`).
+
+**Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "transaction": {
+      "id": 1,
+      "transaction_reference": "GRNT-2-1718910000000-a1b2c3d4",
+      "transaction_type": "INITIAL_SIGNUP_GRANT",
+      "description": "Initial virtual demo trading capital",
+      "idempotency_key": "signup-grant-2",
+      "created_by": null,
+      "created_at": "2026-11-06T12:00:00.000Z",
+      "entries": [
+        {
+          "id": 1,
+          "ledger_transaction_id": 1,
+          "account_id": 4,
+          "entry_type": "DEBIT",
+          "amount": "100000.0000",
+          "created_at": "2026-11-06T12:00:00.000Z"
+        },
+        {
+          "id": 2,
+          "ledger_transaction_id": 1,
+          "account_id": 1,
+          "entry_type": "CREDIT",
+          "amount": "100000.0000",
+          "created_at": "2026-11-06T12:00:00.000Z"
+        }
+      ]
+    }
+  },
+  "message": "Transaction details retrieved successfully",
+  "timestamp": "2026-11-06T12:00:00.000Z"
+}
+```
+
+---
+
+## 4. Administrative Wallet Controls (`/api/v1/admin/wallets`)
+
+### 4.1 Admin Credit User Wallet
+- **Endpoint:** `POST /api/v1/admin/wallets/:userId/credit`
+- **Access:** Restricted to `ADMIN` role
+- **Headers:** `Authorization: Bearer <admin_token>`
+
+**Request Body:**
+```json
+{
+  "amount": "25000.0000",
+  "reason": "Trading tournament 1st place prize allocation",
+  "idempotencyKey": "tourney-award-user2-round1"
+}
+```
+
+**Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "transactionReference": "CRD-2-1718910500000-e5f6g7h8",
+    "userId": 2,
+    "amount": "25000.0000",
+    "operation": "CREDIT",
+    "newBalance": "125000.0000",
+    "description": "Trading tournament 1st place prize allocation",
+    "createdAt": "2026-11-06T12:05:00.000Z"
+  },
+  "message": "Virtual funds ($25000.0000) successfully credited to user #2",
+  "timestamp": "2026-11-06T12:05:00.000Z"
+}
+```
+
+---
+
+### 4.2 Admin Debit User Wallet
+- **Endpoint:** `POST /api/v1/admin/wallets/:userId/debit`
+- **Access:** Restricted to `ADMIN` role
+- **Headers:** `Authorization: Bearer <admin_token>`
+
+**Request Body:**
+```json
+{
+  "amount": "10000.0000",
+  "reason": "Regulatory risk clawback / sanction",
+  "idempotencyKey": "clawback-user2-case-402"
+}
+```
+
+**Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "transactionReference": "DEB-2-1718911000000-k9l0m1n2",
+    "userId": 2,
+    "amount": "10000.0000",
+    "operation": "DEBIT",
+    "newBalance": "115000.0000",
+    "description": "Regulatory risk clawback / sanction",
+    "createdAt": "2026-11-06T12:10:00.000Z"
+  },
+  "message": "Virtual funds ($10000.0000) successfully debited from user #2",
+  "timestamp": "2026-11-06T12:10:00.000Z"
+}
+```
+
+**Error Scenario (422 Unprocessable Entity - Insufficient Funds):**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INSUFFICIENT_FUNDS",
+    "message": "Insufficient virtual funds. Available: $115000.0000, Requested: $200000.0000",
+    "details": null
+  },
+  "timestamp": "2026-11-06T12:10:05.000Z"
+}
+```
+
+---
+
+## 5. Health & Diagnostic Endpoints (`/api/v1/health`)
+
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| `GET`  | `/api/v1/health` | Public | System status, MySQL pool connectivity, memory usage, and uptime. |
+
+---
+
+## 6. Future Endpoints (Phases 3 & 4 Roadmap)
+
+- `/api/v1/stocks`: Listed equities universe and real-time quotes.
+- `/api/v1/orders`: Limit and market order placement with cash reservation.
+- `/api/v1/portfolio`: Stock positions and unrealized profit & loss.
+- `/api/v1/admin/market/shock`: Simulated market crash and volatility injection.

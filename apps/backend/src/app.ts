@@ -10,9 +10,15 @@ import { checkDatabaseConnection } from './database/connection';
 // Module Routers and Factories
 import { authRouter as defaultAuthRouter, createAuthRouter } from './modules/auth/auth.router';
 import { usersRouter as defaultUsersRouter, createUsersRouter } from './modules/users/users.router';
+import {
+  walletRouter as defaultWalletRouter,
+  createWalletRouter,
+  adminWalletRouter as defaultAdminWalletRouter,
+  createAdminWalletRouter,
+  WalletController,
+} from './modules/wallet';
 import { AuthController } from './modules/auth/auth.controller';
 import { UsersController } from './modules/users/users.controller';
-import { walletRouter } from './modules/wallet';
 import { marketRouter } from './modules/market';
 import { tradingRouter } from './modules/trading';
 import { portfolioRouter } from './modules/portfolio';
@@ -25,6 +31,7 @@ import { adminRouter } from './modules/admin';
 export interface AppDependencies {
   authController?: AuthController;
   usersController?: UsersController;
+  walletController?: WalletController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -86,9 +93,18 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createUsersRouter(dependencies.usersController)
     : defaultUsersRouter;
 
+  const activeWalletRouter = dependencies.walletController
+    ? createWalletRouter(dependencies.walletController)
+    : defaultWalletRouter;
+
+  const activeAdminWalletRouter = dependencies.walletController
+    ? createAdminWalletRouter(dependencies.walletController)
+    : defaultAdminWalletRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
-  app.use('/api/v1/wallet', walletRouter);
+  app.use('/api/v1/wallet', activeWalletRouter);
+  app.use('/api/v1/admin/wallets', activeAdminWalletRouter);
   app.use('/api/v1/market', marketRouter);
   app.use('/api/v1/trading', tradingRouter);
   app.use('/api/v1/portfolio', portfolioRouter);

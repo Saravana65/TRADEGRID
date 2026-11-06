@@ -4,12 +4,21 @@ import { createApp } from '../src/app';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { UsersController } from '../src/modules/users/users.controller';
-import { InMemoryUserRepository, InMemorySessionRepository } from './mocks/in-memory-repositories';
+import { WalletService } from '../src/modules/wallet/wallet.service';
+import {
+  InMemoryUserRepository,
+  InMemorySessionRepository,
+  InMemoryWalletRepository,
+  InMemoryLedgerRepository,
+} from './mocks/in-memory-repositories';
 import { generateTokens } from '../src/utils/jwt';
 
 describe('Authentication & Authorization Module', () => {
   let userRepo: InMemoryUserRepository;
   let sessionRepo: InMemorySessionRepository;
+  let walletRepo: InMemoryWalletRepository;
+  let ledgerRepo: InMemoryLedgerRepository;
+  let walletService: WalletService;
   let authService: AuthService;
   let authController: AuthController;
   let usersController: UsersController;
@@ -18,7 +27,15 @@ describe('Authentication & Authorization Module', () => {
   beforeEach(() => {
     userRepo = new InMemoryUserRepository();
     sessionRepo = new InMemorySessionRepository();
-    authService = new AuthService(userRepo, sessionRepo);
+    walletRepo = new InMemoryWalletRepository();
+    ledgerRepo = new InMemoryLedgerRepository();
+
+    const mockKnex = {
+      transaction: async (cb: any) => cb({}),
+    } as any;
+
+    walletService = new WalletService(walletRepo, ledgerRepo, mockKnex);
+    authService = new AuthService(userRepo, sessionRepo, walletService);
     authController = new AuthController(authService);
     usersController = new UsersController(userRepo);
 
