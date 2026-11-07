@@ -5,7 +5,7 @@
 * **Repository:** [https://github.com/Saravana65/TRADEGRID](https://github.com/Saravana65/TRADEGRID)
 * **Default Branch:** `main`
 * **Architecture:** Modular Monolith
-* **Current Status:** **Phase 5A.1 Realtime Integration & Financial Reliability Hardening Complete** (125 Passing Tests, Socket.IO Real-time Pipeline, FIFO Matching Queue, Exact Decimal Financial Math, Deterministic Order Book Recovery)
+* **Current Status:** **Phase 5B Autonomous Market-Making Bots & Simulated Liquidity Generators Complete** (144 Passing Tests, Autonomous Bot Fleet, Avellaneda-Stoikov Inventory Skewing, Multi-Tiered Risk Circuit Breakers, Admin Management Cockpit, Socket.IO `admin:bots` Channel, 100-Socket Multi-Bot Benchmark)
 
 ---
 
@@ -73,18 +73,29 @@ TRADEGRID/
   * **Per-Instrument FIFO Matching Queue:** Serialized order execution and cancellation per instrument ID (`InstrumentMatchingQueue`), eliminating race conditions without distributed locks.
   * **Deterministic Order Book Recovery:** Server bootstrap actively rebuilds in-memory limit order books from persistent MySQL (`status IN ('OPEN', 'PARTIALLY_FILLED')`) before listening.
   * **Risk Reservation Hardening:** Strict uncommitted cash verification for BUY orders and uncommitted share verification for SELL orders.
+* [x] **Phase 5B — Autonomous Market-Making Bots & Simulated Liquidity Generators:**
+  * **System-Owned Bot Accounts:** Isolated accounts (`role: 'BOT'`, locked password hash) with zero interactive login permissions.
+  * **Double-Entry Capital Accounting:** Virtual trading funds funded strictly via balanced ledger entries from `SYSTEM_EQUITY_ISSUANCE`.
+  * **Genuine Order Lifecycle:** Bots submit limit orders via `OrderService.createOrder()` using identical queues, matching, settlement, and Socket.IO events as human traders. Zero fake trades or RAM book bypasses.
+  * **4 Strategy Profiles:** `CONSERVATIVE_MM` (wide spread, small clips), `BALANCED_MM` (medium spread, continuous presence), `AGGRESSIVE_LP` (tight spread, high volume), `RANDOM_LIQUIDITY` (bounded spread/size jitter).
+  * **Avellaneda-Stoikov Inventory Skewing:** Quotes adjusted dynamically based on held vs max inventory to discourage accumulation and liquidate excess positions.
+  * **Multi-Tiered Risk Guard:** Daily loss limit circuit breaker, order quantity clamping, order notional limits, inventory caps, and total exposure controls.
+  * **Admin REST & Realtime APIs:** 9 admin endpoints under `/api/v1/admin/bots/*` and protected `admin:bots` WebSocket channel with guest/trader rejection.
+  * **Frontend Admin Bot Cockpit:** Interactive bot fleet dashboard, aggregate metrics cards, bot registration modal, emergency kill switch, and execution logs modal.
+  * **Terminal Visual Indicator:** Discrete `[BOT]` badge indicators displayed on bot orders and trade executions.
 
 ### Automated Testing Suite
-* **125 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 9 test suites:
+* **144 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 10 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
-  * `tests/wallet.test.ts` (15 tests)
+  * `tests/wallet.test.ts` (16 tests)
   * `tests/instruments.test.ts` (15 tests)
   * `tests/market.test.ts` (12 tests)
-  * `tests/orders.test.ts` (22 tests)
+  * `tests/orders.test.ts` (21 tests)
   * `tests/matching.test.ts` (16 tests)
   * `tests/websocket.test.ts` (15 tests, including 100-client load benchmark)
   * `tests/reliability.test.ts` (13 tests verifying Phase 5A.1 reliability invariants)
+  * `tests/bots.test.ts` (19 tests, verifying Phase 5B bot lifecycle, inventory skewing, risk controls, admin APIs, and 100-socket multi-bot load benchmark)
 
 ---
 

@@ -9,6 +9,7 @@ import { Badge } from '../components/common/Badge';
 import { Input } from '../components/common/Input';
 import { Table, TableColumn } from '../components/common/Table';
 import { formatDate, formatCurrency } from '../utils/formatters';
+import { AdminBotsTab } from '../components/admin/AdminBotsTab';
 import {
   ShieldAlert,
   Power,
@@ -21,6 +22,8 @@ import {
   X,
   ArrowUpRight,
   ArrowDownLeft,
+  Bot as BotIcon,
+  Sliders,
 } from 'lucide-react';
 
 interface ManagedUser {
@@ -57,6 +60,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'BOTS' | 'OPERATIONS'>('BOTS');
 
   // Wallet adjustment modal state
   const [targetUser, setTargetUser] = useState<ManagedUser | null>(null);
@@ -278,7 +282,37 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Global Exchange Halt / Circuit Breaker Desk */}
+      {/* Top Administration Tabs */}
+      <div className="flex items-center gap-2 border-b border-card-border pb-3">
+        <button
+          onClick={() => setActiveTab('BOTS')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
+            activeTab === 'BOTS'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-lg shadow-cyan-500/10'
+              : 'text-slate-400 hover:text-white bg-[#090D16] border border-card-border'
+          }`}
+        >
+          <BotIcon className="w-4 h-4 text-cyan-400" />
+          Autonomous Market-Making Bots (Phase 5B)
+        </button>
+        <button
+          onClick={() => setActiveTab('OPERATIONS')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
+            activeTab === 'OPERATIONS'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-lg shadow-amber-500/10'
+              : 'text-slate-400 hover:text-white bg-[#090D16] border border-card-border'
+          }`}
+        >
+          <Sliders className="w-4 h-4 text-amber-400" />
+          Exchange Operations & Virtual Ledger
+        </button>
+      </div>
+
+      {activeTab === 'BOTS' ? (
+        <AdminBotsTab />
+      ) : (
+        <>
+          {/* Global Exchange Halt / Circuit Breaker Desk */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card
           title="Circuit Breaker & Session State"
@@ -412,6 +446,8 @@ export const AdminDashboardPage: React.FC = () => {
       >
         <Table columns={columns} data={usersList} keyExtractor={(item) => item.id} />
       </Card>
+      </>
+      )}
 
       {/* Wallet Adjustment Modal */}
       {targetUser && (

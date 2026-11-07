@@ -151,3 +151,37 @@ To ensure market integrity and prevent artificial volume or self-collusion:
   * In-memory book removes the order ID.
   * Committed cash (for BUY limit orders) or committed shares (for SELL limit orders) are immediately released and made available for subsequent orders.
   * `order:cancelled` and `orderbook:depth_update` events are broadcast.
+
+---
+
+## 9. Simulated Liquidity & Autonomous Market-Making Bots (Phase 5B)
+
+Market liquidity in TRADEGRID is augmented by autonomous market-making bots operating directly through the standard matching and settlement engine:
+
+### 9.1 Core Matching Invariant: Zero In-Memory Injections
+* Bots **do not** write directly to the in-memory `OrderBook`.
+* Bots submit genuine limit orders through `OrderService.createOrder()`.
+* Every bot order undergoes standard pre-trade risk checks, purchasing power verification, and database persistence.
+* Orders pass through `InstrumentMatchingQueue` ensuring strict FIFO serialization with human trader orders.
+* Matches settle atomically through `SettlementService` posting balanced entries to `ledger_entries`.
+
+### 9.2 Strategy Profiles & Pricing Logic
+* **`CONSERVATIVE_MM`:** Places quotes at wider spreads ($\sim 30-50$ bps), small clip sizes, and conservative inventory thresholds.
+* **`BALANCED_MM`:** Balances spread width ($\sim 15-25$ bps) and order size to provide reliable two-sided liquidity.
+* **`AGGRESSIVE_LP`:** Quotes at tight spreads ($\sim 5-10$ bps) with larger volume to compress the bid-ask spread.
+* **`RANDOM_LIQUIDITY`:** Employs bounded pseudo-random noise to jitter quote sizes and spread distances, mimicking retail and institutional order flow.
+
+### 9.3 Avellaneda-Stoikov Inventory Skewing
+To avoid adverse selection and runaway inventory accumulation, bots adjust their reservation price based on accumulated position:
+$$\Delta_{skew} = \text{halfSpread} \times \left(\frac{Q_{inv}}{Q_{max}}\right) \times \text{skewFactor}$$
+$$P_{adj} = P_{ref} - \Delta_{skew}$$
+$$P_{bid} = P_{adj} - \text{halfSpread}, \quad P_{ask} = P_{adj} + \text{halfSpread}$$
+* When long inventory ($Q_{inv} > 0$): Quotes are shifted downwards, lowering bid competitiveness and attracting buyers to liquidate inventory.
+* At max inventory ($Q_{inv} \ge Q_{max}$): Bid quotes are suppressed entirely.
+* At zero/negative inventory ($Q_{inv} \le 0$): Ask quotes are suppressed to prevent naked shorting.
+
+### 9.4 Risk Circuit Breakers & Non-Overlapping Scheduler
+* **Execution Locks:** `BotScheduler` enforces an in-memory lock per bot so that ticks do not overlap.
+* **Stale Quote Prevention:** Quotation cycles cancel previous resting bot orders before posting updated levels.
+* **Daily Loss Limit:** If realized losses cross `maxDailyLoss`, the bot automatically trips circuit breaker and halts.
+* **Global & Single Kill Switches:** Immediate administrative kill cancels all resting bot orders in both database and in-memory books.

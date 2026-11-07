@@ -530,9 +530,38 @@ Clients send `subscribe` and `unsubscribe` events with `{ channel: "<room_name>"
 
 ---
 
-## 11. Future Roadmap (Phase 5B & Phase 5C)
+## 11. Market-Making Bots REST APIs (`/api/v1/admin/bots`)
 
-- `/api/v1/admin/market/shock`: Simulated volatility injection and crash generator.
-- `/api/v1/bots`: Automated market maker and algorithmic liquidity bots.
+All endpoints in this group require role `ADMIN`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`    | `/api/v1/admin/bots` | List all registered market-making bots with status, strategy, and balances. |
+| `GET`    | `/api/v1/admin/bots/metrics` | System-wide aggregate metrics (total bots, working capital, open orders, P&L). |
+| `POST`   | `/api/v1/admin/bots` | Register and fund a new autonomous bot with system account and double-entry grant. |
+| `GET`    | `/api/v1/admin/bots/:id` | Fetch single bot details, strategy risk configuration, assigned instruments, and metrics. |
+| `PUT`    | `/api/v1/admin/bots/:id` | Update bot metadata, assigned instruments, or risk limits. |
+| `POST`   | `/api/v1/admin/bots/:id/enable` | Activate / resume an active or paused bot. |
+| `POST`   | `/api/v1/admin/bots/:id/disable` | Pause bot quotation cycles. |
+| `POST`   | `/api/v1/admin/bots/:id/kill` | Emergency kill switch: disable bot and cancel all resting limit orders. |
+| `POST`   | `/api/v1/admin/bots/kill-all` | Global emergency kill switch: kill all active bots and cancel all resting orders. |
+| `POST`   | `/api/v1/admin/bots/:id/trigger` | Manually trigger an out-of-cycle quote generation cycle. |
+| `GET`    | `/api/v1/admin/bots/:id/logs` | Fetch timestamped execution audit logs with action filters. |
+
+### 11.1 Real-Time Bot Channel (`admin:bots`)
+Restricted exclusively to authenticated administrator sockets.
+
+| Event Name | Payload | Description |
+|---|---|---|
+| `bot:status` | `{ botId, status, timestamp }` | Broadcast when bot is enabled, paused, or killed. |
+| `bot:order_generated` | `{ botId, orderId, instrumentId, side, price, quantity, timestamp }` | Broadcast when a genuine limit order is submitted to the matching engine. |
+| `bot:execution` | `{ botId, tradeReference, instrumentId, side, price, quantity, timestamp }` | Broadcast when a bot order matches against a market participant and settles. |
+| `bot:risk_warning` | `{ botId, rule, message, timestamp }` | Broadcast when a risk circuit breaker is triggered or quote is clamped. |
+
+---
+
+## 12. Future Roadmap (Phase 5C & Beyond)
+
+- `/api/v1/admin/market/shock`: Simulated volatility injection and catalyst engine.
 - `/api/v1/contests`: Educational trading competitions and tournaments.
 - `/api/v1/social/chat`: Symbol-specific and global trader chat rooms.

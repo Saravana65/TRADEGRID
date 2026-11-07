@@ -3,7 +3,7 @@
  * Shared across Backend, Frontend, and Micro-packages.
  */
 
-export type UserRole = 'TRADER' | 'ADMIN';
+export type UserRole = 'TRADER' | 'ADMIN' | 'BOT';
 export type UserStatus = 'ACTIVE' | 'SUSPENDED';
 
 export interface User {
@@ -305,6 +305,7 @@ export interface Order {
   limitPrice: string | null; // DECIMAL(18,4) represented as string, null for market orders
   status: OrderStatus;
   idempotencyKey: string | null;
+  isBot?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -380,6 +381,7 @@ export interface Trade {
   sellerFee: string;
   status: TradeStatus;
   settlementTransactionId?: number | null;
+  isBot?: boolean;
   createdAt: string;
 }
 
@@ -500,6 +502,7 @@ export interface TradeTapeUpdateEvent {
   tradeAmount: string;
   aggressorSide?: OrderSide;
   dataClassification: DataClassification;
+  isBot?: boolean;
   executedAt: string;
 }
 
@@ -533,7 +536,8 @@ export type WebSocketChannel =
   | `market:${string}`
   | `orderbook:${string}`
   | `trades:${string}`
-  | `user:${number}`;
+  | `user:${number}`
+  | 'admin:bots';
 
 export interface SubscriptionRequest {
   channel: string;
@@ -544,5 +548,163 @@ export interface SubscriptionResponse {
   status: 'subscribed' | 'unsubscribed' | 'error';
   message?: string;
 }
+
+// ============================================================================
+// Phase 5B: Autonomous Market-Making Bots & Simulated Liquidity Generator Types
+// ============================================================================
+
+export type BotStrategyType =
+  | 'CONSERVATIVE_MM'
+  | 'BALANCED_MM'
+  | 'AGGRESSIVE_LP'
+  | 'RANDOM_LIQUIDITY';
+
+export type BotStatus = 'ACTIVE' | 'PAUSED' | 'KILLED';
+
+export interface BotConfiguration {
+  id?: number;
+  botId: number;
+  quoteRefreshIntervalMs: number;
+  spreadBps: number;
+  orderQuantity: string;
+  maxOrderQuantity: string;
+  maxOrderNotional: string;
+  maxInventoryPerInstrument: string;
+  maxTotalExposure: string;
+  maxOpenOrders: number;
+  maxDailyLoss: string;
+  skewFactor: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BotInstrument {
+  id?: number;
+  botId: number;
+  instrumentId: number;
+  symbol?: string;
+  isEnabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Bot {
+  id: number;
+  userId: number;
+  name: string;
+  strategyType: BotStrategyType;
+  status: BotStatus;
+  allocatedCapital: string;
+  currentCashBalance?: string;
+  totalInventory?: string;
+  openOrdersCount?: number;
+  realizedPnL?: string;
+  unrealizedPnL?: string;
+  configuration?: BotConfiguration;
+  instruments?: BotInstrument[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BotLogAction =
+  | 'QUOTE_CYCLE'
+  | 'ORDER_SUBMITTED'
+  | 'ORDER_CANCELLED'
+  | 'RISK_REJECTED'
+  | 'KILL_SWITCH'
+  | 'STATUS_CHANGE'
+  | 'ERROR';
+
+export type BotLogStatus = 'SUCCESS' | 'WARNING' | 'FAILURE';
+
+export interface BotExecutionLog {
+  id: number;
+  botId: number;
+  instrumentId: number | null;
+  symbol?: string;
+  action: BotLogAction;
+  details: Record<string, unknown> | string;
+  status: BotLogStatus;
+  createdAt: string;
+}
+
+export interface BotMetricsSummary {
+  totalBots: number;
+  activeBots: number;
+  pausedBots: number;
+  killedBots: number;
+  totalAllocatedCapital: string;
+  totalActiveCapital: string;
+  totalOpenBotOrders: number;
+  totalBotTradesToday: number;
+  totalBotVolumeToday: string;
+  totalRealizedPnL: string;
+}
+
+export interface BotMetrics {
+  botId: number;
+  name: string;
+  strategyType: BotStrategyType;
+  status: BotStatus;
+  allocatedCapital: string;
+  availableCash: string;
+  inventoryByInstrument: Record<string, { quantity: string; averagePrice: string }>;
+  openOrdersCount: number;
+  totalTrades: number;
+  realizedPnL: string;
+  dailyRealizedLoss: string;
+  lastExecutionAt?: string;
+}
+
+// Bot Real-Time WebSocket Events
+export interface BotStatusEvent {
+  eventId: string;
+  botId: number;
+  name: string;
+  strategyType: BotStrategyType;
+  status: BotStatus;
+  reason?: string;
+  timestamp: string;
+}
+
+export interface BotOrderGeneratedEvent {
+  eventId: string;
+  botId: number;
+  name: string;
+  orderId: number;
+  instrumentId: number;
+  symbol: string;
+  side: OrderSide;
+  orderType: OrderType;
+  quantity: string;
+  limitPrice: string | null;
+  timestamp: string;
+}
+
+export interface BotExecutionEvent {
+  eventId: string;
+  botId: number;
+  tradeId: number;
+  tradeReference: string;
+  instrumentId: number;
+  symbol: string;
+  price: string;
+  quantity: string;
+  tradeAmount: string;
+  side: 'BUY' | 'SELL';
+  timestamp: string;
+}
+
+export interface BotRiskWarningEvent {
+  eventId: string;
+  botId: number;
+  instrumentId?: number;
+  symbol?: string;
+  ruleBreached: string;
+  details: string;
+  actionTaken: 'QUOTE_SKIPPED' | 'BOT_PAUSED' | 'KILLED';
+  timestamp: string;
+}
+
 
 

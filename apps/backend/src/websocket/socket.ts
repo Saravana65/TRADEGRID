@@ -56,6 +56,7 @@ export function initWebSocket(httpServer: HttpServer): Server {
       const payload = verifyAccessToken(token);
       socket.data.user = payload;
       socket.data.userId = Number(payload.sub);
+      socket.data.userRole = payload.role;
       socket.data.isGuest = false;
       return next();
     } catch (err: any) {
@@ -136,6 +137,18 @@ export function initWebSocket(httpServer: HttpServer): Server {
         if (socket.data.isGuest || socket.data.userId !== targetUserId) {
           socketMetrics.rejectedSubscriptions += 1;
           const errMsg = 'Unauthorized: You cannot subscribe to another user private room';
+          logger.warn(`[WS] Unauthorized subscription attempt by ${clientIdentifier} to ${channel}`);
+          socket.emit('error:unauthorized', { channel, message: errMsg });
+          if (ack) ack({ status: 'error', message: errMsg, channel });
+          return;
+        }
+      }
+
+      // Authorization guard for administrative bot rooms
+      if (channel === 'admin:bots') {
+        if (socket.data.isGuest || socket.data.userRole !== 'ADMIN') {
+          socketMetrics.rejectedSubscriptions += 1;
+          const errMsg = 'Unauthorized: Only exchange administrators can subscribe to bot channels';
           logger.warn(`[WS] Unauthorized subscription attempt by ${clientIdentifier} to ${channel}`);
           socket.emit('error:unauthorized', { channel, message: errMsg });
           if (ack) ack({ status: 'error', message: errMsg, channel });

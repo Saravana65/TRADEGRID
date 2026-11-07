@@ -400,11 +400,130 @@ export const subscriptionSchema = z.object({
     .min(3, 'Channel name is too short')
     .max(64, 'Channel name is too long')
     .regex(
-      /^(market|orderbook|trades):[A-Za-z0-9_-]+$|^user:\d+$/,
-      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", or "user:USER_ID"'
+      /^(market|orderbook|trades):[A-Za-z0-9_-]+$|^user:\d+$|^admin:bots$/,
+      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", "user:USER_ID", or "admin:bots"'
     ),
 });
 
 export type SubscriptionInput = z.infer<typeof subscriptionSchema>;
+
+// ============================================================================
+// Phase 5B: Autonomous Market-Making Bots Validation Schemas
+// ============================================================================
+
+export const botStrategyTypeSchema = z.enum([
+  'CONSERVATIVE_MM',
+  'BALANCED_MM',
+  'AGGRESSIVE_LP',
+  'RANDOM_LIQUIDITY',
+]);
+
+export const botConfigurationSchema = z.object({
+  quoteRefreshIntervalMs: z
+    .number()
+    .int()
+    .min(500, 'Quote refresh interval must be at least 500ms')
+    .max(60000, 'Quote refresh interval cannot exceed 60000ms')
+    .optional(),
+  spreadBps: z
+    .number()
+    .min(1, 'Spread must be at least 1 basis point')
+    .max(2000, 'Spread cannot exceed 2000 basis points')
+    .optional(),
+  orderQuantity: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/, 'Order quantity must be a positive decimal with up to 4 decimal places')
+    .refine((val) => parseFloat(val) > 0, 'Order quantity must be greater than 0')
+    .optional(),
+  maxOrderQuantity: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .refine((val) => parseFloat(val) > 0)
+    .optional(),
+  maxOrderNotional: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .refine((val) => parseFloat(val) > 0)
+    .optional(),
+  maxInventoryPerInstrument: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .refine((val) => parseFloat(val) >= 0)
+    .optional(),
+  maxTotalExposure: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .refine((val) => parseFloat(val) > 0)
+    .optional(),
+  maxOpenOrders: z.number().int().min(1).max(50).optional(),
+  maxDailyLoss: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .refine((val) => parseFloat(val) > 0)
+    .optional(),
+  skewFactor: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional(),
+});
+
+export const createBotSchema = z.object({
+  name: z
+    .string({ required_error: 'Bot name is required' })
+    .trim()
+    .min(3, 'Bot name must be at least 3 characters')
+    .max(50, 'Bot name cannot exceed 50 characters')
+    .regex(/^[a-zA-Z0-9_\-\s]+$/, 'Bot name may only contain alphanumeric characters, hyphens, and underscores'),
+  strategyType: botStrategyTypeSchema,
+  allocatedCapital: z
+    .string({ required_error: 'Allocated virtual capital is required' })
+    .regex(/^\d+(\.\d{1,4})?$/, 'Allocated capital must be a valid positive amount')
+    .refine((val) => parseFloat(val) >= 1000, 'Allocated capital must be at least $1,000.0000'),
+  instrumentIds: z
+    .array(z.number().int().positive())
+    .min(1, 'At least one instrument must be assigned to the bot'),
+  initialInventoryShares: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional()
+    .default('100.0000'),
+  configuration: botConfigurationSchema.optional(),
+});
+
+export type CreateBotInput = z.infer<typeof createBotSchema>;
+
+export const updateBotSchema = z.object({
+  name: z.string().trim().min(3).max(50).optional(),
+  strategyType: botStrategyTypeSchema.optional(),
+  instrumentIds: z.array(z.number().int().positive()).min(1).optional(),
+  configuration: botConfigurationSchema.optional(),
+});
+
+export type UpdateBotInput = z.infer<typeof updateBotSchema>;
+
+export const botIdParamSchema = z.object({
+  id: z
+    .union([z.string(), z.number()])
+    .transform((val) => parseInt(String(val), 10))
+    .refine((val) => !isNaN(val) && val > 0, 'Invalid bot ID parameter'),
+});
+
+export type BotIdParamInput = z.infer<typeof botIdParamSchema>;
+
+export const botLogQuerySchema = z.object({
+  page: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.max(1, parseInt(String(val), 10) || 1) : 1)),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(String(val), 10) || 20)) : 20)),
+  status: z.enum(['SUCCESS', 'WARNING', 'FAILURE']).optional(),
+  action: z.string().optional(),
+});
+
+export type BotLogQueryInput = z.infer<typeof botLogQuerySchema>;
+
 
 

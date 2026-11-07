@@ -1095,3 +1095,205 @@ export class InMemoryPositionRepository implements IPositionRepository {
   }
 }
 
+// ============================================================================
+// Phase 5B: In-Memory Bot Repository
+// ============================================================================
+
+import {
+  IBotRepository,
+  CreateBotData,
+  CreateConfigData,
+  CreateLogData,
+} from '../../src/modules/bots/bot.repository';
+import {
+  BotRecord,
+  BotConfigurationRecord,
+  BotInstrumentRecord,
+  BotExecutionLogRecord,
+  BotStatus,
+  BotLogStatus,
+} from '../../src/modules/bots/bot.types';
+
+export class InMemoryBotRepository implements IBotRepository {
+  public bots: BotRecord[] = [];
+  public configurations: BotConfigurationRecord[] = [];
+  public instruments: BotInstrumentRecord[] = [];
+  public logs: BotExecutionLogRecord[] = [];
+
+  private nextBotId = 1;
+  private nextConfigId = 1;
+  private nextInstId = 1;
+  private nextLogId = 1;
+
+  async createBot(data: CreateBotData): Promise<BotRecord> {
+    const record: BotRecord = {
+      id: this.nextBotId++,
+      user_id: data.user_id,
+      name: data.name,
+      strategy_type: data.strategy_type,
+      status: data.status || 'PAUSED',
+      allocated_capital: data.allocated_capital,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.bots.push(record);
+    return { ...record };
+  }
+
+  async createConfiguration(data: CreateConfigData): Promise<BotConfigurationRecord> {
+    const record: BotConfigurationRecord = {
+      id: this.nextConfigId++,
+      bot_id: data.bot_id,
+      quote_refresh_interval_ms: data.quote_refresh_interval_ms || 5000,
+      spread_bps: data.spread_bps || '50.00',
+      order_quantity: data.order_quantity || '10.0000',
+      max_order_quantity: data.max_order_quantity || '50.0000',
+      max_order_notional: data.max_order_notional || '10000.0000',
+      max_inventory_per_instrument: data.max_inventory_per_instrument || '200.0000',
+      max_total_exposure: data.max_total_exposure || '50000.0000',
+      max_open_orders: data.max_open_orders || 10,
+      max_daily_loss: data.max_daily_loss || '5000.0000',
+      skew_factor: data.skew_factor || '0.1000',
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.configurations.push(record);
+    return { ...record };
+  }
+
+  async createInstruments(botId: number, instrumentIds: number[]): Promise<BotInstrumentRecord[]> {
+    const created: BotInstrumentRecord[] = [];
+    for (const instId of instrumentIds) {
+      const record: BotInstrumentRecord = {
+        id: this.nextInstId++,
+        bot_id: botId,
+        instrument_id: instId,
+        is_enabled: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      this.instruments.push(record);
+      created.push(record);
+    }
+    return created.map((r) => ({ ...r }));
+  }
+
+  async findById(id: number): Promise<BotRecord | null> {
+    const found = this.bots.find((b) => b.id === id);
+    return found ? { ...found } : null;
+  }
+
+  async findByUserId(userId: number): Promise<BotRecord | null> {
+    const found = this.bots.find((b) => b.user_id === userId);
+    return found ? { ...found } : null;
+  }
+
+  async findByName(name: string): Promise<BotRecord | null> {
+    const found = this.bots.find((b) => b.name === name);
+    return found ? { ...found } : null;
+  }
+
+  async findAll(options?: { status?: BotStatus }): Promise<BotRecord[]> {
+    let result = this.bots;
+    if (options?.status) {
+      result = result.filter((b) => b.status === options.status);
+    }
+    return result.map((b) => ({ ...b }));
+  }
+
+  async findActiveBots(): Promise<BotRecord[]> {
+    return this.findAll({ status: 'ACTIVE' });
+  }
+
+  async findConfigurationByBotId(botId: number): Promise<BotConfigurationRecord | null> {
+    const found = this.configurations.find((c) => c.bot_id === botId);
+    return found ? { ...found } : null;
+  }
+
+  async findInstrumentsByBotId(botId: number): Promise<BotInstrumentRecord[]> {
+    return this.instruments.filter((i) => i.bot_id === botId).map((i) => ({ ...i }));
+  }
+
+  async updateStatus(id: number, status: BotStatus): Promise<void> {
+    const bot = this.bots.find((b) => b.id === id);
+    if (bot) {
+      bot.status = status;
+      bot.updated_at = new Date();
+    }
+  }
+
+  async updateConfiguration(botId: number, data: Partial<CreateConfigData>): Promise<void> {
+    let config = this.configurations.find((c) => c.bot_id === botId);
+    if (config) {
+      if (data.quote_refresh_interval_ms !== undefined) config.quote_refresh_interval_ms = data.quote_refresh_interval_ms;
+      if (data.spread_bps !== undefined) config.spread_bps = data.spread_bps;
+      if (data.order_quantity !== undefined) config.order_quantity = data.order_quantity;
+      if (data.max_order_quantity !== undefined) config.max_order_quantity = data.max_order_quantity;
+      if (data.max_order_notional !== undefined) config.max_order_notional = data.max_order_notional;
+      if (data.max_inventory_per_instrument !== undefined) config.max_inventory_per_instrument = data.max_inventory_per_instrument;
+      if (data.max_total_exposure !== undefined) config.max_total_exposure = data.max_total_exposure;
+      if (data.max_open_orders !== undefined) config.max_open_orders = data.max_open_orders;
+      if (data.max_daily_loss !== undefined) config.max_daily_loss = data.max_daily_loss;
+      if (data.skew_factor !== undefined) config.skew_factor = data.skew_factor;
+      config.updated_at = new Date();
+    }
+  }
+
+  async updateInstruments(botId: number, instrumentIds: number[]): Promise<void> {
+    this.instruments = this.instruments.filter((i) => i.bot_id !== botId);
+    if (instrumentIds.length > 0) {
+      await this.createInstruments(botId, instrumentIds);
+    }
+  }
+
+  async createLog(data: CreateLogData): Promise<BotExecutionLogRecord> {
+    const record: BotExecutionLogRecord = {
+      id: this.nextLogId++,
+      bot_id: data.bot_id,
+      instrument_id: data.instrument_id || null,
+      action: data.action,
+      details: data.details,
+      status: data.status || 'SUCCESS',
+      created_at: new Date(),
+    };
+    this.logs.unshift(record); // newest first
+    return { ...record };
+  }
+
+  async findLogs(
+    botId: number,
+    options?: { limit?: number; offset?: number; status?: BotLogStatus; action?: string }
+  ): Promise<{ logs: BotExecutionLogRecord[]; total: number }> {
+    let filtered = this.logs.filter((l) => l.bot_id === botId);
+    if (options?.status) {
+      filtered = filtered.filter((l) => l.status === options.status);
+    }
+    if (options?.action) {
+      filtered = filtered.filter((l) => l.action === options.action);
+    }
+
+    const total = filtered.length;
+    const limit = options?.limit || 20;
+    const offset = options?.offset || 0;
+    const paged = filtered.slice(offset, offset + limit);
+
+    return { logs: paged.map((l) => ({ ...l })), total };
+  }
+
+  async isBotUser(userId: number): Promise<boolean> {
+    return this.bots.some((b) => b.user_id === userId);
+  }
+
+  clear(): void {
+    this.bots = [];
+    this.configurations = [];
+    this.instruments = [];
+    this.logs = [];
+    this.nextBotId = 1;
+    this.nextConfigId = 1;
+    this.nextInstId = 1;
+    this.nextLogId = 1;
+  }
+}
+
+

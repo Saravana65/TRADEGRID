@@ -502,16 +502,22 @@ describe('Phase 5A: Real-Time WebSocket Infrastructure', () => {
       const client = await createClient();
 
       let rateLimited = false;
-      client.on('error:rate_limited', () => {
-        rateLimited = true;
+      const rateLimitPromise = new Promise<void>((resolve) => {
+        client.on('error:rate_limited', () => {
+          rateLimited = true;
+          resolve();
+        });
       });
 
-      // Submit 61 subscription requests rapidly
-      for (let i = 0; i < 62; i++) {
+      // Submit 65 subscription requests rapidly
+      for (let i = 0; i < 65; i++) {
         client.emit('subscribe', { channel: 'market:AAPL' });
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await Promise.race([
+        rateLimitPromise,
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
 
       expect(rateLimited).toBe(true);
       expect(socketMetrics.rejectedSubscriptions).toBeGreaterThan(0);

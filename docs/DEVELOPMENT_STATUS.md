@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 5A.1 Financial Reliability & Hardened Matching Integration Complete ✅
-* **Previous Phase:** Phase 5A Real-Time WebSocket Infrastructure Complete ✅
-* **Next Target:** Phase 5B (Automated Market Maker & Trading Bot Ecosystem)
+* **Current Status:** Phase 5B Autonomous Market-Making Bots & Simulated Liquidity Generators Complete ✅
+* **Previous Phase:** Phase 5A.1 Financial Reliability & Hardened Matching Integration Complete ✅
+* **Next Target:** Phase 5C (Trading Competitions, Social Leaderboards & Chat Ecosystem)
 
 ---
 
@@ -137,11 +137,32 @@
 
 ---
 
-### H. Future Phases Roadmap
+### H. Phase 5B: Autonomous Market-Making Bots & Simulated Liquidity Generators (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Autonomous Bot Engine Subsystem** | ✅ Completed | Full modular bot subsystem in `apps/backend/src/modules/bots/` with scheduler, engine, service, controller, repository, and strategy runners. |
+| **System-Owned Bot Accounts** | ✅ Completed | Dedicated virtual bot users (`role: 'BOT'`, locked password hash) isolated from human traders. Zero login permissions. |
+| **Double-Entry Virtual Capital** | ✅ Completed | Initial bot capital funded strictly via balanced double-entry ledger grants from `SYSTEM_EQUITY_ISSUANCE` into bot's virtual wallet. |
+| **Genuine Order Execution Lifecycle** | ✅ Completed | Bots place limit orders via `OrderService.createOrder()`. Full buying power reservations, queue serialization, matching engine execution, atomic double-entry settlement, and post-commit Socket.IO events. Zero RAM injections or fabricated trades. |
+| **Strategy Profiles** | ✅ Completed | 4 operational profiles: `CONSERVATIVE_MM` (wide spread, tight inventory limits), `BALANCED_MM` (moderate spread, balanced volume), `AGGRESSIVE_LP` (tight spread, high volume), `RANDOM_LIQUIDITY` (bounded spread/size jitter). |
+| **Avellaneda-Stoikov Inventory Skewing** | ✅ Completed | Dynamic mathematical price skewing $\Delta_{skew} = \text{halfSpread} \times (Q_{inv} / Q_{max}) \times \text{skewFactor}$. Suppresses bids at inventory cap; suppresses asks when inventory is zero. |
+| **Comprehensive Risk Management** | ✅ Completed | `BotRiskService` enforcing daily loss limit circuit breaker, order quantity caps, order notional caps, inventory limits, open orders limits, and total exposure caps. |
+| **Tick Scheduler & Non-Overlapping Locks** | ✅ Completed | `BotScheduler` running periodic cycles with per-bot execution locks, skipping halted instruments and stale market quotes. |
+| **Admin REST API Suite** | ✅ Completed | 9 endpoints under `/api/v1/admin/bots/*` guarded by `requireRole('ADMIN')` for bot creation, updates, enable, disable, single kill, global kill-all, quote triggering, logs, and aggregate metrics. |
+| **Socket.IO `admin:bots` Channel** | ✅ Completed | Real-time streaming of `bot:status`, `bot:order_generated`, `bot:execution`, and `bot:risk_warning` restricted exclusively to authorized administrators. Guests and traders rejected with `error:unauthorized`. |
+| **Frontend Bot Management Desk** | ✅ Completed | Integrated Admin Cockpit with tabs, aggregate metrics cards (Bots, Active Capital, Open Orders, Realized P&L), Bot registration modal, Emergency Kill-All button, per-bot controls, and timestamped Execution Logs modal. |
+| **Terminal Visual Bot Indicator** | ✅ Completed | Discrete `[BOT]` badge indicators displayed on bot orders in the Trade Tape, Active Orders table, and Order History table. |
+| **High-Concurrency Load Benchmark** | ✅ Completed | Verified 4 active bots quoting across multiple instruments with 100 concurrent connected WebSocket clients receiving depth updates with 100% packet delivery rate. |
+| **Monorepo Automated Test Suite** | ✅ Completed | **144 Vitest tests passing across 10 test suites with 100% pass rate** (19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### I. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Simulated Volatility & Trading Bots** | Phase 5B | Planned |
-| **Admin News Catalyst Injector** | Phase 5B | Planned |
+| **Admin News Catalyst Injector** | Phase 5C | Planned |
 | **Trading Competitions & Leaderboards** | Phase 5C | Planned |
 | **Global & Symbol Chat Rooms** | Phase 5C | Planned |
+| **Achievement Badges & Milestones** | Phase 5D | Planned |

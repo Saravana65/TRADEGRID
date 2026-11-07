@@ -601,8 +601,13 @@ export const TradingTerminalPage: React.FC = () => {
                           key={trd.id}
                           className="grid grid-cols-3 py-1 px-1 rounded hover:bg-slate-800/40 tabular-nums items-center text-[11px]"
                         >
-                          <span className="font-semibold text-emerald-400">
+                          <span className="font-semibold text-emerald-400 flex items-center gap-1">
                             {formatCurrency(trd.price)}
+                            {(trd as any).isBot && (
+                              <span className="px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                                BOT
+                              </span>
+                            )}
                           </span>
                           <span className="text-right text-slate-200">
                             {parseFloat(trd.quantity).toFixed(2)}
@@ -900,7 +905,16 @@ export const TradingTerminalPage: React.FC = () => {
                   {openOrders.map((ord) => (
                     <tr key={ord.id} className="hover:bg-slate-800/20 transition-colors">
                       <td className="py-2.5 px-3 text-slate-400">#{ord.id}</td>
-                      <td className="py-2.5 px-3 font-bold text-white">{ord.symbol || '---'}</td>
+                      <td className="py-2.5 px-3 font-bold text-white">
+                        <div className="flex items-center gap-1.5">
+                          <span>{ord.symbol || '---'}</span>
+                          {(ord as any).isBot && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                              BOT
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-2.5 px-3">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -981,7 +995,16 @@ export const TradingTerminalPage: React.FC = () => {
                 {orderHistory.map((ord) => (
                   <tr key={ord.id} className="hover:bg-slate-800/20 transition-colors">
                     <td className="py-2.5 px-3 text-slate-400">#{ord.id}</td>
-                    <td className="py-2.5 px-3 font-bold text-white">{ord.symbol || '---'}</td>
+                    <td className="py-2.5 px-3 font-bold text-white">
+                      <div className="flex items-center gap-1.5">
+                        <span>{ord.symbol || '---'}</span>
+                        {(ord as any).isBot && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            BOT
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-2.5 px-3">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${

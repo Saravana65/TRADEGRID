@@ -547,3 +547,61 @@ Tracks cumulative equity inventory and weighted-average cost basis per trader:
    ```
 4. **Deterministic In-Memory Restoration:**
    On server bootstrap, `OrderBookRecoveryService` executes `SELECT * FROM orders WHERE status IN ('OPEN', 'PARTIALLY_FILLED')` to populate books before opening traffic.
+
+---
+
+## 11. Phase 5B: Market-Making Bots Schema
+
+Migration `007_create_bots_tables.ts` introduces autonomous market-making bot persistence:
+
+### 11.1 `bots` Table
+Defines bot identity and virtual system account linkage:
+* `id` (INT, PK, Auto-increment)
+* `user_id` (INT, FK -> `users.id`, Unique) — Dedicated system user account (`role = 'BOT'`)
+* `name` (VARCHAR(64), Unique) — Human-readable bot identifier (e.g. `Apex Alpha MM`)
+* `strategy_type` (ENUM: `CONSERVATIVE_MM`, `BALANCED_MM`, `AGGRESSIVE_LP`, `RANDOM_LIQUIDITY`)
+* `status` (ENUM: `ACTIVE`, `PAUSED`, `KILLED`)
+* `allocated_capital` (DECIMAL(19,4)) — Virtual funding granted via `SYSTEM_EQUITY_ISSUANCE`
+* `created_at` (TIMESTAMP)
+* `updated_at` (TIMESTAMP)
+
+### 11.2 `bot_configurations` Table
+Defines strategy execution intervals and multi-tiered risk parameters:
+* `id` (INT, PK, Auto-increment)
+* `bot_id` (INT, FK -> `bots.id`, Unique)
+* `quote_refresh_interval_ms` (INT, default 3000) — Frequency of quotation loop
+* `spread_bps` (INT, default 20) — Bid/ask spread in basis points (1 bps = 0.01%)
+* `order_quantity` (DECIMAL(18,4), default 10.0000) — Nominal quote size
+* `max_order_quantity` (DECIMAL(18,4), default 50.0000) — Hard cap on single order quantity
+* `max_order_notional` (DECIMAL(19,4), default 10000.0000) — Hard cap on single order value
+* `max_inventory_per_instrument` (DECIMAL(18,4), default 500.0000) — Maximum shares held per stock
+* `max_total_exposure` (DECIMAL(19,4), default 150000.0000) — Aggregate portfolio exposure ceiling
+* `max_open_orders` (INT, default 8) — Ceiling on simultaneous resting orders
+* `max_daily_loss` (DECIMAL(19,4), default 5000.0000) — Daily loss circuit breaker ceiling
+* `skew_factor` (DECIMAL(5,4), default 1.0000) — Avellaneda-Stoikov inventory skew intensity
+* `created_at` (TIMESTAMP)
+* `updated_at` (TIMESTAMP)
+
+### 11.3 `bot_instruments` Table
+Tracks instrument eligibility and activation per bot:
+* `id` (INT, PK, Auto-increment)
+* `bot_id` (INT, FK -> `bots.id`)
+* `instrument_id` (INT, FK -> `instruments.id`)
+* `is_enabled` (BOOLEAN, default true)
+* `created_at` (TIMESTAMP)
+* `updated_at` (TIMESTAMP)
+* Composite Unique Index: `UNIQUE(bot_id, instrument_id)`
+
+### 11.4 `bot_execution_logs` Table
+Immutable chronological audit trail of all quotation cycles and risk assessments:
+* `id` (BIGINT, PK, Auto-increment)
+* `bot_id` (INT, FK -> `bots.id`, Indexed)
+* `instrument_id` (INT, FK -> `instruments.id`, Nullable)
+* `action` (ENUM: `QUOTE_CYCLE`, `ORDER_SUBMITTED`, `ORDER_CANCELLED`, `RISK_REJECTED`, `KILL_SWITCH`, `STATUS_CHANGE`, `ERROR`)
+* `details` (JSON) — Execution metadata, rejection reasons, or quote details
+* `status` (ENUM: `SUCCESS`, `WARNING`, `FAILURE`)
+* `created_at` (TIMESTAMP, Indexed)
+
+### 11.5 `orders.is_bot` Flag
+Indexed boolean flag added to `orders` table to distinguish bot liquidity from human traders:
+* `is_bot` (BOOLEAN, default false, Indexed)

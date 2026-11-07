@@ -16,6 +16,10 @@ import {
   PrivateTradeExecutedEvent,
   OrderLifecycleEvent,
   PortfolioUpdatedEvent,
+  BotStatusEvent,
+  BotOrderGeneratedEvent,
+  BotExecutionEvent,
+  BotRiskWarningEvent,
 } from '@tradegrid/shared-types';
 
 export interface IRealtimeService {
@@ -54,6 +58,10 @@ export interface IRealtimeService {
   emitOrderCancelled(order: Order): void;
   emitOrderRejected(userId: number, reason: string, orderId?: number, idempotencyKey?: string): void;
   emitPortfolioUpdated(userId: number, summary?: any): void;
+  emitBotStatus?(event: BotStatusEvent): void;
+  emitBotOrderGenerated?(event: BotOrderGeneratedEvent): void;
+  emitBotExecution?(event: BotExecutionEvent): void;
+  emitBotRiskWarning?(event: BotRiskWarningEvent): void;
   setIO(io: Server): void;
 }
 
@@ -398,6 +406,58 @@ export class RealtimeService implements IRealtimeService {
       logger.debug(`[WS] Emitted portfolio:updated to user:${userId}`);
     } catch (err: any) {
       logger.error(`[WS] Failed to emit portfolio updated: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits bot status changes to the administrative bot room admin:bots.
+   */
+  emitBotStatus(event: BotStatusEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to('admin:bots').emit('bot:status', event);
+      logger.debug(`[WS] Emitted bot:status to admin:bots for Bot #${event.botId} (${event.status})`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit bot status: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits bot order generation events to admin:bots.
+   */
+  emitBotOrderGenerated(event: BotOrderGeneratedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to('admin:bots').emit('bot:order_generated', event);
+      logger.debug(`[WS] Emitted bot:order_generated to admin:bots for Bot #${event.botId}: Order #${event.orderId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit bot order generated: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits bot execution events to admin:bots.
+   */
+  emitBotExecution(event: BotExecutionEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to('admin:bots').emit('bot:execution', event);
+      logger.debug(`[WS] Emitted bot:execution to admin:bots for Bot #${event.botId}: Trade #${event.tradeId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit bot execution: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits bot risk warnings and circuit breakers to admin:bots.
+   */
+  emitBotRiskWarning(event: BotRiskWarningEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to('admin:bots').emit('bot:risk_warning', event);
+      logger.warn(`[WS] Emitted bot:risk_warning to admin:bots for Bot #${event.botId}: ${event.ruleBreached}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit bot risk warning: ${err.message}`);
     }
   }
 }

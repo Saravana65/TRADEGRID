@@ -8,7 +8,7 @@
     "build": "tsc",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "test": "vitest run",
+    "test": "vitest run --fileParallelism=false",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "migrate:latest": "knex --knexfile src/database/knexfile.ts migrate:latest",

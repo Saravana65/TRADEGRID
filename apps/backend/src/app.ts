@@ -44,6 +44,11 @@ import {
   createPortfolioRouter,
   PortfolioController,
 } from './modules/portfolio';
+import {
+  botRouter as defaultBotRouter,
+  createBotRouter,
+  BotController,
+} from './modules/bots';
 import { watchlistRouter } from './modules/watchlist';
 import { newsRouter } from './modules/news';
 import { competitionsRouter } from './modules/competitions';
@@ -59,6 +64,7 @@ export interface AppDependencies {
   orderController?: OrderController;
   tradeController?: TradeController;
   portfolioController?: PortfolioController;
+  botController?: BotController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -152,6 +158,10 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createPortfolioRouter(dependencies.portfolioController)
     : defaultPortfolioRouter;
 
+  const activeBotRouter = dependencies.botController
+    ? createBotRouter(dependencies.botController)
+    : defaultBotRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);
@@ -159,6 +169,7 @@ export function createApp(dependencies: AppDependencies = {}): Application {
   app.use('/api/v1/instruments', activeInstrumentRouter);
   app.use('/api/v1/market', activeMarketRouter);
   app.use('/api/v1/admin/instruments', activeAdminInstrumentRouter);
+  app.use('/api/v1/admin/bots', activeBotRouter);
   app.use('/api/v1/orders', activeOrderRouter);
   app.use('/api/v1/trades', activeTradeRouter);
   app.use('/api/v1/trading', activeTradeRouter);

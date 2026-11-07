@@ -111,6 +111,20 @@ export class FinancialMath {
   }
 
   /**
+   * a < 0
+   */
+  static isNegative(a: string | number | Decimal): boolean {
+    return this.from(a).isNegative() && !this.from(a).isZero();
+  }
+
+  /**
+   * |a|
+   */
+  static abs(a: string | number | Decimal, places: number = DECIMAL_PLACES): string {
+    return this.from(a).abs().toFixed(places, Decimal.ROUND_HALF_UP);
+  }
+
+  /**
    * a === 0
    */
   static isZero(a: string | number | Decimal): boolean {
