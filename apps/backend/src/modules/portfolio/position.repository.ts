@@ -39,7 +39,10 @@ export class KnexPositionRepository implements IPositionRepository {
   constructor(private readonly knexInstance: Knex = db) {}
 
   private getQueryBuilder(trx?: Knex.Transaction) {
-    return trx ? trx<PositionRecord>('portfolio_positions') : this.knexInstance<PositionRecord>('portfolio_positions');
+    if (trx && typeof trx === 'function') {
+      return trx<PositionRecord>('portfolio_positions');
+    }
+    return this.knexInstance<PositionRecord>('portfolio_positions');
   }
 
   async findByUserAndInstrument(

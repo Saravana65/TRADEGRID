@@ -28,7 +28,10 @@ export class KnexWalletRepository implements IWalletRepository {
   constructor(private readonly knexInstance: Knex = db) {}
 
   private getQueryBuilder(trx?: Knex.Transaction) {
-    return trx ? trx<WalletRecord>('wallets') : this.knexInstance<WalletRecord>('wallets');
+    if (trx && typeof trx === 'function') {
+      return trx<WalletRecord>('wallets');
+    }
+    return this.knexInstance<WalletRecord>('wallets');
   }
 
   async findByUserId(userId: number, trx?: Knex.Transaction): Promise<WalletRecord | null> {

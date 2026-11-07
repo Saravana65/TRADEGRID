@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 4A Order Management System Complete ✅
-* **Previous Phase:** Phase 3 Stock Instruments & Market Data Complete ✅
-* **Next Target:** Phase 4B (Continuous In-Memory Limit Order Book Matching & Trade Execution Fills)
+* **Current Status:** Phase 5A.1 Financial Reliability & Hardened Matching Integration Complete ✅
+* **Previous Phase:** Phase 5A Real-Time WebSocket Infrastructure Complete ✅
+* **Next Target:** Phase 5B (Automated Market Maker & Trading Bot Ecosystem)
 
 ---
 
@@ -91,27 +91,57 @@
 
 ---
 
-### E. Phase 4B: Continuous Matching Engine (Planned Next)
+### E. Phase 4B: Continuous Matching Engine, Trade Execution & Settlement (Completed)
 
-| Feature | Target Phase | Status |
+| Module / Component | Status | Details |
 |---|---|---|
-| **In-Memory Limit Order Book** | Phase 4B | Planned (Price-Time priority FIFO order book with bid/ask depth) |
-| **Matching Loop & Trade Fills**| Phase 4B | Planned (Per-symbol single-threaded matching loop with partial and complete fills) |
-| **Double-Entry Trade Ledger Sync**| Phase 4B | Planned (Atomic settlement posting `TRADE_BUY` and `TRADE_SELL` journal entries) |
-| **Real-Time WebSocket Tape** | Phase 4B | Planned (Broadcast live trades and L2 depth updates via Socket.IO) |
-| **Portfolio Position Tracker** | Phase 4B | Planned (Average cost basis, realized & unrealized P&L calculations) |
+| **Limit Order Book** | ✅ Completed | Price-Time priority matching engine with discrete Buy and Sell books, Best Bid/Ask caching, and Level 2 depth. |
+| **Price-Time Priority (FIFO)** | ✅ Completed | Bids prioritized highest price first; Asks lowest price first; identical price levels sorted chronologically. |
+| **Continuous Matching Loop** | ✅ Completed | Immediate match execution on order arrival; taker executes at resting maker's price. Supports partial and complete fills. |
+| **Double-Entry Settlement** | ✅ Completed | Migration `006_create_trades_and_positions_tables.ts`. Atomic settlement posting `TRADE_BUY` debit/credit entries to `ledger_entries`. |
+| **Portfolio Positions Subsystem** | ✅ Completed | Continuous position updates with weighted-average cost basis tracking, available vs reserved shares, and realized P&L computation. |
+| **Self-Trading / Wash Prevention** | ✅ Completed | Rejects match when `buyOrder.userId === sellOrder.userId`, keeping books clean and preserving price discovery. |
+| **Trading History REST APIs** | ✅ Completed | `GET /api/v1/trades`, `GET /api/v1/trades/my`, and `GET /api/v1/trades/:reference` endpoints for audit trail. |
+| **Frontend Trade Tape & Books** | ✅ Completed | Real-time Trade Tape, Level 2 Order Book depth visualizer, and Portfolio Position ledger cards. |
+| **Automated Testing Suite** | ✅ Completed | **97 Vitest tests passing** (16 matching & settlement tests + 21 OMS tests + 60 prior tests). |
 
 ---
 
-### F. Phase 5: Social, Contests & Advanced Hardening (Planned)
+### F. Phase 5A: Real-Time WebSocket Infrastructure (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Centralized Socket.IO Gateway** | ✅ Completed | Unified Socket.IO server integrated with Express HTTP server at root path `/socket.io`. |
+| **JWT Handshake Authentication** | ✅ Completed | Bearer token authorization in handshake query/auth parameters; auto-joins private channel `user:<USER_ID>`. |
+| **Guest Connection Support** | ✅ Completed | Public market data streaming accessible without credentials; private user rooms strictly blocked for guests. |
+| **Room-Based Channel Isolation** | ✅ Completed | Strict isolation across `market:<SYMBOL>`, `orderbook:<SYMBOL>`, `trades:<SYMBOL>`, and `user:<USER_ID>`. |
+| **Centralized Realtime Service** | ✅ Completed | Singleton `RealtimeService` publishing events: `market:quote`, `orderbook:depth_update`, `orderbook:snapshot`, `trade:tape_update`, `order:accepted`, `order:partially_filled`, `order:filled`, `order:cancelled`, `portfolio:updated`. |
+| **Frontend Realtime Sync** | ✅ Completed | WebSocket client service with auto-reconnection, heartbeat, and store reactivity. |
+| **100 Concurrent Client Benchmark**| ✅ Completed | Verified 100 concurrent clients connected and streaming broadcast events without packet loss (< 500ms broadcast latency). |
+| **Automated Testing Suite** | ✅ Completed | **112 Vitest tests passing** (15 WebSocket tests + 97 prior tests). |
+
+---
+
+### G. Phase 5A.1: Financial Reliability & Hardened Integration (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Decoupled Transaction Boundaries** | ✅ Completed | Order creation Phase 1 (`orderRepo.create`, risk validation) commits to DB before invoking matching engine, preventing MySQL deadlocks. |
+| **Settlement Rollback Safety** | ✅ Completed | In-memory book mutation and WebSocket event broadcasting happen strictly *after* settlement transaction successfully commits. If settlement fails, in-memory state is preserved and 0 false events are emitted. |
+| **Exact Decimal Financial Math** | ✅ Completed | Integrated `decimal.js` with 28-digit precision and `ROUND_HALF_UP` via `FinancialMath`. Zero IEEE 754 precision drift across matching, settlement, wallet balances, positions, and order book depth. |
+| **Per-Instrument FIFO Matching Queue** | ✅ Completed | `InstrumentMatchingQueue` serializes order submissions and cancellations per instrument ID into strict FIFO promise chains, eliminating concurrent race conditions without distributed lock overhead. |
+| **Deterministic Book Recovery** | ✅ Completed | `OrderBookRecoveryService` executes during server startup before `server.listen()`, querying `orders` table (`status IN ('OPEN', 'PARTIALLY_FILLED')`) to reliably restore in-memory books. |
+| **Strict Risk Reservation Checks** | ✅ Completed | `OrderReservationService` enforces uncommitted buying power (wallet cash minus active open BUY order commitments) and uncommitted shares (position shares minus active open SELL order commitments). |
+| **Automated Reliability Test Suite** | ✅ Completed | Dedicated `tests/reliability.test.ts` with 13 comprehensive end-to-end tests verifying all reliability invariants. |
+| **Total Test Suite Verification** | ✅ Completed | **125 Vitest tests passing across 9 test suites with 100% pass rate**. |
+
+---
+
+### H. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Simulated Volatility & Panic Bots** | Phase 5 | Planned |
-| **Admin News Catalyst Injector** | Phase 5 | Planned |
-| **Trading Competitions & Contests** | Phase 5 | Planned |
-| **Live Leaderboards** | Phase 5 | Planned |
-| **Global & Symbol Chat Rooms** | Phase 5 | Planned |
-| **TimescaleDB Time-Series Archival** | Phase 5 | Planned |
-| **Redis Distributed Caching** | Phase 5 | Planned |
-| **Prometheus & Grafana Monitoring** | Phase 5 | Planned |
+| **Simulated Volatility & Trading Bots** | Phase 5B | Planned |
+| **Admin News Catalyst Injector** | Phase 5B | Planned |
+| **Trading Competitions & Leaderboards** | Phase 5C | Planned |
+| **Global & Symbol Chat Rooms** | Phase 5C | Planned |

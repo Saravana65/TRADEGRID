@@ -4,6 +4,7 @@ import { db } from '../../database/connection';
 import { logger } from '../../utils/logger';
 import { AppError } from '../../middleware/error.middleware';
 import { Order, Trade } from '@tradegrid/shared-types';
+import { FinancialMath } from '../../utils/math';
 import { IOrderRepository, orderRepository as defaultOrderRepo } from '../orders/order.repository';
 import { IWalletRepository, walletRepository as defaultWalletRepo } from '../wallet/wallet.repository';
 import { ILedgerRepository, ledgerRepository as defaultLedgerRepo } from '../wallet/ledger.repository';
@@ -48,7 +49,7 @@ export class SettlementService implements ISettlementService {
   }
 
   /**
-   * Atomically settles a matched execution between buyer and seller.
+   * Atomically settles a matched execution between buyer and seller using exact Decimal math.
    *
    * Invariants:
    * 1. Buyer cash decreases by Cost = Price * Quantity
@@ -62,18 +63,14 @@ export class SettlementService implements ISettlementService {
   async settleTrade(input: SettleMatchInput, trx?: Knex.Transaction): Promise<Trade> {
     const { buyOrder, sellOrder, instrumentId, executionPrice, executedQuantity } = input;
 
-    const priceNum = parseFloat(executionPrice);
-    const quantityNum = parseFloat(executedQuantity);
-
-    if (isNaN(priceNum) || priceNum <= 0) {
+    if (!FinancialMath.isPositive(executionPrice)) {
       throw new AppError(400, 'INVALID_PRICE', 'Execution price must be greater than zero');
     }
-    if (isNaN(quantityNum) || quantityNum <= 0) {
+    if (!FinancialMath.isPositive(executedQuantity)) {
       throw new AppError(400, 'INVALID_QUANTITY', 'Executed quantity must be greater than zero');
     }
 
-    const tradeAmount = (priceNum * quantityNum).toFixed(4);
-    const tradeAmountNum = parseFloat(tradeAmount);
+    const tradeAmount = FinancialMath.calcTradeAmount(executionPrice, executedQuantity);
 
     return this.withTransaction(trx, async (activeTrx) => {
       // 1. Pessimistic Row Locks on Wallets in strictly sorted order to prevent deadlocks
@@ -98,8 +95,7 @@ export class SettlementService implements ISettlementService {
         }
 
         // 2. Validate Buyer Has Sufficient Cash to settle
-        const buyerBalanceNum = parseFloat(buyerWallet.available_balance);
-        if (buyerBalanceNum < tradeAmountNum) {
+        if (FinancialMath.lt(buyerWallet.available_balance, tradeAmount)) {
           throw new AppError(
             422,
             'INSUFFICIENT_FUNDS_FOR_SETTLEMENT',
@@ -108,7 +104,6 @@ export class SettlementService implements ISettlementService {
         }
 
         // 3. Double-Entry Ledger Transfer
-        // In TradeGrid double-entry ledger:
         // USER_WALLET is an asset account. DEBIT = Inflow (+cash), CREDIT = Outflow (-cash).
         const buyerAccount = await this.ledgerRepo.findOrCreateAccount(
           'USER_WALLET',
@@ -152,73 +147,79 @@ export class SettlementService implements ISettlementService {
           activeTrx
         );
 
-        // 4. Update Materialized Wallet Balances
-        const newBuyerBalance = (buyerBalanceNum - tradeAmountNum).toFixed(4);
-        const newSellerBalance = (parseFloat(sellerWallet.available_balance) + tradeAmountNum).toFixed(4);
+        // 4. Update Materialized Wallet Balances using exact decimal subtraction/addition
+        const newBuyerBalance = FinancialMath.sub(buyerWallet.available_balance, tradeAmount);
+        const newSellerBalance = FinancialMath.add(sellerWallet.available_balance, tradeAmount);
 
         await this.walletRepo.updateBalance(buyerWallet.id, newBuyerBalance, activeTrx);
         await this.walletRepo.updateBalance(sellerWallet.id, newSellerBalance, activeTrx);
 
         // 5. Update Buyer Portfolio Position (Weighted Average Cost Basis)
         const buyerPos = await this.positionRepo.findByUserAndInstrument(buyOrder.userId, instrumentId, activeTrx);
-        const buyerCurrentQty = buyerPos ? parseFloat(buyerPos.quantity) : 0;
-        const buyerCurrentAvg = buyerPos ? parseFloat(buyerPos.average_buy_price) : 0;
-        const buyerNewQty = buyerCurrentQty + quantityNum;
-        const buyerNewAvg =
-          buyerNewQty > 0
-            ? ((buyerCurrentQty * buyerCurrentAvg + quantityNum * priceNum) / buyerNewQty).toFixed(4)
-            : '0.0000';
+        const buyerCurrentQty = buyerPos?.quantity || '0.0000';
+        const buyerCurrentAvg = buyerPos?.average_buy_price || '0.0000';
+        const buyerNewQty = FinancialMath.add(buyerCurrentQty, executedQuantity);
+        const buyerNewAvg = FinancialMath.calcWeightedAverageCost(
+          buyerCurrentQty,
+          buyerCurrentAvg,
+          executedQuantity,
+          executionPrice
+        );
 
         await this.positionRepo.upsertPosition(
           {
             user_id: buyOrder.userId,
             instrument_id: instrumentId,
-            quantity: buyerNewQty.toFixed(4),
+            quantity: buyerNewQty,
             average_buy_price: buyerNewAvg,
-            realized_pnl: buyerPos ? buyerPos.realized_pnl : '0.0000',
+            realized_pnl: buyerPos?.realized_pnl || '0.0000',
           },
           activeTrx
         );
 
         // 6. Update Seller Portfolio Position (Realized P&L Calculation)
         const sellerPos = await this.positionRepo.findByUserAndInstrument(sellOrder.userId, instrumentId, activeTrx);
-        const sellerCurrentQty = sellerPos ? parseFloat(sellerPos.quantity) : 0;
-        const sellerCurrentAvg = sellerPos ? parseFloat(sellerPos.average_buy_price) : 0;
-        const sellerCurrentRealized = sellerPos ? parseFloat(sellerPos.realized_pnl) : 0;
+        const sellerCurrentQty = sellerPos?.quantity || '0.0000';
+        const sellerCurrentAvg = sellerPos?.average_buy_price || '0.0000';
+        const sellerCurrentRealized = sellerPos?.realized_pnl || '0.0000';
 
-        const sellerNewQty = Math.max(0, sellerCurrentQty - quantityNum);
-        const realizedGainOnThisTrade = (priceNum - sellerCurrentAvg) * quantityNum;
-        const sellerNewRealized = (sellerCurrentRealized + realizedGainOnThisTrade).toFixed(4);
+        const sellerNewQty = FinancialMath.calcRemainingQuantity(sellerCurrentQty, executedQuantity);
+        const realizedGainOnThisTrade = FinancialMath.calcRealizedPnL(
+          executionPrice,
+          sellerCurrentAvg,
+          executedQuantity
+        );
+        const sellerNewRealized = FinancialMath.add(sellerCurrentRealized, realizedGainOnThisTrade);
 
         await this.positionRepo.upsertPosition(
           {
             user_id: sellOrder.userId,
             instrument_id: instrumentId,
-            quantity: sellerNewQty.toFixed(4),
-            average_buy_price: sellerPos ? sellerPos.average_buy_price : '0.0000',
+            quantity: sellerNewQty,
+            average_buy_price: sellerPos?.average_buy_price || '0.0000',
             realized_pnl: sellerNewRealized,
           },
           activeTrx
         );
 
         // 7. Update Orders State in Database
-        const buyRemainingNum = Math.max(0, parseFloat(buyOrder.remainingQuantity) - quantityNum);
-        const newBuyStatus = buyRemainingNum === 0 ? 'FILLED' : 'PARTIALLY_FILLED';
+        const buyRemaining = FinancialMath.calcRemainingQuantity(buyOrder.remainingQuantity, executedQuantity);
+        const newBuyStatus = FinancialMath.isZero(buyRemaining) ? 'FILLED' : 'PARTIALLY_FILLED';
         await this.orderRepo.update(
           buyOrder.id,
           {
-            remainingQuantity: buyRemainingNum.toFixed(4),
+            remainingQuantity: buyRemaining,
             status: newBuyStatus,
           },
           activeTrx
         );
 
-        const sellRemainingNum = Math.max(0, parseFloat(sellOrder.remainingQuantity) - quantityNum);
-        const newSellStatus = sellRemainingNum === 0 ? 'FILLED' : 'PARTIALLY_FILLED';
+        const sellRemaining = FinancialMath.calcRemainingQuantity(sellOrder.remainingQuantity, executedQuantity);
+        const newSellStatus = FinancialMath.isZero(sellRemaining) ? 'FILLED' : 'PARTIALLY_FILLED';
         await this.orderRepo.update(
           sellOrder.id,
           {
-            remainingQuantity: sellRemainingNum.toFixed(4),
+            remainingQuantity: sellRemaining,
             status: newSellStatus,
           },
           activeTrx
@@ -233,8 +234,8 @@ export class SettlementService implements ISettlementService {
             instrument_id: instrumentId,
             buyer_id: buyOrder.userId,
             seller_id: sellOrder.userId,
-            price: executionPrice,
-            quantity: executedQuantity,
+            price: FinancialMath.toFixed(executionPrice),
+            quantity: FinancialMath.toFixed(executedQuantity),
             trade_amount: tradeAmount,
             buyer_fee: '0.0000',
             seller_fee: '0.0000',

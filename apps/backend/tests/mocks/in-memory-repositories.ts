@@ -931,6 +931,22 @@ export class InMemoryOrderRepository implements IOrderRepository {
     return { ...order };
   }
 
+  async findOpenOrders(
+    filter?: { userId?: number; instrumentId?: number; side?: any }
+  ): Promise<Order[]> {
+    return this.orders
+      .filter((o) => {
+        if (o.status !== 'OPEN' && o.status !== 'PARTIALLY_FILLED') return false;
+        if (parseFloat(o.remainingQuantity) <= 0) return false;
+        if (filter?.userId && o.userId !== filter.userId) return false;
+        if (filter?.instrumentId && o.instrumentId !== filter.instrumentId) return false;
+        if (filter?.side && o.side !== filter.side) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id - b.id)
+      .map((o) => ({ ...o }));
+  }
+
   clear(): void {
     this.orders = [];
     this.nextId = 1;

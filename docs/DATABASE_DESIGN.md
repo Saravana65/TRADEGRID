@@ -482,11 +482,68 @@ stateDiagram-v2
 ```
 
 ### Safe Status Transitions:
-| Transition | Allowed in Phase 4A | Rationale |
+| Transition | Allowed | Rationale |
 |---|---|---|
 | `PENDING` $\to$ `OPEN` | Yes | Pre-trade risk checks pass; order placed in OMS. |
 | `PENDING` $\to$ `REJECTED` | Yes | Invalid instrument, halted trading, or insufficient purchasing power. |
+| `OPEN` $\to$ `PARTIALLY_FILLED` | Yes | Matcher executes trade for partial remaining quantity. |
+| `PARTIALLY_FILLED` $\to$ `FILLED` | Yes | Final execution depletes remaining order quantity. |
+| `OPEN` $\to$ `FILLED` | Yes | Single execution completely fills entire order quantity. |
 | `OPEN` $\to$ `CANCELLED` | Yes | Trader manually cancels active resting order. |
-| `OPEN` $\to$ `FILLED` | **NO (Reserved Phase 4B)** | Strict integrity: orders cannot be marked filled without matching engine trades. |
-| `FILLED` $\to$ `CANCELLED` | **FORBIDDEN (422)** | Fully executed orders cannot be reversed or cancelled. |
-| `CANCELLED` $\to$ `CANCELLED`| **FORBIDDEN (422)** | Idempotent cancel rejects double cancellation. |
+| `PARTIALLY_FILLED` $\to$ `CANCELLED` | Yes | Trader manually cancels unfilled remainder. |
+| `FILLED` $\to$ `CANCELLED` | **FORBIDDEN (400)** | Fully executed orders cannot be reversed or cancelled. |
+| `CANCELLED` $\to$ `CANCELLED`| **FORBIDDEN (400)** | Rejects duplicate cancellation attempts. |
+
+---
+
+## 9. Trades & Portfolio Positions Schema (Implemented Phase 4B & 5A.1)
+
+### 9.1 `trades` Table
+Records matched executions between buyer and seller orders:
+* `id` (BIGINT, PK, Auto-increment)
+* `trade_reference` (VARCHAR(64), Unique) — e.g. `TRD-11-1794026691385-eb00ef6f`
+* `buy_order_id` (BIGINT, FK -> `orders.id`)
+* `sell_order_id` (BIGINT, FK -> `orders.id`)
+* `instrument_id` (INT, FK -> `instruments.id`)
+* `buyer_id` (INT, FK -> `users.id`)
+* `seller_id` (INT, FK -> `users.id`)
+* `price` (DECIMAL(18,4)) — Maker execution price
+* `quantity` (DECIMAL(18,4)) — Filled share quantity
+* `trade_amount` (DECIMAL(19,4)) — Total nominal cash consideration
+* `buyer_fee` (DECIMAL(18,4), default 0.0000)
+* `seller_fee` (DECIMAL(18,4), default 0.0000)
+* `status` (ENUM: `SETTLED`, `FAILED`, `REVERSED`)
+* `settlement_transaction_id` (BIGINT, FK -> `ledger_transactions.id`)
+* `created_at` (TIMESTAMP)
+
+### 9.2 `portfolio_positions` Table
+Tracks cumulative equity inventory and weighted-average cost basis per trader:
+* `id` (BIGINT, PK, Auto-increment)
+* `user_id` (INT, FK -> `users.id`)
+* `instrument_id` (INT, FK -> `instruments.id`)
+* `quantity` (DECIMAL(18,4)) — Total owned shares
+* `available_shares` (DECIMAL(18,4)) — Uncommitted shares available to sell
+* `reserved_shares` (DECIMAL(18,4)) — Shares tied up in resting SELL limit orders
+* `average_buy_price` (DECIMAL(18,4)) — Weighted average entry price
+* `realized_pnl` (DECIMAL(19,4)) — Realized profit or loss upon liquidation
+* `updated_at` (TIMESTAMP)
+* Composite Unique Index: `UNIQUE(user_id, instrument_id)`
+
+---
+
+## 10. Financial Reliability & Decimal Precision Controls
+
+1. **Elimination of Binary Floating Point Arithmetic:**
+   All monetary and share calculations use `FinancialMath` with `decimal.js` (28-digit precision, `ROUND_HALF_UP`). Zero `Number(a) * Number(b)` operations exist in financial paths.
+2. **Pre-Trade Risk & Buying Power Isolation:**
+   * **BUY:** `available_balance - committed_buy_cash >= required_order_value`
+   * **SELL:** `portfolio_position.available_shares >= required_sell_quantity`
+3. **Double-Entry Settlement Invariant:**
+   For every trade:
+   ```
+   DEBIT  USER_WALLET (Seller)      +$trade_amount   (Proceeds received)
+   CREDIT USER_WALLET (Buyer)       -$trade_amount   (Cash paid for shares)
+   Total Debits == Total Credits (Zero discrepancy)
+   ```
+4. **Deterministic In-Memory Restoration:**
+   On server bootstrap, `OrderBookRecoveryService` executes `SELECT * FROM orders WHERE status IN ('OPEN', 'PARTIALLY_FILLED')` to populate books before opening traffic.

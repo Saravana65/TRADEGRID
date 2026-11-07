@@ -1,8 +1,11 @@
 import { Order, Trade, OrderBookLevel } from '@tradegrid/shared-types';
 import { logger } from '../../utils/logger';
+import { FinancialMath } from '../../utils/math';
 import { OrderBook } from './order-book';
 import { ISettlementService, settlementService as defaultSettlementService } from './settlement.service';
 import { IRealtimeService, realtimeService as defaultRealtimeService } from '../../websocket/realtime.service';
+import { InstrumentMatchingQueue, instrumentMatchingQueue as defaultMatchingQueue } from './matching-queue';
+import { IOrderRepository, orderRepository as defaultOrderRepo } from '../orders/order.repository';
 
 export interface MatchResult {
   trades: Trade[];
@@ -14,8 +17,24 @@ export class MatchingEngine {
 
   constructor(
     private readonly settlementService: ISettlementService = defaultSettlementService,
-    private readonly realtimeService: IRealtimeService = defaultRealtimeService
+    private readonly realtimeService: IRealtimeService = defaultRealtimeService,
+    private readonly matchingQueue: InstrumentMatchingQueue = defaultMatchingQueue,
+    private readonly orderRepo: IOrderRepository = defaultOrderRepo
   ) {}
+
+  /**
+   * Returns all active order books.
+   */
+  getAllBooks(): Map<number, OrderBook> {
+    return this.books;
+  }
+
+  /**
+   * Returns the per-instrument matching queue.
+   */
+  getMatchingQueue(): InstrumentMatchingQueue {
+    return this.matchingQueue;
+  }
 
   /**
    * Retrieves or initializes an OrderBook instance for a specific instrument.
@@ -37,7 +56,7 @@ export class MatchingEngine {
       if (
         (order.status === 'OPEN' || order.status === 'PARTIALLY_FILLED') &&
         order.orderType === 'LIMIT' &&
-        parseFloat(order.remainingQuantity) > 0
+        FinancialMath.isPositive(order.remainingQuantity)
       ) {
         const book = this.getOrCreateBook(order.instrumentId, order.symbol || `INST-${order.instrumentId}`);
         book.addOrder(order);
@@ -47,22 +66,32 @@ export class MatchingEngine {
   }
 
   /**
-   * Core continuous matching algorithm.
+   * Continuous order matching with per-instrument serialized concurrency.
    * Compares incoming aggressive order against opposite passive book using Price-Time Priority.
    */
   async matchOrder(order: Order, symbol?: string): Promise<MatchResult> {
+    // Route matching through the serialized queue for order.instrumentId
+    return this.matchingQueue.enqueue(order.instrumentId, async () => {
+      return this.executeMatching(order, symbol);
+    });
+  }
+
+  /**
+   * Internal sequential matching algorithm for a single instrument.
+   */
+  private async executeMatching(order: Order, symbol?: string): Promise<MatchResult> {
     const book = this.getOrCreateBook(order.instrumentId, symbol || order.symbol || `INST-${order.instrumentId}`);
     const trades: Trade[] = [];
 
-    let currentRemaining = parseFloat(order.remainingQuantity);
+    let currentRemaining = order.remainingQuantity;
 
-    if (currentRemaining <= 0 || (order.status !== 'OPEN' && order.status !== 'PARTIALLY_FILLED')) {
+    if (!FinancialMath.isPositive(currentRemaining) || (order.status !== 'OPEN' && order.status !== 'PARTIALLY_FILLED')) {
       return { trades, remainingOrder: order };
     }
 
     if (order.side === 'BUY') {
       // Incoming BUY order: matches resting SELL asks (lowest price first)
-      while (currentRemaining > 0.0001) {
+      while (FinancialMath.isPositive(currentRemaining)) {
         const bestAsk = book.getBestAsk();
         if (!bestAsk) {
           break; // No resting sellers
@@ -70,9 +99,7 @@ export class MatchingEngine {
 
         // Price check for LIMIT BUY: Buyer will not pay more than limitPrice
         if (order.orderType === 'LIMIT') {
-          const buyerLimit = parseFloat(order.limitPrice || '0');
-          const sellerLimit = parseFloat(bestAsk.limitPrice || '0');
-          if (sellerLimit > buyerLimit) {
+          if (FinancialMath.gt(bestAsk.limitPrice || '0', order.limitPrice || '0')) {
             break; // Best ask is higher than buyer's maximum willingness to pay
           }
         }
@@ -85,26 +112,32 @@ export class MatchingEngine {
 
         // Execution price is the resting passive order's price
         const executionPrice = bestAsk.limitPrice!;
-        const askRemaining = parseFloat(bestAsk.remainingQuantity);
-        const matchQuantity = Math.min(currentRemaining, askRemaining);
-        if (matchQuantity <= 0.0001) {
+        const askRemaining = bestAsk.remainingQuantity;
+        const matchQuantity = FinancialMath.min(currentRemaining, askRemaining);
+        if (!FinancialMath.isPositive(matchQuantity)) {
           break;
         }
-        const matchQuantityStr = matchQuantity.toFixed(4);
 
-        // Atomic settlement through virtual wallet and double-entry ledger
-        const settledTrade = await this.settlementService.settleTrade({
-          buyOrder: { ...order, remainingQuantity: currentRemaining.toFixed(4) },
-          sellOrder: bestAsk,
-          instrumentId: order.instrumentId,
-          symbol: book.symbol,
-          executionPrice,
-          executedQuantity: matchQuantityStr,
-        });
+        let settledTrade: Trade;
+        try {
+          // Atomic settlement through virtual wallet and double-entry ledger
+          settledTrade = await this.settlementService.settleTrade({
+            buyOrder: { ...order, remainingQuantity: currentRemaining },
+            sellOrder: bestAsk,
+            instrumentId: order.instrumentId,
+            symbol: book.symbol,
+            executionPrice,
+            executedQuantity: matchQuantity,
+          });
+        } catch (settleErr: any) {
+          logger.error(`[MATCHING ENGINE] Settlement transaction failed: ${settleErr.message}`);
+          // Rollback safety: Abort matching loop. Do NOT mutate in-memory book or emit events.
+          break;
+        }
 
         trades.push(settledTrade);
 
-        // Phase 5A: Broadcast trade and counterparty updates
+        // ONLY after successful settlement commit: Update in-memory book and broadcast events
         this.realtimeService.broadcastTradeExecution({
           trade: settledTrade,
           symbol: book.symbol,
@@ -115,24 +148,24 @@ export class MatchingEngine {
         this.realtimeService.emitPortfolioUpdated(settledTrade.sellerId);
 
         // Update in-memory state for resting Ask order
-        const newAskRemaining = parseFloat((askRemaining - matchQuantity).toFixed(4));
-        if (newAskRemaining <= 0.0001) {
+        const newAskRemaining = FinancialMath.calcRemainingQuantity(askRemaining, matchQuantity);
+        if (FinancialMath.isZero(newAskRemaining)) {
           bestAsk.remainingQuantity = '0.0000';
           bestAsk.status = 'FILLED';
           book.removeOrder(bestAsk.id);
           this.realtimeService.emitOrderFilled(bestAsk, settledTrade);
         } else {
-          bestAsk.remainingQuantity = newAskRemaining.toFixed(4);
+          bestAsk.remainingQuantity = newAskRemaining;
           bestAsk.status = 'PARTIALLY_FILLED';
           this.realtimeService.emitOrderPartiallyFilled(bestAsk, settledTrade);
         }
 
         // Update in-memory state for incoming Buy order
-        currentRemaining = parseFloat((currentRemaining - matchQuantity).toFixed(4));
+        currentRemaining = FinancialMath.calcRemainingQuantity(currentRemaining, matchQuantity);
       }
     } else {
       // Incoming SELL order: matches resting BUY bids (highest price first)
-      while (currentRemaining > 0.0001) {
+      while (FinancialMath.isPositive(currentRemaining)) {
         const bestBid = book.getBestBid();
         if (!bestBid) {
           break; // No resting buyers
@@ -140,9 +173,7 @@ export class MatchingEngine {
 
         // Price check for LIMIT SELL: Seller will not accept less than limitPrice
         if (order.orderType === 'LIMIT') {
-          const sellerLimit = parseFloat(order.limitPrice || '0');
-          const buyerLimit = parseFloat(bestBid.limitPrice || '0');
-          if (buyerLimit < sellerLimit) {
+          if (FinancialMath.lt(bestBid.limitPrice || '0', order.limitPrice || '0')) {
             break; // Best bid is lower than seller's minimum acceptable price
           }
         }
@@ -155,26 +186,32 @@ export class MatchingEngine {
 
         // Execution price is the resting passive order's price
         const executionPrice = bestBid.limitPrice!;
-        const bidRemaining = parseFloat(bestBid.remainingQuantity);
-        const matchQuantity = Math.min(currentRemaining, bidRemaining);
-        if (matchQuantity <= 0.0001) {
+        const bidRemaining = bestBid.remainingQuantity;
+        const matchQuantity = FinancialMath.min(currentRemaining, bidRemaining);
+        if (!FinancialMath.isPositive(matchQuantity)) {
           break;
         }
-        const matchQuantityStr = matchQuantity.toFixed(4);
 
-        // Atomic settlement through virtual wallet and double-entry ledger
-        const settledTrade = await this.settlementService.settleTrade({
-          buyOrder: bestBid,
-          sellOrder: { ...order, remainingQuantity: currentRemaining.toFixed(4) },
-          instrumentId: order.instrumentId,
-          symbol: book.symbol,
-          executionPrice,
-          executedQuantity: matchQuantityStr,
-        });
+        let settledTrade: Trade;
+        try {
+          // Atomic settlement through virtual wallet and double-entry ledger
+          settledTrade = await this.settlementService.settleTrade({
+            buyOrder: bestBid,
+            sellOrder: { ...order, remainingQuantity: currentRemaining },
+            instrumentId: order.instrumentId,
+            symbol: book.symbol,
+            executionPrice,
+            executedQuantity: matchQuantity,
+          });
+        } catch (settleErr: any) {
+          logger.error(`[MATCHING ENGINE] Settlement transaction failed: ${settleErr.message}`);
+          // Rollback safety: Abort matching loop. Do NOT mutate in-memory book or emit events.
+          break;
+        }
 
         trades.push(settledTrade);
 
-        // Phase 5A: Broadcast trade and counterparty updates
+        // ONLY after successful settlement commit: Update in-memory book and broadcast events
         this.realtimeService.broadcastTradeExecution({
           trade: settledTrade,
           symbol: book.symbol,
@@ -185,33 +222,32 @@ export class MatchingEngine {
         this.realtimeService.emitPortfolioUpdated(settledTrade.sellerId);
 
         // Update in-memory state for resting Bid order
-        const newBidRemaining = parseFloat((bidRemaining - matchQuantity).toFixed(4));
-        if (newBidRemaining <= 0.0001) {
+        const newBidRemaining = FinancialMath.calcRemainingQuantity(bidRemaining, matchQuantity);
+        if (FinancialMath.isZero(newBidRemaining)) {
           bestBid.remainingQuantity = '0.0000';
           bestBid.status = 'FILLED';
           book.removeOrder(bestBid.id);
           this.realtimeService.emitOrderFilled(bestBid, settledTrade);
         } else {
-          bestBid.remainingQuantity = newBidRemaining.toFixed(4);
+          bestBid.remainingQuantity = newBidRemaining;
           bestBid.status = 'PARTIALLY_FILLED';
           this.realtimeService.emitOrderPartiallyFilled(bestBid, settledTrade);
         }
 
         // Update in-memory state for incoming Sell order
-        currentRemaining = parseFloat((currentRemaining - matchQuantity).toFixed(4));
+        currentRemaining = FinancialMath.calcRemainingQuantity(currentRemaining, matchQuantity);
       }
     }
 
     // Finalize incoming order state
-    const remainingQtyFormatted = Math.max(0, currentRemaining).toFixed(4);
-    order.remainingQuantity = remainingQtyFormatted;
+    order.remainingQuantity = currentRemaining;
 
-    if (parseFloat(remainingQtyFormatted) === 0) {
+    if (FinancialMath.isZero(currentRemaining)) {
       order.status = 'FILLED';
       if (trades.length > 0) {
         this.realtimeService.emitOrderFilled(order, trades[trades.length - 1]);
       }
-    } else if (parseFloat(remainingQtyFormatted) < parseFloat(order.quantity)) {
+    } else if (FinancialMath.lt(currentRemaining, order.quantity)) {
       order.status = 'PARTIALLY_FILLED';
       if (order.orderType === 'LIMIT') {
         book.addOrder(order);
@@ -226,21 +262,24 @@ export class MatchingEngine {
       }
     }
 
-    // Phase 5A: Broadcast updated committed order book depth to orderbook:{symbol}
+    // Broadcast updated committed order book depth to orderbook:{symbol}
     const depth = this.getOrderBookDepth(order.instrumentId, 15, book.symbol);
     this.realtimeService.broadcastOrderBookUpdate(book.symbol, order.instrumentId, depth);
 
-    // Phase 5A: Broadcast market price update if executions occurred
+    // Broadcast market price update if executions occurred
     if (trades.length > 0) {
       const lastTrade = trades[trades.length - 1];
-      const totalVolume = trades.reduce((sum, t) => sum + parseFloat(t.quantity), 0);
+      const totalVolume = trades.reduce(
+        (sum, t) => FinancialMath.add(sum, t.quantity),
+        '0.0000'
+      );
       this.realtimeService.broadcastMarketPriceUpdate({
         symbol: book.symbol,
         instrumentId: order.instrumentId,
         lastPrice: lastTrade.price,
         changeAmount: '0.0000',
         changePercent: '0.00',
-        volume: totalVolume,
+        volume: Number(totalVolume),
       });
     }
 
@@ -257,7 +296,6 @@ export class MatchingEngine {
     }
     const removed = book.removeOrder(orderId);
     if (removed) {
-      // Phase 5A: Broadcast updated order book depth after order cancellation
       const depth = this.getOrderBookDepth(instrumentId, 15, book.symbol);
       this.realtimeService.broadcastOrderBookUpdate(book.symbol, instrumentId, depth);
     }
@@ -271,19 +309,19 @@ export class MatchingEngine {
     instrumentId: number,
     depth: number = 10,
     symbol?: string
-  ): { symbol: string; instrumentId: number; bids: OrderBookLevel[]; asks: OrderBookLevel[]; timestamp: string; spread: string; midPrice: string | null } {
+  ): {
+    symbol: string;
+    instrumentId: number;
+    bids: OrderBookLevel[];
+    asks: OrderBookLevel[];
+    timestamp: string;
+    spread: string;
+    midPrice: string | null;
+  } {
     const book = this.getOrCreateBook(instrumentId, symbol || `INST-${instrumentId}`);
     const { bids, asks } = book.getDepth(depth);
-    const bestBid = book.getBestBid();
-    const bestAsk = book.getBestAsk();
-    let spread = '0.0000';
-    let midPrice: string | null = null;
-    if (bestBid && bestAsk && bestBid.limitPrice && bestAsk.limitPrice) {
-      const bidP = parseFloat(bestBid.limitPrice);
-      const askP = parseFloat(bestAsk.limitPrice);
-      spread = Math.max(0, askP - bidP).toFixed(4);
-      midPrice = ((askP + bidP) / 2).toFixed(4);
-    }
+    const { spread, midPrice } = book.getSpreadAndMid();
+
     return {
       symbol: book.symbol,
       instrumentId,
@@ -303,6 +341,7 @@ export class MatchingEngine {
       book.clear();
     }
     this.books.clear();
+    this.matchingQueue.clear();
   }
 }
 

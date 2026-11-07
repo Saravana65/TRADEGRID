@@ -489,10 +489,50 @@ All order management endpoints require a valid JWT token (`Authorization: Bearer
 
 ---
 
-## 9. Future Endpoints (Phase 4B & Phase 5 Roadmap)
+## 9. Trading & Trades History Endpoints (`/api/v1/trades`)
 
-- `/api/v1/orderbook/:symbol`: Real-time L2 order book depth (bid/ask ladders).
-- `/api/v1/trades`: Execution tape and filled trade transaction ledger sync.
-- `/api/v1/portfolio`: Stock holdings, average cost basis, realized & unrealized P&L.
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| `GET`  | `/api/v1/trades` | Public | Public tape of recent executed trades across all instruments or filtered by `symbol`. |
+| `GET`  | `/api/v1/trades/my` | Authenticated | Private executions for the authenticated user (both buyer and seller sides). |
+| `GET`  | `/api/v1/trades/:reference` | Authenticated | Single trade details including settlement transaction ID and fee breakdown. |
+
+---
+
+## 10. WebSocket Real-Time Infrastructure (Implemented Phase 5A & 5A.1)
+
+### 10.1 Connection Handshake & Authentication
+* **Relay Path:** `/socket.io`
+* **Transport:** `websocket`, `polling` (fallback)
+* **Auth Protocol:** Pass JWT access token via `auth: { token: "<JWT>" }` or query parameter `?token=<JWT>`.
+* **Guest Access:** Supported for public market channels. Guests are assigned anonymous socket sessions and automatically blocked from joining private user rooms.
+
+### 10.2 Channel / Room Topology & Subscriptions
+Clients send `subscribe` and `unsubscribe` events with `{ channel: "<room_name>" }`:
+* `market:<SYMBOL>` — Public market quotes, candle ticks, and last price updates.
+* `orderbook:<SYMBOL>` — Public Level 2 order book snapshot and depth ladder updates.
+* `trades:<SYMBOL>` — Public trade tape execution prints.
+* `user:<USER_ID>` — Private channel (auto-joined upon authenticated connection). Strict authorization prevents users from joining other users' channels.
+
+### 10.3 Real-Time Event Catalog
+| Event Name | Channel / Room | Description |
+|---|---|---|
+| `market:quote` | `market:<SYMBOL>` | Emitted on periodic or triggered market quote updates. |
+| `market:price_update` | `market:<SYMBOL>` | Broadcast upon trade execution updating last price, change, and volume. |
+| `orderbook:snapshot` | `orderbook:<SYMBOL>` | Initial full L2 depth ladder delivered on subscription. |
+| `orderbook:depth_update`| `orderbook:<SYMBOL>` | Incremental sequence-tracked depth update on new order, fill, or cancel. |
+| `trade:tape_update` | `trades:<SYMBOL>` | Public execution print broadcast immediately post-settlement. |
+| `order:accepted` | `user:<USER_ID>` | Private notification to trader that order passed risk and is committed. |
+| `order:partially_filled`| `user:<USER_ID>` | Private notification of partial fill with remaining quantity. |
+| `order:filled` | `user:<USER_ID>` | Private notification that order is 100% executed. |
+| `order:cancelled` | `user:<USER_ID>` | Private notification confirming order cancellation and capital release. |
+| `portfolio:updated` | `user:<USER_ID>` | Private prompt to refresh portfolio positions and cash balance. |
+
+---
+
+## 11. Future Roadmap (Phase 5B & Phase 5C)
+
 - `/api/v1/admin/market/shock`: Simulated volatility injection and crash generator.
+- `/api/v1/bots`: Automated market maker and algorithmic liquidity bots.
+- `/api/v1/contests`: Educational trading competitions and tournaments.
 - `/api/v1/social/chat`: Symbol-specific and global trader chat rooms.

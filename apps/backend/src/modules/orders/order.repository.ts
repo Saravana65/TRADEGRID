@@ -80,6 +80,10 @@ export interface IOrderRepository {
     data: { status?: OrderStatus; remainingQuantity?: string },
     trx?: Knex.Transaction
   ): Promise<Order | null>;
+  findOpenOrders(
+    filter?: { userId?: number; instrumentId?: number; side?: OrderSide },
+    trx?: Knex.Transaction
+  ): Promise<Order[]>;
 }
 
 export class KnexOrderRepository implements IOrderRepository {
@@ -254,6 +258,40 @@ export class KnexOrderRepository implements IOrderRepository {
       return null;
     }
     return this.findById(id, trx);
+  }
+
+  async findOpenOrders(
+    filter?: { userId?: number; instrumentId?: number; side?: OrderSide },
+    trx?: Knex.Transaction
+  ): Promise<Order[]> {
+    const knexContext = trx || this.knexInstance;
+    let query = knexContext('orders')
+      .join('instruments', 'orders.instrument_id', 'instruments.id')
+      .whereIn('orders.status', ['OPEN', 'PARTIALLY_FILLED'])
+      .where('orders.remaining_quantity', '>', 0);
+
+    if (filter?.userId) {
+      query = query.where('orders.user_id', filter.userId);
+    }
+    if (filter?.instrumentId) {
+      query = query.where('orders.instrument_id', filter.instrumentId);
+    }
+    if (filter?.side) {
+      query = query.where('orders.side', filter.side);
+    }
+
+    const rows = await query
+      .select<OrderRow[]>([
+        'orders.*',
+        'instruments.symbol as symbol',
+        'instruments.name as name',
+        'instruments.exchange as exchange',
+        'instruments.currency as currency',
+      ])
+      .orderBy('orders.created_at', 'asc')
+      .orderBy('orders.id', 'asc');
+
+    return rows.map(mapRowToOrder);
   }
 }
 

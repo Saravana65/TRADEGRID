@@ -2,13 +2,11 @@ import { Knex } from 'knex';
 import { db } from '../../database/connection';
 import { logger } from '../../utils/logger';
 import { AppError } from '../../middleware/error.middleware';
-import { Order, OrderFilterQuery, OrderStatus } from '@tradegrid/shared-types';
+import { Order, OrderFilterQuery } from '@tradegrid/shared-types';
 import { CreateOrderInput } from '@tradegrid/validation';
+import { FinancialMath } from '../../utils/math';
 import { IOrderRepository, orderRepository as defaultOrderRepo } from './order.repository';
-import {
-  IInstrumentRepository,
-  instrumentRepository as defaultInstrumentRepo,
-} from '../market/instrument.repository';
+import { IInstrumentRepository, instrumentRepository as defaultInstrumentRepo } from '../market/instrument.repository';
 import {
   IMarketDataRepository,
   marketDataRepository as defaultMarketDataRepo,
@@ -47,9 +45,6 @@ export class OrderService {
     }
   }
 
-  /**
-   * Helper to execute in an existing transaction or create a new managed transaction.
-   */
   private async withTransaction<T>(
     trx: Knex.Transaction | undefined,
     callback: (trx: Knex.Transaction) => Promise<T>
@@ -63,81 +58,81 @@ export class OrderService {
   }
 
   /**
-   * Places a new order in the Order Management System (OMS).
+   * Accepts and processes an order submission with strict transaction separation:
+   * 1. Validates risk & purchasing power/shares.
+   * 2. Commits the order as OPEN into database storage (Phase 1 Commit).
+   * 3. Emits order:accepted ONLY post-commit.
+   * 4. Enqueues the committed order into the per-instrument matching queue (Phase 2).
    */
   async createOrder(
     userId: number,
     input: CreateOrderInput,
     trx?: Knex.Transaction
   ): Promise<Order> {
-    return this.withTransaction(trx, async (activeTrx) => {
-      // 1. Enforce Idempotency Guard
-      if (input.idempotencyKey) {
-        const existing = await this.orderRepo.findByIdempotencyKey(
-          input.idempotencyKey,
-          activeTrx
+    // 1. Idempotency Check
+    if (input.idempotencyKey) {
+      const existing = await this.orderRepo.findByIdempotencyKey(input.idempotencyKey, trx);
+      if (existing) {
+        logger.info(
+          `[OMS] Idempotent order replay detected for key: ${input.idempotencyKey} (Order #${existing.id})`
         );
-        if (existing) {
-          logger.info(
-            `[OMS] Idempotent order replay detected for key: ${input.idempotencyKey} (Order #${existing.id})`
-          );
-          return existing;
-        }
+        return existing;
       }
+    }
 
-      // 2. Validate Target Instrument Exists and is Tradable
-      const instrument = await this.instrumentRepo.findById(input.instrumentId);
-      if (!instrument) {
+    // 2. Validate Target Instrument Exists and is Tradable
+    const instrument = await this.instrumentRepo.findById(input.instrumentId);
+    if (!instrument) {
+      throw new AppError(
+        404,
+        'INSTRUMENT_NOT_FOUND',
+        `Instrument with ID #${input.instrumentId} not found`
+      );
+    }
+
+    if (instrument.marketStatus !== 'ACTIVE') {
+      throw new AppError(
+        422,
+        'INSTRUMENT_NOT_TRADABLE',
+        `Instrument ${instrument.symbol} is not currently tradable (Market status: ${instrument.marketStatus})`
+      );
+    }
+
+    // 3. Validate Quantity with exact Decimal math
+    if (!FinancialMath.isPositive(input.quantity)) {
+      throw new AppError(400, 'INVALID_QUANTITY', 'Order quantity must be greater than zero');
+    }
+
+    // 4. Validate Price Requirements based on Order Type
+    let finalLimitPrice: string | null = null;
+    let referencePrice = '0.0000';
+
+    if (input.orderType === 'LIMIT') {
+      if (!input.limitPrice || !FinancialMath.isPositive(input.limitPrice)) {
         throw new AppError(
-          404,
-          'INSTRUMENT_NOT_FOUND',
-          `Instrument with ID #${input.instrumentId} not found`
+          400,
+          'INVALID_LIMIT_PRICE',
+          'Limit orders require a positive limit price greater than zero'
         );
       }
-
-      if (instrument.marketStatus !== 'ACTIVE') {
-        throw new AppError(
-          422,
-          'INSTRUMENT_NOT_TRADABLE',
-          `Instrument ${instrument.symbol} is not currently tradable (Market status: ${instrument.marketStatus})`
-        );
-      }
-
-      // 3. Validate Quantity
-      const quantityNum = parseFloat(input.quantity);
-      if (isNaN(quantityNum) || quantityNum <= 0) {
-        throw new AppError(400, 'INVALID_QUANTITY', 'Order quantity must be greater than zero');
-      }
-
-      // 4. Validate Price Requirements based on Order Type
-      let finalLimitPrice: string | null = null;
-      let referencePrice: string = '0.0000';
-
-      if (input.orderType === 'LIMIT') {
-        if (!input.limitPrice || parseFloat(input.limitPrice) <= 0) {
-          throw new AppError(
-            400,
-            'INVALID_LIMIT_PRICE',
-            'Limit orders require a positive limit price greater than zero'
-          );
-        }
-        finalLimitPrice = input.limitPrice;
-        referencePrice = input.limitPrice;
+      finalLimitPrice = FinancialMath.toFixed(input.limitPrice);
+      referencePrice = finalLimitPrice;
+    } else {
+      // MARKET Order: limitPrice is null; look up latest quote for purchasing power validation
+      finalLimitPrice = null;
+      const quote = await this.marketDataRepo.getQuoteByInstrumentId(input.instrumentId);
+      if (quote && FinancialMath.isPositive(quote.lastPrice)) {
+        referencePrice = quote.lastPrice;
       } else {
-        // MARKET Order: limitPrice is null; look up latest quote for purchasing power validation
-        finalLimitPrice = null;
-        const quote = await this.marketDataRepo.getQuoteByInstrumentId(input.instrumentId);
-        if (quote && parseFloat(quote.lastPrice) > 0) {
-          referencePrice = quote.lastPrice;
-        } else {
-          // If no quote exists, default to safe nominal value for simulation
-          referencePrice = '100.0000';
-        }
+        referencePrice = '100.0000';
       }
+    }
 
-      // 5. Pre-Trade Purchasing Power Validation for BUY Orders
+    // 5. Phase 1: Pre-Trade Validation and Order Creation in committed database transaction
+    const committedOrder = await this.withTransaction(trx, async (activeTrx) => {
+      // Pre-Trade Risk: Check uncommitted purchasing power for BUY orders
       if (input.side === 'BUY') {
-        const estimatedRequiredCash = (quantityNum * parseFloat(referencePrice)).toFixed(4);
+        const estimatedRequiredCash = FinancialMath.calcTradeAmount(referencePrice, input.quantity);
         const powerCheck = await this.reservationService.validateBuyingPower(
           userId,
           estimatedRequiredCash,
@@ -153,16 +148,33 @@ export class OrderService {
         }
       }
 
-      // 6. Accept Order into OMS with OPEN Status
-      // (Order starts with remaining_quantity = quantity)
-      const order = await this.orderRepo.create(
+      // Pre-Trade Risk: Check uncommitted share balance for SELL orders
+      if (input.side === 'SELL') {
+        const sellCheck = await this.reservationService.validateSellingPower(
+          userId,
+          input.instrumentId,
+          input.quantity,
+          activeTrx
+        );
+
+        if (!sellCheck.hasSufficientShares) {
+          throw new AppError(
+            422,
+            'INSUFFICIENT_SHARES',
+            `Insufficient shares to submit SELL order. Required: ${input.quantity}, Available: ${sellCheck.availableShares}`
+          );
+        }
+      }
+
+      // Persist order with OPEN status
+      const created = await this.orderRepo.create(
         {
           userId,
           instrumentId: input.instrumentId,
           side: input.side,
           orderType: input.orderType,
-          quantity: input.quantity,
-          remainingQuantity: input.quantity,
+          quantity: FinancialMath.toFixed(input.quantity),
+          remainingQuantity: FinancialMath.toFixed(input.quantity),
           limitPrice: finalLimitPrice,
           status: 'OPEN',
           idempotencyKey: input.idempotencyKey || null,
@@ -171,17 +183,19 @@ export class OrderService {
       );
 
       logger.info(
-        `[OMS] Order #${order.id} accepted for User #${userId}: ${order.side} ${order.quantity} ${instrument.symbol} (${order.orderType})`
+        `[OMS] Order #${created.id} accepted for User #${userId}: ${created.side} ${created.quantity} ${instrument.symbol} (${created.orderType})`
       );
 
-      // Phase 5A: Emit order accepted to private user room
-      this.realtimeService.emitOrderAccepted(order);
-
-      // Phase 4B: Continuous Matching Engine Execution
-      const { remainingOrder } = await this.matchingEngine.matchOrder(order, instrument.symbol);
-
-      return remainingOrder;
+      return created;
     });
+
+    // 6. Post-Commit Realtime Event
+    this.realtimeService.emitOrderAccepted(committedOrder);
+
+    // 7. Phase 2: Hand off committed order to per-instrument matching queue
+    const { remainingOrder } = await this.matchingEngine.matchOrder(committedOrder, instrument.symbol);
+
+    return remainingOrder;
   }
 
   /**
@@ -237,57 +251,66 @@ export class OrderService {
 
   /**
    * Cancels an eligible open order owned by the authenticated user.
+   * Serialized through the instrument matching queue to prevent race conditions against matching executions.
    */
   async cancelOrder(userId: number, orderId: number, trx?: Knex.Transaction): Promise<Order> {
-    return this.withTransaction(trx, async (activeTrx) => {
-      const order = await this.getOrderById(userId, orderId, activeTrx);
+    const order = await this.getOrderById(userId, orderId, trx);
 
-      // Safe state machine validation
-      if (order.status === 'CANCELLED') {
-        throw new AppError(
-          422,
-          'ORDER_ALREADY_CANCELLED',
-          `Order #${orderId} has already been cancelled`
-        );
-      }
+    // Route cancellation through the instrument queue to prevent concurrent matching races
+    return this.matchingEngine.getMatchingQueue().enqueue(order.instrumentId, async () => {
+      return this.withTransaction(trx, async (activeTrx) => {
+        const current = await this.orderRepo.findById(orderId, activeTrx);
+        if (!current) {
+          throw new AppError(404, 'ORDER_NOT_FOUND', `Order #${orderId} was not found`);
+        }
 
-      if (order.status === 'FILLED') {
-        throw new AppError(
-          422,
-          'ORDER_ALREADY_FILLED',
-          `Order #${orderId} has already been filled and cannot be cancelled`
-        );
-      }
+        // Safe state machine validation
+        if (current.status === 'CANCELLED') {
+          throw new AppError(
+            422,
+            'ORDER_ALREADY_CANCELLED',
+            `Order #${orderId} has already been cancelled`
+          );
+        }
 
-      if (order.status === 'REJECTED') {
-        throw new AppError(
-          422,
-          'ORDER_ALREADY_REJECTED',
-          `Order #${orderId} was rejected and cannot be cancelled`
-        );
-      }
+        if (current.status === 'FILLED') {
+          throw new AppError(
+            422,
+            'ORDER_ALREADY_FILLED',
+            `Order #${orderId} has already been filled and cannot be cancelled`
+          );
+        }
 
-      if (order.status !== 'OPEN' && order.status !== 'PENDING' && order.status !== 'PARTIALLY_FILLED') {
-        throw new AppError(
-          422,
-          'INVALID_STATE_TRANSITION',
-          `Order #${orderId} in status ${order.status} is not eligible for cancellation`
-        );
-      }
+        if (current.status === 'REJECTED') {
+          throw new AppError(
+            422,
+            'ORDER_ALREADY_REJECTED',
+            `Order #${orderId} was rejected and cannot be cancelled`
+          );
+        }
 
-      const updated = await this.orderRepo.updateStatus(orderId, 'CANCELLED', undefined, activeTrx);
-      if (!updated) {
-        throw new AppError(500, 'ORDER_UPDATE_FAILED', `Failed to cancel order #${orderId}`);
-      }
+        if (current.status !== 'OPEN' && current.status !== 'PENDING' && current.status !== 'PARTIALLY_FILLED') {
+          throw new AppError(
+            422,
+            'INVALID_STATE_TRANSITION',
+            `Order #${orderId} in status ${current.status} is not eligible for cancellation`
+          );
+        }
 
-      // Phase 4B: Remove cancelled order from in-memory Order Book
-      this.matchingEngine.cancelOrder(order.id, order.instrumentId);
+        const updated = await this.orderRepo.updateStatus(orderId, 'CANCELLED', undefined, activeTrx);
+        if (!updated) {
+          throw new AppError(500, 'ORDER_UPDATE_FAILED', `Failed to cancel order #${orderId}`);
+        }
 
-      // Phase 5A: Emit order cancelled to private user room
-      this.realtimeService.emitOrderCancelled(updated);
+        // Remove cancelled order from in-memory Order Book
+        this.matchingEngine.cancelOrder(order.id, order.instrumentId);
 
-      logger.info(`[OMS] Order #${orderId} cancelled by User #${userId}`);
-      return updated;
+        // Emit order cancelled to private user room
+        this.realtimeService.emitOrderCancelled(updated);
+
+        logger.info(`[OMS] Order #${orderId} cancelled by User #${userId}`);
+        return updated;
+      });
     });
   }
 }
