@@ -2,6 +2,7 @@ import { Order, Trade, OrderBookLevel } from '@tradegrid/shared-types';
 import { logger } from '../../utils/logger';
 import { OrderBook } from './order-book';
 import { ISettlementService, settlementService as defaultSettlementService } from './settlement.service';
+import { IRealtimeService, realtimeService as defaultRealtimeService } from '../../websocket/realtime.service';
 
 export interface MatchResult {
   trades: Trade[];
@@ -11,7 +12,10 @@ export interface MatchResult {
 export class MatchingEngine {
   private books: Map<number, OrderBook> = new Map();
 
-  constructor(private readonly settlementService: ISettlementService = defaultSettlementService) {}
+  constructor(
+    private readonly settlementService: ISettlementService = defaultSettlementService,
+    private readonly realtimeService: IRealtimeService = defaultRealtimeService
+  ) {}
 
   /**
    * Retrieves or initializes an OrderBook instance for a specific instrument.
@@ -100,15 +104,27 @@ export class MatchingEngine {
 
         trades.push(settledTrade);
 
+        // Phase 5A: Broadcast trade and counterparty updates
+        this.realtimeService.broadcastTradeExecution({
+          trade: settledTrade,
+          symbol: book.symbol,
+          dataClassification: 'SIMULATED',
+          aggressorSide: 'BUY',
+        });
+        this.realtimeService.emitPortfolioUpdated(settledTrade.buyerId);
+        this.realtimeService.emitPortfolioUpdated(settledTrade.sellerId);
+
         // Update in-memory state for resting Ask order
         const newAskRemaining = parseFloat((askRemaining - matchQuantity).toFixed(4));
         if (newAskRemaining <= 0.0001) {
           bestAsk.remainingQuantity = '0.0000';
           bestAsk.status = 'FILLED';
           book.removeOrder(bestAsk.id);
+          this.realtimeService.emitOrderFilled(bestAsk, settledTrade);
         } else {
           bestAsk.remainingQuantity = newAskRemaining.toFixed(4);
           bestAsk.status = 'PARTIALLY_FILLED';
+          this.realtimeService.emitOrderPartiallyFilled(bestAsk, settledTrade);
         }
 
         // Update in-memory state for incoming Buy order
@@ -158,15 +174,27 @@ export class MatchingEngine {
 
         trades.push(settledTrade);
 
+        // Phase 5A: Broadcast trade and counterparty updates
+        this.realtimeService.broadcastTradeExecution({
+          trade: settledTrade,
+          symbol: book.symbol,
+          dataClassification: 'SIMULATED',
+          aggressorSide: 'SELL',
+        });
+        this.realtimeService.emitPortfolioUpdated(settledTrade.buyerId);
+        this.realtimeService.emitPortfolioUpdated(settledTrade.sellerId);
+
         // Update in-memory state for resting Bid order
         const newBidRemaining = parseFloat((bidRemaining - matchQuantity).toFixed(4));
         if (newBidRemaining <= 0.0001) {
           bestBid.remainingQuantity = '0.0000';
           bestBid.status = 'FILLED';
           book.removeOrder(bestBid.id);
+          this.realtimeService.emitOrderFilled(bestBid, settledTrade);
         } else {
           bestBid.remainingQuantity = newBidRemaining.toFixed(4);
           bestBid.status = 'PARTIALLY_FILLED';
+          this.realtimeService.emitOrderPartiallyFilled(bestBid, settledTrade);
         }
 
         // Update in-memory state for incoming Sell order
@@ -180,16 +208,40 @@ export class MatchingEngine {
 
     if (parseFloat(remainingQtyFormatted) === 0) {
       order.status = 'FILLED';
+      if (trades.length > 0) {
+        this.realtimeService.emitOrderFilled(order, trades[trades.length - 1]);
+      }
     } else if (parseFloat(remainingQtyFormatted) < parseFloat(order.quantity)) {
       order.status = 'PARTIALLY_FILLED';
       if (order.orderType === 'LIMIT') {
         book.addOrder(order);
+      }
+      if (trades.length > 0) {
+        this.realtimeService.emitOrderPartiallyFilled(order, trades[trades.length - 1]);
       }
     } else {
       order.status = 'OPEN';
       if (order.orderType === 'LIMIT') {
         book.addOrder(order);
       }
+    }
+
+    // Phase 5A: Broadcast updated committed order book depth to orderbook:{symbol}
+    const depth = this.getOrderBookDepth(order.instrumentId, 15, book.symbol);
+    this.realtimeService.broadcastOrderBookUpdate(book.symbol, order.instrumentId, depth);
+
+    // Phase 5A: Broadcast market price update if executions occurred
+    if (trades.length > 0) {
+      const lastTrade = trades[trades.length - 1];
+      const totalVolume = trades.reduce((sum, t) => sum + parseFloat(t.quantity), 0);
+      this.realtimeService.broadcastMarketPriceUpdate({
+        symbol: book.symbol,
+        instrumentId: order.instrumentId,
+        lastPrice: lastTrade.price,
+        changeAmount: '0.0000',
+        changePercent: '0.00',
+        volume: totalVolume,
+      });
     }
 
     return { trades, remainingOrder: order };
@@ -203,7 +255,13 @@ export class MatchingEngine {
     if (!book) {
       return null;
     }
-    return book.removeOrder(orderId);
+    const removed = book.removeOrder(orderId);
+    if (removed) {
+      // Phase 5A: Broadcast updated order book depth after order cancellation
+      const depth = this.getOrderBookDepth(instrumentId, 15, book.symbol);
+      this.realtimeService.broadcastOrderBookUpdate(book.symbol, instrumentId, depth);
+    }
+    return removed;
   }
 
   /**

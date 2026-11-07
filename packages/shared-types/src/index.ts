@@ -438,3 +438,111 @@ export interface PortfolioSummaryResponse {
   updatedAt: string;
 }
 
+// ============================================================================
+// Phase 5A: Real-Time WebSocket Streaming Contracts
+// ============================================================================
+
+export interface MarketPriceUpdateEvent {
+  eventId: string;
+  symbol: string;
+  instrumentId: number;
+  lastPrice: string;
+  changeAmount: string;
+  changePercent: string;
+  volume: number;
+  highPrice: string;
+  lowPrice: string;
+  sequence: number;
+  timestamp: string;
+}
+
+export interface MarketStatusEvent {
+  eventId: string;
+  symbol?: string;
+  marketStatus: InstrumentStatus;
+  reason?: string;
+  timestamp: string;
+}
+
+export interface OrderBookSnapshotEvent {
+  eventId: string;
+  symbol: string;
+  instrumentId: number;
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+  spread: string;
+  midPrice: string | null;
+  sequence: number;
+  timestamp: string;
+}
+
+export interface OrderBookDepthUpdateEvent {
+  eventId: string;
+  symbol: string;
+  instrumentId: number;
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+  spread: string;
+  midPrice: string | null;
+  sequence: number;
+  prevSequence: number;
+  timestamp: string;
+}
+
+export interface TradeTapeUpdateEvent {
+  eventId: string;
+  tradeId: number;
+  tradeReference: string;
+  symbol: string;
+  instrumentId: number;
+  price: string;
+  quantity: string;
+  tradeAmount: string;
+  aggressorSide?: OrderSide;
+  dataClassification: DataClassification;
+  executedAt: string;
+}
+
+export interface PrivateTradeExecutedEvent extends TradeTapeUpdateEvent {
+  buyOrderId: number;
+  sellOrderId: number;
+  buyerId: number;
+  sellerId: number;
+  role: 'BUYER' | 'SELLER';
+}
+
+export interface OrderLifecycleEvent {
+  eventId: string;
+  order: Order;
+  trade?: Trade;
+  timestamp: string;
+}
+
+export interface PortfolioUpdatedEvent {
+  eventId: string;
+  userId: number;
+  cashBalance: string;
+  totalPortfolioValue: string;
+  totalInvested: string;
+  totalUnrealizedPnL: string;
+  totalRealizedPnL: string;
+  timestamp: string;
+}
+
+export type WebSocketChannel =
+  | `market:${string}`
+  | `orderbook:${string}`
+  | `trades:${string}`
+  | `user:${number}`;
+
+export interface SubscriptionRequest {
+  channel: string;
+}
+
+export interface SubscriptionResponse {
+  channel: string;
+  status: 'subscribed' | 'unsubscribed' | 'error';
+  message?: string;
+}
+
+

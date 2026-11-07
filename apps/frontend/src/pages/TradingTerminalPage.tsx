@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useMarketStore } from '../store/marketStore';
 import { useWalletStore } from '../store/walletStore';
 import { useOrderStore } from '../store/orderStore';
+import { useAuthStore } from '../store/authStore';
 import { tradeApiService } from '../services/trade.service';
+import { socketService } from '../services/socket.service';
 import { formatCurrency, formatNumber, formatDate } from '../utils/formatters';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -62,12 +64,15 @@ export const TradingTerminalPage: React.FC = () => {
   const [symbolSearch, setSymbolSearch] = useState('');
   const [showSymbolPicker, setShowSymbolPicker] = useState(false);
 
-  // Phase 4B: Live Order Book & Trade Tape State
+  const { user } = useAuthStore();
+  const lastBookSeq = useRef<number>(0);
+
+  // Phase 4B / 5A: Live Order Book & Trade Tape State
   const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [isLoadingBook, setIsLoadingBook] = useState(false);
 
-  // Fetch Order Book & Market Tape
+  // Fetch Order Book & Market Tape Initial Baseline
   const fetchMarketDepth = useCallback(async () => {
     if (!symbol) return;
     try {
@@ -78,12 +83,15 @@ export const TradingTerminalPage: React.FC = () => {
       ]);
       if (bookData.status === 'fulfilled') {
         setOrderBook(bookData.value);
+        if ((bookData.value as any).sequence) {
+          lastBookSeq.current = (bookData.value as any).sequence;
+        }
       }
       if (tapeData.status === 'fulfilled') {
         setRecentTrades(tapeData.value);
       }
     } catch {
-      // Silently catch polling errors
+      // Silently catch baseline errors
     } finally {
       setIsLoadingBook(false);
     }
@@ -104,13 +112,100 @@ export const TradingTerminalPage: React.FC = () => {
     }
   }, [symbol, fetchInstrumentDetail, fetchMarketDepth]);
 
-  // Periodic polling for order book and tape (every 5 seconds)
+  // Phase 5A: Real-Time WebSocket Streaming Subscriptions & Handlers
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchMarketDepth();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchMarketDepth]);
+    if (!symbol) return;
+    const normSymbol = symbol.toUpperCase();
+    const obChannel = `orderbook:${normSymbol}`;
+    const tradesChannel = `trades:${normSymbol}`;
+    const marketChannel = `market:${normSymbol}`;
+    const userChannel = user?.id ? `user:${user.id}` : null;
+
+    // Connect and subscribe to symbol channels
+    socketService.connect();
+    socketService.subscribe(obChannel);
+    socketService.subscribe(tradesChannel);
+    socketService.subscribe(marketChannel);
+    if (userChannel) {
+      socketService.subscribe(userChannel);
+    }
+
+    // 1. Order Book Snapshot Handler
+    const handleSnapshot = (snap: any) => {
+      if (snap.symbol?.toUpperCase() === normSymbol) {
+        lastBookSeq.current = snap.sequence || 0;
+        setOrderBook(snap);
+      }
+    };
+
+    // 2. Order Book Depth Incremental Update Handler (with Sequence Gap Recovery)
+    const handleDepthUpdate = (update: any) => {
+      if (update.symbol?.toUpperCase() === normSymbol) {
+        // Detect sequence gap for recovery
+        if (lastBookSeq.current > 0 && update.prevSequence && update.prevSequence !== lastBookSeq.current) {
+          console.warn(
+            `[WS] OrderBook sequence gap detected on ${normSymbol} (expected #${lastBookSeq.current}, got prev #${update.prevSequence}). Requesting snapshot recovery.`
+          );
+          socketService.requestOrderBookSnapshot(normSymbol);
+          return;
+        }
+
+        lastBookSeq.current = update.sequence;
+        setOrderBook({
+          symbol: update.symbol,
+          instrumentId: update.instrumentId,
+          bids: update.bids,
+          asks: update.asks,
+          spread: update.spread,
+          midPrice: update.midPrice,
+          timestamp: update.timestamp,
+        });
+      }
+    };
+
+    // 3. Trade Tape Stream Handler
+    const handleTapeUpdate = (trade: any) => {
+      if (trade.symbol?.toUpperCase() === normSymbol) {
+        setRecentTrades((prev) => [trade, ...prev.slice(0, 29)]);
+      }
+    };
+
+    // 4. Private Order Lifecycle Handlers
+    const handleOrderEvent = () => {
+      fetchOrders();
+    };
+
+    // 5. Portfolio & Cash Update Handler
+    const handlePortfolioEvent = () => {
+      fetchWalletSummary();
+    };
+
+    socketService.on('orderbook:snapshot', handleSnapshot);
+    socketService.on('orderbook:depth_update', handleDepthUpdate);
+    socketService.on('trade:tape_update', handleTapeUpdate);
+    socketService.on('order:accepted', handleOrderEvent);
+    socketService.on('order:partially_filled', handleOrderEvent);
+    socketService.on('order:filled', handleOrderEvent);
+    socketService.on('order:cancelled', handleOrderEvent);
+    socketService.on('portfolio:updated', handlePortfolioEvent);
+
+    return () => {
+      socketService.unsubscribe(obChannel);
+      socketService.unsubscribe(tradesChannel);
+      socketService.unsubscribe(marketChannel);
+      if (userChannel) {
+        socketService.unsubscribe(userChannel);
+      }
+      socketService.off('orderbook:snapshot', handleSnapshot);
+      socketService.off('orderbook:depth_update', handleDepthUpdate);
+      socketService.off('trade:tape_update', handleTapeUpdate);
+      socketService.off('order:accepted', handleOrderEvent);
+      socketService.off('order:partially_filled', handleOrderEvent);
+      socketService.off('order:filled', handleOrderEvent);
+      socketService.off('order:cancelled', handleOrderEvent);
+      socketService.off('portfolio:updated', handlePortfolioEvent);
+    };
+  }, [symbol, user?.id, fetchOrders, fetchWalletSummary]);
 
   // Update limit price default when quote loads
   useEffect(() => {

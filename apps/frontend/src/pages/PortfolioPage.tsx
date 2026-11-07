@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { usePortfolioStore } from '../store/portfolioStore';
 import { useWalletStore } from '../store/walletStore';
+import { useAuthStore } from '../store/authStore';
+import { socketService } from '../services/socket.service';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import { Card } from '../components/common/Card';
 import { StatCard } from '../components/common/StatCard';
@@ -10,6 +12,7 @@ import { PortfolioPosition } from '@tradegrid/shared-types';
 import { Wallet, PieChart, ShieldAlert, TrendingUp, Layers, RefreshCw, AlertCircle } from 'lucide-react';
 
 export const PortfolioPage: React.FC = () => {
+  const { user } = useAuthStore();
   const {
     positions,
     cashBalance,
@@ -28,6 +31,28 @@ export const PortfolioPage: React.FC = () => {
     fetchPortfolioSummary();
     fetchWalletSummary();
   }, [fetchPortfolioSummary, fetchWalletSummary]);
+
+  // Phase 5A: Listen for real-time portfolio updates on private user channel
+  useEffect(() => {
+    if (!user?.id) return;
+    const userChannel = `user:${user.id}`;
+    socketService.connect();
+    socketService.subscribe(userChannel);
+
+    const handleUpdate = () => {
+      fetchPortfolioSummary();
+      fetchWalletSummary();
+    };
+
+    socketService.on('portfolio:updated', handleUpdate);
+    socketService.on('trade:executed', handleUpdate);
+
+    return () => {
+      socketService.off('portfolio:updated', handleUpdate);
+      socketService.off('trade:executed', handleUpdate);
+      socketService.unsubscribe(userChannel);
+    };
+  }, [user?.id, fetchPortfolioSummary, fetchWalletSummary]);
 
   const numericUnrealizedPnL = parseFloat(totalUnrealizedPnL || '0');
 

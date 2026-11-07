@@ -13,11 +13,13 @@ import {
   IMarketDataRepository,
   marketDataRepository,
 } from './market-data.repository';
+import { IRealtimeService, realtimeService as defaultRealtimeService } from '../../websocket/realtime.service';
 
 export class InstrumentService {
   constructor(
     private readonly instrumentRepo: IInstrumentRepository = instrumentRepository,
-    private readonly marketDataRepo: IMarketDataRepository = marketDataRepository
+    private readonly marketDataRepo: IMarketDataRepository = marketDataRepository,
+    private readonly realtimeService: IRealtimeService = defaultRealtimeService
   ) {}
 
   /**
@@ -121,6 +123,8 @@ export class InstrumentService {
     if (!updated) {
       throw new AppError(500, 'UPDATE_FAILED', `Failed to update status for instrument #${id}`);
     }
+    // Phase 5A: Broadcast market status change to subscribers
+    this.realtimeService.broadcastMarketStatus(updated.symbol, status);
     return updated;
   }
 

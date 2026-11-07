@@ -18,10 +18,12 @@ import {
   orderReservationService as defaultReservationService,
 } from './order-reservation.service';
 import { MatchingEngine, matchingEngine as defaultMatchingEngine } from '../matching/matching-engine';
+import { IRealtimeService, realtimeService as defaultRealtimeService } from '../../websocket/realtime.service';
 
 export class OrderService {
   private readonly matchingEngine: MatchingEngine;
   private readonly knexInstance: Knex;
+  private readonly realtimeService: IRealtimeService;
 
   constructor(
     private readonly orderRepo: IOrderRepository = defaultOrderRepo,
@@ -29,8 +31,10 @@ export class OrderService {
     private readonly marketDataRepo: IMarketDataRepository = defaultMarketDataRepo,
     private readonly reservationService: IOrderReservationService = defaultReservationService,
     matchingEngineOrKnex?: MatchingEngine | Knex,
-    knexParam?: Knex
+    knexParam?: Knex,
+    realtimeServiceParam?: IRealtimeService
   ) {
+    this.realtimeService = realtimeServiceParam || defaultRealtimeService;
     if (matchingEngineOrKnex && typeof (matchingEngineOrKnex as any).matchOrder === 'function') {
       this.matchingEngine = matchingEngineOrKnex as MatchingEngine;
       this.knexInstance = knexParam || db;
@@ -170,6 +174,9 @@ export class OrderService {
         `[OMS] Order #${order.id} accepted for User #${userId}: ${order.side} ${order.quantity} ${instrument.symbol} (${order.orderType})`
       );
 
+      // Phase 5A: Emit order accepted to private user room
+      this.realtimeService.emitOrderAccepted(order);
+
       // Phase 4B: Continuous Matching Engine Execution
       const { remainingOrder } = await this.matchingEngine.matchOrder(order, instrument.symbol);
 
@@ -275,6 +282,9 @@ export class OrderService {
 
       // Phase 4B: Remove cancelled order from in-memory Order Book
       this.matchingEngine.cancelOrder(order.id, order.instrumentId);
+
+      // Phase 5A: Emit order cancelled to private user room
+      this.realtimeService.emitOrderCancelled(updated);
 
       logger.info(`[OMS] Order #${orderId} cancelled by User #${userId}`);
       return updated;

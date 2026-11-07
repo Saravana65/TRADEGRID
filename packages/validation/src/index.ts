@@ -389,3 +389,22 @@ export const portfolioQuerySchema = z.object({
 
 export type PortfolioQueryInput = z.infer<typeof portfolioQuerySchema>;
 
+// ============================================================================
+// Phase 5A: WebSocket Subscription Validation Schema
+// ============================================================================
+
+export const subscriptionSchema = z.object({
+  channel: z
+    .string()
+    .trim()
+    .min(3, 'Channel name is too short')
+    .max(64, 'Channel name is too long')
+    .regex(
+      /^(market|orderbook|trades):[A-Za-z0-9_-]+$|^user:\d+$/,
+      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", or "user:USER_ID"'
+    ),
+});
+
+export type SubscriptionInput = z.infer<typeof subscriptionSchema>;
+
+

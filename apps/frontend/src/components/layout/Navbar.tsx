@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import { useWalletStore } from '../../store/walletStore';
+import { useSocketStore } from '../../store/socketStore';
 import { formatCurrency } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
@@ -12,12 +13,19 @@ import {
   Shield,
   Menu,
   CheckCircle,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuthStore();
   const { exchangeStatus, toggleSidebar } = useUIStore();
   const { balance, summary, fetchWalletSummary, isLoadingWallet } = useWalletStore();
+  const { isConnected, initializeSocket } = useSocketStore();
+
+  useEffect(() => {
+    initializeSocket();
+  }, [initializeSocket]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -57,6 +65,28 @@ export const Navbar: React.FC = () => {
             <span className="text-xs font-mono text-slate-300 font-medium">
               EXCHANGE {exchangeStatus}
             </span>
+          </div>
+
+          {/* Phase 5A: Real-time WebSocket Live Status Pill */}
+          <div
+            className={`hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-mono font-semibold ${
+              isConnected
+                ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-400'
+                : 'bg-amber-950/40 border-amber-800/40 text-amber-400'
+            }`}
+            title={isConnected ? 'Real-Time Streaming WebSocket Connected' : 'Reconnecting to Streaming Gateway...'}
+          >
+            {isConnected ? (
+              <>
+                <Wifi className="w-3 h-3 text-emerald-400 animate-pulse" />
+                <span>LIVE WS</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3 h-3 text-amber-400" />
+                <span>OFFLINE</span>
+              </>
+            )}
           </div>
         </div>
       </div>
