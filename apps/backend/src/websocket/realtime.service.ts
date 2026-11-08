@@ -42,6 +42,7 @@ import {
   ChatNotificationNewEvent,
   ChatTypingEvent,
   ChatMessageReadEvent,
+  AchievementUnlockedEvent,
 } from '@tradegrid/shared-types';
 
 export interface IRealtimeService {
@@ -796,6 +797,16 @@ export class RealtimeService implements IRealtimeService {
       this.io.to(`chat:conversation:${event.conversationId}`).emit('chat:message:read', event);
     } catch (err: any) {
       logger.error(`[WS] Failed to emit chat:message:read: ${err.message}`);
+    }
+  }
+
+  emitAchievementUnlocked(event: AchievementUnlockedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`user:${event.userId}`).emit('achievement:unlocked', event);
+      logger.info(`[WS] Emitted achievement:unlocked (${event.achievement.code}) to user:${event.userId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit achievement:unlocked: ${err.message}`);
     }
   }
 }

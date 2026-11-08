@@ -24,11 +24,13 @@ import {
   calculateVolumeProfile,
 } from '../research/indicators';
 import { HistoricalDataService } from '../research/historical-data.service';
+import { defaultAchievementService, AchievementService } from '../achievements';
 
 export class ChartingService {
   constructor(
     private readonly chartPrefRepo: IChartPreferenceRepository,
-    private readonly historicalDataService: HistoricalDataService
+    private readonly historicalDataService: HistoricalDataService,
+    private readonly achievementService: AchievementService = defaultAchievementService
   ) {}
 
   getDefaultConfiguration(symbol: string = 'DEFAULT'): UserChartPreference {
@@ -169,7 +171,9 @@ export class ChartingService {
       volumeProfileConfig: input.volumeProfileConfig,
     };
 
-    return this.chartPrefRepo.savePreference(preference);
+    const saved = await this.chartPrefRepo.savePreference(preference);
+    this.achievementService.onLearningAction(userId, 'CHART_SAVED').catch(() => {});
+    return saved;
   }
 
   async resetPreferences(userId: number, symbol: string): Promise<boolean> {

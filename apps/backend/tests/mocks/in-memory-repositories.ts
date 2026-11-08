@@ -2638,6 +2638,158 @@ export class InMemoryChartPreferenceRepository implements IChartPreferenceReposi
   }
 }
 
+// ============================================================================
+// PHASE 8: IN-MEMORY ACHIEVEMENT REPOSITORY
+// ============================================================================
+
+import {
+  IAchievementRepository,
+  UserAchievementStatsRow,
+} from '../../src/modules/achievements/achievement.types';
+import {
+  AchievementCategory,
+  AchievementDefinition,
+  UserAchievement,
+  AchievementProgress,
+  AchievementLeaderboardEntry,
+} from '@tradegrid/shared-types';
+import { STANDARD_ACHIEVEMENTS } from '../../src/modules/achievements/achievement.definitions';
+
+export class InMemoryAchievementRepository implements IAchievementRepository {
+  private definitions: AchievementDefinition[] = [...STANDARD_ACHIEVEMENTS];
+  private unlocks: Map<string, UserAchievement> = new Map(); // key: `${userId}:${code}`
+  private progress: Map<string, AchievementProgress> = new Map(); // key: `${userId}:${code}`
+  private stats: Map<number, UserAchievementStatsRow> = new Map(); // key: userId
+  private usersMap: Map<number, string> = new Map(); // key: userId -> username
+
+  setTraderUsername(userId: number, username: string): void {
+    this.usersMap.set(userId, username);
+  }
+
+  async getDefinitions(category?: AchievementCategory): Promise<AchievementDefinition[]> {
+    if (category) {
+      return this.definitions.filter((d) => d.category === category);
+    }
+    return [...this.definitions];
+  }
+
+  async getDefinitionByCode(code: string): Promise<AchievementDefinition | null> {
+    const found = this.definitions.find((d) => d.code === code);
+    return found ? { ...found } : null;
+  }
+
+  async getUserUnlocks(userId: number): Promise<UserAchievement[]> {
+    const list: UserAchievement[] = [];
+    for (const unlock of this.unlocks.values()) {
+      if (unlock.userId === userId) {
+        list.push({ ...unlock });
+      }
+    }
+    return list.sort((a, b) => new Date(b.unlockedAt).getTime() - new Date(a.unlockedAt).getTime());
+  }
+
+  async hasUnlocked(userId: number, code: string): Promise<boolean> {
+    return this.unlocks.has(`${userId}:${code}`);
+  }
+
+  async recordUnlock(userId: number, code: string): Promise<boolean> {
+    const key = `${userId}:${code}`;
+    if (this.unlocks.has(key)) return false;
+
+    this.unlocks.set(key, {
+      userId,
+      achievementCode: code,
+      unlockedAt: new Date().toISOString(),
+    });
+    return true;
+  }
+
+  async getProgress(userId: number, code: string): Promise<AchievementProgress | null> {
+    const p = this.progress.get(`${userId}:${code}`);
+    return p ? { ...p } : null;
+  }
+
+  async getAllProgressForUser(userId: number): Promise<AchievementProgress[]> {
+    const list: AchievementProgress[] = [];
+    for (const prog of this.progress.values()) {
+      if (prog.userId === userId) {
+        list.push({ ...prog });
+      }
+    }
+    return list;
+  }
+
+  async upsertProgress(
+    userId: number,
+    code: string,
+    currentProgress: number,
+    targetProgress: number,
+    isCompleted: boolean
+  ): Promise<AchievementProgress> {
+    const key = `${userId}:${code}`;
+    const entry: AchievementProgress = {
+      userId,
+      achievementCode: code,
+      currentProgress,
+      targetProgress,
+      isCompleted,
+      updatedAt: new Date().toISOString(),
+    };
+    this.progress.set(key, entry);
+    return { ...entry };
+  }
+
+  async getUserStats(userId: number): Promise<UserAchievementStatsRow | null> {
+    const st = this.stats.get(userId);
+    return st ? { ...st } : null;
+  }
+
+  async upsertUserStats(
+    stats: Partial<UserAchievementStatsRow> & { user_id: number }
+  ): Promise<UserAchievementStatsRow> {
+    const existing = this.stats.get(stats.user_id);
+    const now = new Date().toISOString();
+
+    const entry: UserAchievementStatsRow = {
+      id: existing?.id || stats.user_id,
+      user_id: stats.user_id,
+      total_points: stats.total_points ?? existing?.total_points ?? 0,
+      current_level: stats.current_level ?? existing?.current_level ?? 1,
+      title: stats.title ?? existing?.title ?? 'Novice Trader',
+      achievements_unlocked_count:
+        stats.achievements_unlocked_count ?? existing?.achievements_unlocked_count ?? 0,
+      updated_at: now,
+    };
+
+    this.stats.set(stats.user_id, entry);
+    return { ...entry };
+  }
+
+  async getLeaderboard(limit: number = 20): Promise<AchievementLeaderboardEntry[]> {
+    const list = Array.from(this.stats.values())
+      .sort((a, b) => b.total_points - a.total_points)
+      .slice(0, limit);
+
+    return list.map((st, index) => ({
+      userId: st.user_id,
+      username: this.usersMap.get(st.user_id) || `trader_${st.user_id}`,
+      totalPoints: st.total_points,
+      currentLevel: st.current_level,
+      levelTitle: st.title,
+      achievementsUnlockedCount: st.achievements_unlocked_count,
+      rank: index + 1,
+    }));
+  }
+
+  clear(): void {
+    this.unlocks.clear();
+    this.progress.clear();
+    this.stats.clear();
+    this.usersMap.clear();
+  }
+}
+
+
 
 
 

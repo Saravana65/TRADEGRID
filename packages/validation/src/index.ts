@@ -1096,3 +1096,30 @@ export const calculateIndicatorsSchema = z.object({
 
 export type CalculateIndicatorsInput = z.infer<typeof calculateIndicatorsSchema>;
 
+// ============================================================================
+// Phase 8: Trader Achievements & Gamification Validation Schemas
+// ============================================================================
+
+export const achievementCategorySchema = z.enum([
+  'BACKTESTING',
+  'COMPETITION',
+  'TRADING',
+  'LEARNING',
+]);
+
+export const achievementQuerySchema = z.object({
+  category: achievementCategorySchema.optional(),
+});
+
+export type AchievementQueryInput = z.infer<typeof achievementQuerySchema>;
+
+export const achievementLeaderboardQuerySchema = z.object({
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(String(val), 10) || 20)) : 20)),
+});
+
+export type AchievementLeaderboardQueryInput = z.infer<typeof achievementLeaderboardQuerySchema>;
+
+

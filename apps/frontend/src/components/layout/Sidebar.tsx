@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Trophy,
+  Award,
   MessageSquare,
   Cpu,
 } from 'lucide-react';
@@ -35,6 +36,7 @@ export const Sidebar: React.FC = () => {
     { name: 'Charting Studio', path: '/chart', icon: TrendingUp },
     { name: 'Portfolio', path: '/portfolio', icon: Briefcase },
     { name: 'Competitions', path: '/competitions', icon: Trophy },
+    { name: 'Achievements', path: '/achievements', icon: Award },
     { name: 'Trader Chat', path: '/chat', icon: MessageSquare },
     { name: 'Quant Research', path: '/research', icon: Cpu },
     { name: 'Watchlist', path: '/watchlist', icon: Star },

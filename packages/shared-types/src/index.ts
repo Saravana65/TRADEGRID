@@ -1651,3 +1651,78 @@ export interface IndicatorCalculationResponse {
   volumeProfile?: VolumeProfileData;
 }
 
+// ============================================================================
+// Phase 8: Trader Achievements & Gamification Types
+// ============================================================================
+
+export type AchievementCategory = 'BACKTESTING' | 'COMPETITION' | 'TRADING' | 'LEARNING';
+
+export interface AchievementDefinition {
+  code: string;
+  category: AchievementCategory;
+  name: string;
+  description: string;
+  badgeIcon: string;
+  points: number;
+  requiredProgress: number;
+}
+
+export interface UserAchievement {
+  id?: number;
+  userId: number;
+  achievementCode: string;
+  unlockedAt: string;
+  definition?: AchievementDefinition;
+}
+
+export interface AchievementProgress {
+  userId: number;
+  achievementCode: string;
+  currentProgress: number;
+  targetProgress: number;
+  isCompleted: boolean;
+  updatedAt: string;
+}
+
+export interface UserAchievementItem extends AchievementDefinition {
+  isUnlocked: boolean;
+  unlockedAt?: string;
+  currentProgress: number;
+  targetProgress: number;
+  progressPercent: number;
+}
+
+export interface UserAchievementStats {
+  userId: number;
+  totalPoints: number;
+  currentLevel: number;
+  levelTitle: string;
+  pointsToNextLevel: number;
+  currentLevelProgressPercent: number;
+  achievementsUnlockedCount: number;
+  totalAchievementsCount: number;
+  completionPercent: number;
+}
+
+export interface AchievementLeaderboardEntry {
+  userId: number;
+  username: string;
+  totalPoints: number;
+  currentLevel: number;
+  levelTitle: string;
+  achievementsUnlockedCount: number;
+  rank: number;
+}
+
+export interface AchievementUnlockedEvent {
+  userId: number;
+  achievement: AchievementDefinition;
+  pointsAwarded: number;
+  newTotalPoints: number;
+  newLevel: number;
+  leveledUp: boolean;
+  newLevelTitle: string;
+  unlockedAt: string;
+}
+
+

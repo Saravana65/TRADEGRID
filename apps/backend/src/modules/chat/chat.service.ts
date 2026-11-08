@@ -25,6 +25,7 @@ import {
 } from '@tradegrid/validation';
 import { AppError } from '../../middleware/error.middleware';
 import { logger } from '../../utils/logger';
+import { defaultAchievementService } from '../achievements';
 
 export class ChatService {
   // In-memory rate limiting map: userId -> timestamps[]
@@ -257,6 +258,7 @@ export class ChatService {
     }
 
     logger.debug(`[CHAT] Message #${message.id} sent by User #${senderId} in Room "${room.slug}"`);
+    defaultAchievementService.onLearningAction(senderId, 'CHAT_SENT').catch(() => {});
     return hydrated;
   }
 
@@ -496,6 +498,7 @@ export class ChatService {
     logger.debug(
       `[CHAT] Direct message #${message.id} sent from User #${senderId} to User #${input.recipientId}`
     );
+    defaultAchievementService.onLearningAction(senderId, 'CHAT_SENT').catch(() => {});
     return hydrated;
   }
 

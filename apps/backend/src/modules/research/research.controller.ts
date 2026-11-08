@@ -13,6 +13,7 @@ import {
 import { aiInsightsService, IAIProvider } from './ai-insights.service';
 import { researchRepo, IResearchRepository } from './research.repository';
 import { BacktestResult } from '@tradegrid/shared-types';
+import { defaultAchievementService } from '../achievements';
 
 export class ResearchController {
   constructor(
@@ -56,6 +57,12 @@ export class ResearchController {
       } catch {
         // If DB save fails (e.g. mock test environment), retain in-memory runId
       }
+
+      // Achievement Trigger
+      try {
+        const hasStopLoss = !!(validatedInput.stopLossPercent || validatedInput.takeProfitPercent);
+        defaultAchievementService.onBacktestExecuted(userId, 1, 1, hasStopLoss).catch(() => {});
+      } catch {}
 
       res.status(200).json({
         success: true,
@@ -228,6 +235,11 @@ export class ResearchController {
       }
 
       const insights = await this.portfolioInsights.getPortfolioInsights(userId);
+
+      // Achievement Trigger
+      try {
+        defaultAchievementService.onLearningAction(userId, 'PORTFOLIO_REVIEW').catch(() => {});
+      } catch {}
 
       res.status(200).json({
         success: true,

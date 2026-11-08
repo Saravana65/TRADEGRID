@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useWalletStore } from '../store/walletStore';
@@ -7,7 +7,8 @@ import { StatCard } from '../components/common/StatCard';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { Table, TableColumn } from '../components/common/Table';
-import { StockListing, NewsItem } from '@tradegrid/shared-types';
+import { StockListing, NewsItem, UserAchievementStats, UserAchievementItem } from '@tradegrid/shared-types';
+import { achievementApiService } from '../services/achievement.service';
 import {
   Wallet,
   PieChart,
@@ -16,6 +17,9 @@ import {
   Layers,
   Clock,
   Sparkles,
+  Trophy,
+  Award,
+  Crown,
 } from 'lucide-react';
 
 // Simulated Equities for Educational Display (Clearly marked as simulated)
@@ -111,9 +115,15 @@ const mockNews: NewsItem[] = [
 export const DashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const { balance, fetchWalletSummary } = useWalletStore();
+  const [achievementStats, setAchievementStats] = useState<UserAchievementStats | null>(null);
+  const [recentBadges, setRecentBadges] = useState<UserAchievementItem[]>([]);
 
   useEffect(() => {
     fetchWalletSummary();
+    achievementApiService.getUserStats().then(setAchievementStats).catch(() => {});
+    achievementApiService.getUserAchievements().then((items) => {
+      setRecentBadges(items.filter((i) => i.isUnlocked).slice(0, 4));
+    }).catch(() => {});
   }, [fetchWalletSummary]);
 
   const gainers = [...mockListings].filter((s) => parseFloat(s.changePercent) > 0);
@@ -198,6 +208,67 @@ export const DashboardPage: React.FC = () => {
             Launch Terminal
           </Link>
         </div>
+      </div>
+
+      {/* Phase 8: Trader Level & Gamification Showcase Widget */}
+      <div className="bg-gradient-to-r from-[#0C1322] via-[#10182C] to-[#0C1322] border border-cyan-500/20 p-5 rounded-2xl shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
+              <Crown className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-cyan-400 uppercase tracking-wider">
+                  Level {achievementStats?.currentLevel || 1} Trader
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-semibold border border-slate-700">
+                  {achievementStats?.levelTitle || 'Novice Trader'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {achievementStats?.totalPoints || 0} XP Earned · {achievementStats?.achievementsUnlockedCount || 0} of {achievementStats?.totalAchievementsCount || 19} Badges Unlocked
+              </p>
+            </div>
+          </div>
+
+          {/* Level Progress */}
+          <div className="flex-1 max-w-xs space-y-1">
+            <div className="flex justify-between text-[11px] font-mono text-slate-400">
+              <span>Next Level</span>
+              <span className="text-amber-400 font-bold">{achievementStats?.pointsToNextLevel || 100} XP needed</span>
+            </div>
+            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                style={{ width: `${achievementStats?.currentLevelProgressPercent || 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Action Link */}
+          <Link
+            to="/achievements"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-all whitespace-nowrap self-start md:self-auto"
+          >
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            Achievements & Hall of Fame →
+          </Link>
+        </div>
+
+        {recentBadges.length > 0 && (
+          <div className="mt-3.5 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-mono text-slate-400">Recently Unlocked:</span>
+            {recentBadges.map((b) => (
+              <span
+                key={b.code}
+                className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-medium flex items-center gap-1"
+              >
+                <Award className="w-3 h-3 text-amber-400" /> {b.name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Stat Cards Overview */}
