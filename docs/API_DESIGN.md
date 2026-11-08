@@ -636,7 +636,57 @@ Restricted strictly to authenticated administrator sockets (`role: 'ADMIN'`). Re
 
 ---
 
-## 14. Future Roadmap (Phase 5E & Beyond)
+## 14. Global Trader Chat, Symbol Discussion Rooms & Direct Messaging (`/api/v1/chat` & `/api/v1/admin/chat`)
 
-- `/api/v1/social/chat`: Symbol-specific and global trader chat rooms.
-- `/api/v1/achievements`: Trader milestone badges and achievement tracking.
+### 14.1 Public & Authenticated Chat Rooms
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/chat/rooms` | User | List all accessible chat rooms (`global` and symbol rooms). |
+| `GET` | `/api/v1/chat/rooms/:roomSlug/messages` | User | Fetch paginated chat history for a room (`limit`, `before` cursor). |
+| `POST` | `/api/v1/chat/rooms/:roomSlug/messages` | User | Post a message to a room. Sanitized, rate-limited, parses `@username` mentions. |
+
+### 14.2 Direct Messaging (1-on-1 DMs)
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/chat/conversations` | User | List user's active DM conversations with partner metadata and unread counts. |
+| `POST` | `/api/v1/chat/conversations` | User | Create or get existing DM conversation with another trader (`recipientId`). |
+| `GET` | `/api/v1/chat/conversations/:id/messages` | User | Fetch paginated direct messages for a conversation (`limit`, `before` cursor). |
+| `POST` | `/api/v1/chat/conversations/:id/messages` | User | Send a direct message in a conversation. Enforces participant authorization and blocking rules. |
+| `POST` | `/api/v1/chat/conversations/:id/read` | User | Mark all messages in a conversation as read. |
+
+### 14.3 Notifications & User Discovery
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/chat/notifications` | User | Fetch unread chat notifications (mentions, DMs). |
+| `POST` | `/api/v1/chat/notifications/read` | User | Mark notifications as read (`notificationIds` array or all). |
+| `GET` | `/api/v1/chat/users/search` | User | Search registered traders for `@username` mentions or DM initiation (`q` query string). |
+
+### 14.4 Safety, Blocking & Moderation
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/v1/chat/blocks` | User | Block a trader by `blockedUserId` (prevents DMs, hides messages). |
+| `DELETE` | `/api/v1/chat/blocks/:blockedUserId` | User | Unblock a previously blocked trader. |
+| `GET` | `/api/v1/chat/blocks` | User | List all users blocked by the authenticated trader. |
+| `POST` | `/api/v1/chat/reports` | User | Report a message for abuse (`messageId`, `reason`: `SPAM`, `HARASSMENT`, `MANIPULATION`, `OFFENSIVE`, `OTHER`, `details`). |
+| `GET` | `/api/v1/admin/chat/reports` | Admin | List all community chat reports with status filter (`PENDING`, `REVIEWED`, `DISMISSED`, `ACTIONED`). |
+| `POST` | `/api/v1/admin/chat/reports/:id/review` | Admin | Review a report: update status and optionally soft-delete offending message (`deleteMessage: true`). |
+
+### 14.5 Real-Time Chat Socket.IO Channels & Events
+* **Channels:**
+  * `chat:global`: Public room for all authenticated traders.
+  * `chat:symbol:${symbol}`: Symbol discussion channel (e.g. `chat:symbol:reliance`).
+  * `chat:conversation:${id}`: Private 1-on-1 direct messaging channel (strictly authorized to conversation participants).
+* **Events:**
+  * `chat:message:new`: Broadcast when a message is posted to a room.
+  * `chat:direct_message`: Delivered to conversation room when a DM is sent.
+  * `chat:mention:new`: Emitted to a user's private channel `user:${userId}` when mentioned via `@username`.
+  * `chat:notification:new`: Emitted to a user's private channel when a new unread notification is created.
+  * `chat:typing:update`: Broadcast to room/conversation when a participant starts or stops typing.
+  * `chat:message:read`: Broadcast to conversation when messages have been marked as read.
+
+---
+
+## 15. Future Roadmap (Phase 6 & Beyond)
+
+- `/api/v1/ai/insights`: Automated AI-assisted market analysis and portfolio optimization advice.
+- `/api/v1/achievements`: Trader milestone badges, performance tiers, and achievement tracking.

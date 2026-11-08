@@ -400,8 +400,8 @@ export const subscriptionSchema = z.object({
     .min(3, 'Channel name is too short')
     .max(64, 'Channel name is too long')
     .regex(
-      /^(market|orderbook|trades|competition):[A-Za-z0-9_-]+$|^user:\d+$|^(admin:bots|news|admin:news)$/,
-      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", "user:USER_ID", "competition:ID", "admin:bots", "news", or "admin:news"'
+      /^(market|orderbook|trades|competition):[A-Za-z0-9_-]+$|^user:\d+$|^(admin:bots|news|admin:news|chat:global)$|^chat:(symbol:[A-Za-z0-9_-]+|conversation:\d+)$/,
+      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", "user:USER_ID", "competition:ID", "chat:global", "chat:symbol:SYMBOL", "chat:conversation:ID", "admin:bots", "news", or "admin:news"'
     ),
 });
 
@@ -817,6 +817,112 @@ export const competitionQuerySchema = z.object({
 });
 
 export type CompetitionQueryInput = z.infer<typeof competitionQuerySchema>;
+
+// ============================================================================
+// Phase 5E: Global Trader Chat, Symbol Rooms & Direct Messaging Schemas
+// ============================================================================
+
+export const chatRoomTypeSchema = z.enum(['GLOBAL', 'SYMBOL']);
+
+export const sendChatMessageSchema = z.object({
+  content: z
+    .string({ required_error: 'Message content is required' })
+    .trim()
+    .min(1, 'Message cannot be empty')
+    .max(1000, 'Message cannot exceed 1000 characters'),
+  idempotencyKey: z.string().trim().max(64).optional().nullable(),
+});
+
+export type SendChatMessageInput = z.infer<typeof sendChatMessageSchema>;
+
+export const sendDirectMessageSchema = z.object({
+  recipientId: z
+    .union([z.string(), z.number()])
+    .transform((val) => parseInt(String(val), 10))
+    .refine((val) => !isNaN(val) && val > 0, 'Valid recipient ID is required'),
+  content: z
+    .string({ required_error: 'Message content is required' })
+    .trim()
+    .min(1, 'Message cannot be empty')
+    .max(1000, 'Message cannot exceed 1000 characters'),
+  idempotencyKey: z.string().trim().max(64).optional().nullable(),
+});
+
+export type SendDirectMessageInput = z.infer<typeof sendDirectMessageSchema>;
+
+export const chatPaginationQuerySchema = z.object({
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(String(val), 10) || 50)) : 50)),
+  beforeId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? parseInt(String(val), 10) : undefined)),
+  afterId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? parseInt(String(val), 10) : undefined)),
+});
+
+export type ChatPaginationQueryInput = z.infer<typeof chatPaginationQuerySchema>;
+
+export const userSearchQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(1, 'Search query must be at least 1 character')
+    .max(64, 'Search query cannot exceed 64 characters'),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(50, Math.max(1, parseInt(String(val), 10) || 20)) : 20)),
+});
+
+export type UserSearchQueryInput = z.infer<typeof userSearchQuerySchema>;
+
+export const createBlockSchema = z.object({
+  userId: z
+    .union([z.string(), z.number()])
+    .transform((val) => parseInt(String(val), 10))
+    .refine((val) => !isNaN(val) && val > 0, 'Valid user ID is required'),
+  reason: z.string().trim().max(255).optional().nullable(),
+});
+
+export type CreateBlockInput = z.infer<typeof createBlockSchema>;
+
+export const chatReportReasonSchema = z.enum([
+  'SPAM',
+  'HARASSMENT',
+  'MANIPULATION',
+  'OFFENSIVE',
+  'OTHER',
+]);
+
+export const createReportSchema = z.object({
+  reportedUserId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .transform((val) => (val ? parseInt(String(val), 10) : undefined)),
+  messageId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .transform((val) => (val ? parseInt(String(val), 10) : undefined)),
+  reason: chatReportReasonSchema,
+  description: z.string().trim().max(1000).optional().nullable(),
+});
+
+export type CreateReportInput = z.infer<typeof createReportSchema>;
+
+export const reviewReportSchema = z.object({
+  status: z.enum(['REVIEWED', 'DISMISSED', 'ACTIONED']),
+  action: z.enum(['NONE', 'DELETE_MESSAGE', 'WARN_USER', 'RESTRICT_USER']).default('NONE'),
+});
+
+export type ReviewReportInput = z.infer<typeof reviewReportSchema>;
+
 
 
 

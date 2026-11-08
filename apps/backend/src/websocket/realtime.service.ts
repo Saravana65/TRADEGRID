@@ -36,6 +36,12 @@ import {
   CompetitionLeaderboardUpdatedEvent,
   CompetitionPortfolioUpdatedEvent,
   CompetitionCancelledEvent,
+  ChatMessageNewEvent,
+  ChatDirectMessageEvent,
+  ChatMentionNewEvent,
+  ChatNotificationNewEvent,
+  ChatTypingEvent,
+  ChatMessageReadEvent,
 } from '@tradegrid/shared-types';
 
 export interface IRealtimeService {
@@ -84,6 +90,13 @@ export interface IRealtimeService {
   emitCatalystStarted(articleOrEvent: any, catalyst?: any): void;
   emitCatalystUpdated(catalystIdOrEvent: number | CatalystUpdatedEvent, newsId?: number, effectiveImpact?: string, decayRemainingPercent?: number): void;
   emitCatalystCompleted(catalystIdOrEvent: number | CatalystCompletedEvent, newsId?: number): void;
+  emitChatMessageNew?(event: ChatMessageNewEvent): void;
+  emitChatDirectMessage?(event: ChatDirectMessageEvent): void;
+  emitChatMentionNew?(event: ChatMentionNewEvent): void;
+  emitChatNotificationNew?(event: ChatNotificationNewEvent): void;
+  emitChatTypingUpdate?(event: ChatTypingEvent): void;
+  emitChatMessageRead?(event: ChatMessageReadEvent): void;
+  getIO(): Server | null;
   setIO(io: Server): void;
 }
 
@@ -100,6 +113,10 @@ export class RealtimeService implements IRealtimeService {
 
   setIO(ioServer: Server): void {
     this.io = ioServer;
+  }
+
+  getIO(): Server | null {
+    return this.io;
   }
 
   /**
@@ -709,6 +726,76 @@ export class RealtimeService implements IRealtimeService {
       logger.debug(`[WS] Emitted competition:cancelled for Comp #${event.competitionId}`);
     } catch (err: any) {
       logger.error(`[WS] Failed to emit competition:cancelled: ${err.message}`);
+    }
+  }
+
+  // ==========================================================================
+  // Phase 5E: Real-Time Chat & Direct Messaging
+  // ==========================================================================
+
+  emitChatMessageNew(event: ChatMessageNewEvent): void {
+    try {
+      if (!this.io) return;
+      const channel = event.roomSlug === 'global' ? 'chat:global' : `chat:symbol:${event.roomSlug.replace(/^symbol-/, '').toUpperCase()}`;
+      this.io.to(channel).emit('chat:message:new', event);
+      // Also broadcast to room slug channel if clients subscribed via chat:room:slug
+      this.io.to(`chat:room:${event.roomSlug}`).emit('chat:message:new', event);
+      logger.debug(`[WS] Emitted chat:message:new on ${channel} for Msg #${event.message.id}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit chat:message:new: ${err.message}`);
+    }
+  }
+
+  emitChatDirectMessage(event: ChatDirectMessageEvent): void {
+    try {
+      if (!this.io) return;
+      const channel = `chat:conversation:${event.conversationId}`;
+      this.io.to(channel).emit('chat:direct:new', event);
+      logger.debug(`[WS] Emitted chat:direct:new on ${channel} for Msg #${event.message.id}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit chat:direct:new: ${err.message}`);
+    }
+  }
+
+  emitChatMentionNew(event: ChatMentionNewEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`user:${event.notification.userId}`).emit('chat:mention:new', event);
+      logger.debug(`[WS] Emitted chat:mention:new to user:${event.notification.userId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit chat:mention:new: ${err.message}`);
+    }
+  }
+
+  emitChatNotificationNew(event: ChatNotificationNewEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`user:${event.notification.userId}`).emit('chat:notification:new', event);
+      logger.debug(`[WS] Emitted chat:notification:new to user:${event.notification.userId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit chat:notification:new: ${err.message}`);
+    }
+  }
+
+  emitChatTypingUpdate(event: ChatTypingEvent): void {
+    try {
+      if (!this.io) return;
+      if (event.conversationId) {
+        this.io.to(`chat:conversation:${event.conversationId}`).emit('chat:typing:update', event);
+      } else if (event.roomId) {
+        this.io.to(`chat:room:${event.roomId}`).emit('chat:typing:update', event);
+      }
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit chat:typing:update: ${err.message}`);
+    }
+  }
+
+  emitChatMessageRead(event: ChatMessageReadEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`chat:conversation:${event.conversationId}`).emit('chat:message:read', event);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit chat:message:read: ${err.message}`);
     }
   }
 }

@@ -53,6 +53,18 @@ import {
   NewsCatalystRecord,
   NewsCatalystExecutionRecord,
 } from '../../src/modules/news/news.types';
+import {
+  IChatRepository,
+  ChatRoomRecord,
+  ChatConversationRecord,
+  ChatConversationParticipantRecord,
+  ChatMessageRecord,
+  ChatMessageMentionRecord,
+  ChatNotificationRecord,
+  ChatUserBlockRecord,
+  ChatReportRecord,
+} from '../../src/modules/chat/chat.types';
+import { ChatRoomType, ChatReportReason, ChatReportStatus } from '@tradegrid/shared-types';
 
 export class InMemoryUserRepository implements IUserRepository {
   private users: UserRecord[] = [];
@@ -74,8 +86,12 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async create(data: CreateUserData): Promise<UserRecord> {
+    const id = (data as any).id ?? this.nextId++;
+    if (typeof (data as any).id === 'number' && (data as any).id >= this.nextId) {
+      this.nextId = (data as any).id + 1;
+    }
     const record: UserRecord = {
-      id: this.nextId++,
+      id,
       email: data.email,
       username: data.username,
       password_hash: data.password_hash,
@@ -2021,6 +2037,487 @@ export class InMemoryCompetitionRepository implements ICompetitionRepository {
     this.nextTradeId = 1;
   }
 }
+
+// ============================================================================
+// Phase 5E: In-Memory Chat Repository
+// ============================================================================
+
+export class InMemoryChatRepository implements IChatRepository {
+  private rooms: ChatRoomRecord[] = [];
+  private conversations: ChatConversationRecord[] = [];
+  private participants: ChatConversationParticipantRecord[] = [];
+  private messages: ChatMessageRecord[] = [];
+  private mentions: ChatMessageMentionRecord[] = [];
+  private notifications: ChatNotificationRecord[] = [];
+  private blocks: ChatUserBlockRecord[] = [];
+  private reports: ChatReportRecord[] = [];
+
+  private nextRoomId = 1;
+  private nextConvId = 1;
+  private nextParticipantId = 1;
+  private nextMessageId = 1;
+  private nextMentionId = 1;
+  private nextNotificationId = 1;
+  private nextBlockId = 1;
+  private nextReportId = 1;
+
+  constructor() {
+    this.seedDefaultRooms();
+  }
+
+  private seedDefaultRooms(): void {
+    const defaults = [
+      { slug: 'global', name: 'Global Trader Chat', type: 'GLOBAL' as ChatRoomType, symbol: null, description: 'Public exchange chat' },
+      { slug: 'symbol-reliance', name: 'RELIANCE Discussion', type: 'SYMBOL' as ChatRoomType, symbol: 'RELIANCE', description: 'Reliance discussion' },
+      { slug: 'symbol-tcs', name: 'TCS Discussion', type: 'SYMBOL' as ChatRoomType, symbol: 'TCS', description: 'TCS discussion' },
+      { slug: 'symbol-infy', name: 'INFY Discussion', type: 'SYMBOL' as ChatRoomType, symbol: 'INFY', description: 'Infosys discussion' },
+      { slug: 'symbol-hdfcbank', name: 'HDFCBANK Discussion', type: 'SYMBOL' as ChatRoomType, symbol: 'HDFCBANK', description: 'HDFC Bank discussion' },
+      { slug: 'symbol-icicibank', name: 'ICICIBANK Discussion', type: 'SYMBOL' as ChatRoomType, symbol: 'ICICIBANK', description: 'ICICI Bank discussion' },
+      { slug: 'symbol-tgrid', name: 'TGRID Discussion', type: 'SYMBOL' as ChatRoomType, symbol: 'TGRID', description: 'TradeGrid platform index discussion' },
+    ];
+
+    for (const d of defaults) {
+      this.rooms.push({
+        id: this.nextRoomId++,
+        slug: d.slug,
+        name: d.name,
+        type: d.type,
+        symbol: d.symbol,
+        description: d.description,
+        is_active: true,
+        message_count: 0,
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+    }
+  }
+
+  async transaction<T>(callback: (trx: Knex.Transaction) => Promise<T>): Promise<T> {
+    return callback({} as any);
+  }
+
+  async findRooms(): Promise<ChatRoomRecord[]> {
+    return this.rooms.filter((r) => r.is_active).map((r) => ({ ...r }));
+  }
+
+  async findRoomById(id: number): Promise<ChatRoomRecord | null> {
+    const r = this.rooms.find((rm) => rm.id === id);
+    return r ? { ...r } : null;
+  }
+
+  async findRoomBySlug(slug: string): Promise<ChatRoomRecord | null> {
+    const r = this.rooms.find((rm) => rm.slug.toLowerCase() === slug.toLowerCase());
+    return r ? { ...r } : null;
+  }
+
+  async findRoomBySymbol(symbol: string): Promise<ChatRoomRecord | null> {
+    const r = this.rooms.find((rm) => rm.symbol?.toUpperCase() === symbol.toUpperCase());
+    return r ? { ...r } : null;
+  }
+
+  async createRoom(data: {
+    slug: string;
+    name: string;
+    type: ChatRoomType;
+    symbol?: string | null;
+    description?: string | null;
+  }): Promise<ChatRoomRecord> {
+    const rec: ChatRoomRecord = {
+      id: this.nextRoomId++,
+      slug: data.slug,
+      name: data.name,
+      type: data.type,
+      symbol: data.symbol || null,
+      description: data.description || null,
+      is_active: true,
+      message_count: 0,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.rooms.push(rec);
+    return { ...rec };
+  }
+
+  async incrementRoomMessageCount(roomId: number): Promise<void> {
+    const r = this.rooms.find((rm) => rm.id === roomId);
+    if (r) r.message_count += 1;
+  }
+
+  async findConversationById(id: number): Promise<ChatConversationRecord | null> {
+    const c = this.conversations.find((conv) => conv.id === id);
+    return c ? { ...c } : null;
+  }
+
+  async findConversationBetweenUsers(user1Id: number, user2Id: number): Promise<ChatConversationRecord | null> {
+    const u1 = Math.min(user1Id, user2Id);
+    const u2 = Math.max(user1Id, user2Id);
+    const c = this.conversations.find((conv) => conv.user1_id === u1 && conv.user2_id === u2);
+    return c ? { ...c } : null;
+  }
+
+  async getUserConversations(userId: number): Promise<ChatConversationRecord[]> {
+    return this.conversations
+      .filter((c) => c.user1_id === userId || c.user2_id === userId)
+      .sort((a, b) => {
+        const tA = (a.last_message_at || a.updated_at).getTime();
+        const tB = (b.last_message_at || b.updated_at).getTime();
+        return tB - tA;
+      })
+      .map((c) => ({ ...c }));
+  }
+
+  async createConversation(user1Id: number, user2Id: number): Promise<ChatConversationRecord> {
+    const u1 = Math.min(user1Id, user2Id);
+    const u2 = Math.max(user1Id, user2Id);
+    const rec: ChatConversationRecord = {
+      id: this.nextConvId++,
+      user1_id: u1,
+      user2_id: u2,
+      last_message_at: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.conversations.push(rec);
+    return { ...rec };
+  }
+
+  async updateConversationTimestamp(conversationId: number, lastMessageAt: Date): Promise<void> {
+    const c = this.conversations.find((conv) => conv.id === conversationId);
+    if (c) {
+      c.last_message_at = lastMessageAt;
+      c.updated_at = new Date();
+    }
+  }
+
+  async getParticipants(conversationId: number): Promise<ChatConversationParticipantRecord[]> {
+    return this.participants.filter((p) => p.conversation_id === conversationId).map((p) => ({ ...p }));
+  }
+
+  async getParticipant(conversationId: number, userId: number): Promise<ChatConversationParticipantRecord | null> {
+    const p = this.participants.find((pt) => pt.conversation_id === conversationId && pt.user_id === userId);
+    return p ? { ...p } : null;
+  }
+
+  async createParticipant(conversationId: number, userId: number): Promise<ChatConversationParticipantRecord> {
+    const rec: ChatConversationParticipantRecord = {
+      id: this.nextParticipantId++,
+      conversation_id: conversationId,
+      user_id: userId,
+      last_read_message_id: null,
+      last_read_at: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.participants.push(rec);
+    return { ...rec };
+  }
+
+  async updateParticipantReadCursor(conversationId: number, userId: number, lastReadMessageId: number): Promise<void> {
+    const p = this.participants.find((pt) => pt.conversation_id === conversationId && pt.user_id === userId);
+    if (p) {
+      p.last_read_message_id = lastReadMessageId;
+      p.last_read_at = new Date();
+    }
+  }
+
+  async findMessageById(id: number): Promise<ChatMessageRecord | null> {
+    const m = this.messages.find((msg) => msg.id === id);
+    return m ? { ...m } : null;
+  }
+
+  async findMessageByIdempotencyKey(idempotencyKey: string): Promise<ChatMessageRecord | null> {
+    const m = this.messages.find((msg) => msg.idempotency_key === idempotencyKey);
+    return m ? { ...m } : null;
+  }
+
+  async listRoomMessages(
+    roomId: number,
+    options: { limit?: number; beforeId?: number; afterId?: number } = {}
+  ): Promise<ChatMessageRecord[]> {
+    const limit = options.limit || 50;
+    let list = this.messages.filter((m) => m.room_id === roomId && !m.is_deleted);
+
+    if (options.beforeId) {
+      list = list.filter((m) => m.id < options.beforeId!);
+    }
+    if (options.afterId) {
+      list = list.filter((m) => m.id > options.afterId!);
+    }
+
+    list.sort((a, b) => b.id - a.id);
+    return list.slice(0, limit).map((m) => ({ ...m }));
+  }
+
+  async listConversationMessages(
+    conversationId: number,
+    options: { limit?: number; beforeId?: number; afterId?: number } = {}
+  ): Promise<ChatMessageRecord[]> {
+    const limit = options.limit || 50;
+    let list = this.messages.filter((m) => m.conversation_id === conversationId && !m.is_deleted);
+
+    if (options.beforeId) {
+      list = list.filter((m) => m.id < options.beforeId!);
+    }
+    if (options.afterId) {
+      list = list.filter((m) => m.id > options.afterId!);
+    }
+
+    list.sort((a, b) => b.id - a.id);
+    return list.slice(0, limit).map((m) => ({ ...m }));
+  }
+
+  async countUnreadConversationMessages(
+    conversationId: number,
+    lastReadMessageId: number | null,
+    userId: number
+  ): Promise<number> {
+    return this.messages.filter((m) => {
+      if (m.conversation_id !== conversationId || m.is_deleted || m.sender_id === userId) return false;
+      if (!lastReadMessageId) return true;
+      return m.id > lastReadMessageId;
+    }).length;
+  }
+
+  async createMessage(data: {
+    roomId?: number | null;
+    conversationId?: number | null;
+    senderId: number;
+    content: string;
+    idempotencyKey?: string | null;
+  }): Promise<ChatMessageRecord> {
+    const rec: ChatMessageRecord = {
+      id: this.nextMessageId++,
+      room_id: data.roomId || null,
+      conversation_id: data.conversationId || null,
+      sender_id: data.senderId,
+      content: data.content,
+      idempotency_key: data.idempotencyKey || null,
+      is_deleted: false,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.messages.push(rec);
+    return { ...rec };
+  }
+
+  async softDeleteMessage(id: number): Promise<void> {
+    const m = this.messages.find((msg) => msg.id === id);
+    if (m) {
+      m.is_deleted = true;
+      m.content = '[Message deleted by moderator]';
+      m.updated_at = new Date();
+    }
+  }
+
+  async createMentions(
+    mentions: {
+      messageId: number;
+      mentionedUserId: number;
+      roomId?: number | null;
+      conversationId?: number | null;
+    }[]
+  ): Promise<void> {
+    for (const m of mentions) {
+      this.mentions.push({
+        id: this.nextMentionId++,
+        message_id: m.messageId,
+        mentioned_user_id: m.mentionedUserId,
+        room_id: m.roomId || null,
+        conversation_id: m.conversationId || null,
+        created_at: new Date(),
+      });
+    }
+  }
+
+  async getUserMentions(userId: number, limit = 50): Promise<ChatMessageMentionRecord[]> {
+    return this.mentions
+      .filter((m) => m.mentioned_user_id === userId)
+      .slice(-limit)
+      .reverse()
+      .map((m) => ({ ...m }));
+  }
+
+  async createNotification(data: {
+    userId: number;
+    type: 'MENTION' | 'DIRECT_MESSAGE' | 'SYSTEM';
+    title: string;
+    content: string;
+    referenceId?: number | null;
+    referenceType?: string | null;
+    referenceSlug?: string | null;
+  }): Promise<ChatNotificationRecord> {
+    const rec: ChatNotificationRecord = {
+      id: this.nextNotificationId++,
+      user_id: data.userId,
+      type: data.type,
+      title: data.title,
+      content: data.content,
+      reference_id: data.referenceId || null,
+      reference_type: data.referenceType || null,
+      reference_slug: data.referenceSlug || null,
+      is_read: false,
+      read_at: null,
+      created_at: new Date(),
+    };
+    this.notifications.push(rec);
+    return { ...rec };
+  }
+
+  async getUserNotifications(
+    userId: number,
+    options: { limit?: number; unreadOnly?: boolean } = {}
+  ): Promise<ChatNotificationRecord[]> {
+    let list = this.notifications.filter((n) => n.user_id === userId);
+    if (options.unreadOnly) {
+      list = list.filter((n) => !n.is_read);
+    }
+    list.sort((a, b) => b.id - a.id);
+    return list.slice(0, options.limit || 50).map((n) => ({ ...n }));
+  }
+
+  async countUnreadNotifications(userId: number): Promise<number> {
+    return this.notifications.filter((n) => n.user_id === userId && !n.is_read).length;
+  }
+
+  async markNotificationAsRead(id: number, userId: number): Promise<void> {
+    const n = this.notifications.find((notif) => notif.id === id && notif.user_id === userId);
+    if (n) {
+      n.is_read = true;
+      n.read_at = new Date();
+    }
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    for (const n of this.notifications) {
+      if (n.user_id === userId && !n.is_read) {
+        n.is_read = true;
+        n.read_at = new Date();
+      }
+    }
+  }
+
+  async isUserBlocked(blockerId: number, blockedId: number): Promise<boolean> {
+    return this.blocks.some((b) => b.blocker_id === blockerId && b.blocked_id === blockedId);
+  }
+
+  async isBlockedEitherWay(userA: number, userB: number): Promise<boolean> {
+    return this.blocks.some(
+      (b) =>
+        (b.blocker_id === userA && b.blocked_id === userB) ||
+        (b.blocker_id === userB && b.blocked_id === userA)
+    );
+  }
+
+  async listBlockedUsers(blockerId: number): Promise<ChatUserBlockRecord[]> {
+    return this.blocks.filter((b) => b.blocker_id === blockerId).map((b) => ({ ...b }));
+  }
+
+  async createBlock(blockerId: number, blockedId: number, reason?: string | null): Promise<ChatUserBlockRecord> {
+    const rec: ChatUserBlockRecord = {
+      id: this.nextBlockId++,
+      blocker_id: blockerId,
+      blocked_id: blockedId,
+      reason: reason || null,
+      created_at: new Date(),
+    };
+    this.blocks.push(rec);
+    return { ...rec };
+  }
+
+  async deleteBlock(blockerId: number, blockedId: number): Promise<boolean> {
+    const idx = this.blocks.findIndex((b) => b.blocker_id === blockerId && b.blocked_id === blockedId);
+    if (idx !== -1) {
+      this.blocks.splice(idx, 1);
+      return true;
+    }
+    return false;
+  }
+
+  async createReport(data: {
+    reporterId: number;
+    reportedUserId?: number | null;
+    messageId?: number | null;
+    reason: ChatReportReason;
+    description?: string | null;
+  }): Promise<ChatReportRecord> {
+    const rec: ChatReportRecord = {
+      id: this.nextReportId++,
+      reporter_id: data.reporterId,
+      reported_user_id: data.reportedUserId || null,
+      message_id: data.messageId || null,
+      reason: data.reason,
+      description: data.description || null,
+      status: 'PENDING',
+      reviewed_by: null,
+      reviewed_at: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.reports.push(rec);
+    return { ...rec };
+  }
+
+  async listReports(options: {
+    status?: ChatReportStatus;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ reports: ChatReportRecord[]; total: number }> {
+    let list = this.reports.slice();
+    if (options.status) {
+      list = list.filter((r) => r.status === options.status);
+    }
+    list.sort((a, b) => b.id - a.id);
+    const total = list.length;
+    const offset = options.offset || 0;
+    const limit = options.limit || 20;
+    return {
+      reports: list.slice(offset, offset + limit).map((r) => ({ ...r })),
+      total,
+    };
+  }
+
+  async findReportById(id: number): Promise<ChatReportRecord | null> {
+    const r = this.reports.find((rep) => rep.id === id);
+    return r ? { ...r } : null;
+  }
+
+  async updateReportStatus(
+    id: number,
+    status: ChatReportStatus,
+    reviewedBy: number
+  ): Promise<ChatReportRecord | null> {
+    const r = this.reports.find((rep) => rep.id === id);
+    if (r) {
+      r.status = status;
+      r.reviewed_by = reviewedBy;
+      r.reviewed_at = new Date();
+      r.updated_at = new Date();
+      return { ...r };
+    }
+    return null;
+  }
+
+  clear(): void {
+    this.rooms = [];
+    this.conversations = [];
+    this.participants = [];
+    this.messages = [];
+    this.mentions = [];
+    this.notifications = [];
+    this.blocks = [];
+    this.reports = [];
+    this.nextRoomId = 1;
+    this.nextConvId = 1;
+    this.nextParticipantId = 1;
+    this.nextMessageId = 1;
+    this.nextMentionId = 1;
+    this.nextNotificationId = 1;
+    this.nextBlockId = 1;
+    this.nextReportId = 1;
+    this.seedDefaultRooms();
+  }
+}
+
 
 
 

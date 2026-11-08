@@ -7,11 +7,17 @@ import { realtimeService } from './realtime.service';
 import { subscriptionSchema } from '@tradegrid/validation';
 import { OrderBookSnapshotEvent } from '@tradegrid/shared-types';
 import { competitionRepo as defaultCompRepo, ICompetitionRepository } from '../modules/competitions';
+import { chatRepo as defaultChatRepo, IChatRepository } from '../modules/chat';
 
 let activeCompRepo: ICompetitionRepository = defaultCompRepo;
+let activeChatRepo: IChatRepository = defaultChatRepo;
 
 export function setCompetitionRepository(repo: ICompetitionRepository): void {
   activeCompRepo = repo;
+}
+
+export function setChatRepository(repo: IChatRepository): void {
+  activeChatRepo = repo;
 }
 
 let io: Server | null = null;
@@ -208,6 +214,67 @@ export function initWebSocket(httpServer: HttpServer): Server {
         }
       }
 
+      // Authorization guard for public/symbol chat channels (requires authentication)
+      if (channel === 'chat:global' || channel.startsWith('chat:symbol:')) {
+        if (socket.data.isGuest) {
+          socketMetrics.rejectedSubscriptions += 1;
+          const errMsg = 'Unauthorized: Chat channels require authentication';
+          logger.warn(`[WS] Unauthorized guest subscription attempt to ${channel}`);
+          socket.emit('error:unauthorized', { channel, message: errMsg });
+          if (ack) ack({ status: 'error', message: errMsg, channel });
+          return;
+        }
+      }
+
+      // Authorization guard for private direct conversation channels
+      if (channel.startsWith('chat:conversation:')) {
+        if (socket.data.isGuest) {
+          socketMetrics.rejectedSubscriptions += 1;
+          const errMsg = 'Unauthorized: Conversation channels require authentication';
+          logger.warn(`[WS] Unauthorized guest subscription attempt to ${channel}`);
+          socket.emit('error:unauthorized', { channel, message: errMsg });
+          if (ack) ack({ status: 'error', message: errMsg, channel });
+          return;
+        }
+
+        const convId = parseInt(channel.split(':')[2], 10);
+        if (!isNaN(convId) && convId > 0) {
+          try {
+            const conv = await activeChatRepo.findConversationById(convId);
+            if (!conv) {
+              socketMetrics.rejectedSubscriptions += 1;
+              const errMsg = 'Conversation not found';
+              socket.emit('error:not_found', { channel, message: errMsg });
+              if (ack) ack({ status: 'error', message: errMsg, channel });
+              return;
+            }
+
+            // Must be participant user1 or user2
+            if (conv.user1_id !== socket.data.userId && conv.user2_id !== socket.data.userId) {
+              socketMetrics.rejectedSubscriptions += 1;
+              const errMsg = 'Unauthorized: You are not a participant in this conversation';
+              logger.warn(`[WS] Unauthorized subscription attempt by User #${socket.data.userId} to ${channel}`);
+              socket.emit('error:unauthorized', { channel, message: errMsg });
+              if (ack) ack({ status: 'error', message: errMsg, channel });
+              return;
+            }
+
+            // Check if blocked either way
+            const isBlocked = await activeChatRepo.isBlockedEitherWay(conv.user1_id, conv.user2_id);
+            if (isBlocked) {
+              socketMetrics.rejectedSubscriptions += 1;
+              const errMsg = 'Unauthorized: Blocked user cannot access conversation channel';
+              logger.warn(`[WS] Blocked user subscription attempt to ${channel}`);
+              socket.emit('error:unauthorized', { channel, message: errMsg });
+              if (ack) ack({ status: 'error', message: errMsg, channel });
+              return;
+            }
+          } catch (err: any) {
+            logger.warn(`[WS] Error validating conversation subscription for ${channel}: ${err.message}`);
+          }
+        }
+      }
+
       // Join room
       socket.join(channel);
       logger.debug(`[WS] ${clientIdentifier} subscribed to ${channel}`);
@@ -248,6 +315,22 @@ export function initWebSocket(httpServer: HttpServer): Server {
       } else if (ack) {
         ack({ status: 'error', message: 'Symbol is required' });
       }
+    });
+
+    /**
+     * Handles typing indicators for chat
+     */
+    socket.on('chat:typing', (data: any) => {
+      if (socket.data.isGuest || !socket.data.userId) return;
+      const { roomId, conversationId, isTyping } = data || {};
+      realtimeService.emitChatTypingUpdate?.({
+        roomId,
+        conversationId,
+        userId: socket.data.userId,
+        username: socket.data.user?.username || `User #${socket.data.userId}`,
+        isTyping: Boolean(isTyping),
+        timestamp: new Date().toISOString(),
+      });
     });
 
     /**

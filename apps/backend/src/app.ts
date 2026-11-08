@@ -62,7 +62,13 @@ import {
   createCompetitionsRouter,
   CompetitionController,
 } from './modules/competitions';
-import { chatRouter } from './modules/chat';
+import {
+  chatRouter as defaultChatRouter,
+  adminChatRouter as defaultAdminChatRouter,
+  createChatRouter,
+  createAdminChatRouter,
+  ChatController,
+} from './modules/chat';
 import { adminRouter } from './modules/admin';
 
 export interface AppDependencies {
@@ -77,6 +83,7 @@ export interface AppDependencies {
   botController?: BotController;
   newsController?: NewsController;
   competitionController?: CompetitionController;
+  chatController?: ChatController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -186,6 +193,14 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createCompetitionsRouter(dependencies.competitionController)
     : defaultCompetitionsRouter;
 
+  const activeChatRouter = dependencies.chatController
+    ? createChatRouter(dependencies.chatController)
+    : defaultChatRouter;
+
+  const activeAdminChatRouter = dependencies.chatController
+    ? createAdminChatRouter(dependencies.chatController)
+    : defaultAdminChatRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);
@@ -202,7 +217,8 @@ export function createApp(dependencies: AppDependencies = {}): Application {
   app.use('/api/v1/watchlist', watchlistRouter);
   app.use('/api/v1/news', activeNewsRouter);
   app.use('/api/v1/competitions', activeCompetitionsRouter);
-  app.use('/api/v1/chat', chatRouter);
+  app.use('/api/v1/chat', activeChatRouter);
+  app.use('/api/v1/admin/chat', activeAdminChatRouter);
   app.use('/api/v1/admin', adminRouter);
 
   // 7. Catch-all 404 Route

@@ -761,3 +761,85 @@ To guarantee strict isolation and eliminate any possibility of virtual wallet po
 * `user_id` (INT, Nullable, Indexed)
 * `payload` (JSON, Nullable)
 * `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
+
+---
+
+## 14. Phase 5E: Global Trader Chat & Social Ecosystem Schema
+
+Implemented in migration `010_create_chat_tables.ts`.
+
+### 14.1 `chat_rooms` Table
+* `id` (INT, PK, Auto-increment)
+* `slug` (VARCHAR(64), Unique, Not Null, Indexed)
+* `name` (VARCHAR(128), Not Null)
+* `description` (TEXT, Nullable)
+* `type` (ENUM: `GLOBAL`, `SYMBOL`, Not Null, Indexed)
+* `instrument_id` (INT, Nullable, FK -> `instruments.id` ON DELETE SET NULL, Indexed)
+* `is_active` (BOOLEAN, default TRUE)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+
+### 14.2 `chat_conversations` Table
+* `id` (INT, PK, Auto-increment)
+* `user1_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `user2_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `updated_at` (TIMESTAMP, default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, Indexed)
+* `UNIQUE(user1_id, user2_id)` *(Enforces canonical user1_id < user2_id pairing)*
+
+### 14.3 `chat_conversation_participants` Table
+* `id` (INT, PK, Auto-increment)
+* `conversation_id` (INT, FK -> `chat_conversations.id` ON DELETE CASCADE, Indexed)
+* `user_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `last_read_message_id` (BIGINT, Nullable)
+* `last_read_at` (TIMESTAMP, Nullable)
+* `joined_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `UNIQUE(conversation_id, user_id)`
+
+### 14.4 `chat_messages` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `room_id` (INT, Nullable, FK -> `chat_rooms.id` ON DELETE CASCADE, Indexed)
+* `conversation_id` (INT, Nullable, FK -> `chat_conversations.id` ON DELETE CASCADE, Indexed)
+* `sender_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `content` (TEXT, Not Null) *(HTML-sanitized text)*
+* `is_deleted` (BOOLEAN, default FALSE, Indexed)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
+* `INDEX (room_id, created_at)`
+* `INDEX (conversation_id, created_at)`
+
+### 14.5 `chat_message_mentions` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `message_id` (BIGINT, FK -> `chat_messages.id` ON DELETE CASCADE, Indexed)
+* `mentioned_user_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `UNIQUE(message_id, mentioned_user_id)`
+
+### 14.6 `chat_notifications` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `user_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `type` (ENUM: `MENTION`, `DIRECT_MESSAGE`, Not Null, Indexed)
+* `message_id` (BIGINT, FK -> `chat_messages.id` ON DELETE CASCADE, Indexed)
+* `sender_id` (INT, FK -> `users.id` ON DELETE CASCADE)
+* `room_slug` (VARCHAR(64), Nullable)
+* `conversation_id` (INT, Nullable)
+* `is_read` (BOOLEAN, default FALSE, Indexed)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
+* `INDEX (user_id, is_read, created_at)`
+
+### 14.7 `chat_user_blocks` Table
+* `id` (INT, PK, Auto-increment)
+* `blocker_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `blocked_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `UNIQUE(blocker_id, blocked_id)`
+
+### 14.8 `chat_reports` Table
+* `id` (INT, PK, Auto-increment)
+* `reporter_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `message_id` (BIGINT, FK -> `chat_messages.id` ON DELETE CASCADE, Indexed)
+* `reason` (ENUM: `SPAM`, `HARASSMENT`, `MANIPULATION`, `OFFENSIVE`, `OTHER`, Not Null, Indexed)
+* `details` (TEXT, Nullable)
+* `status` (ENUM: `PENDING`, `REVIEWED`, `DISMISSED`, `ACTIONED`, default `PENDING`, Indexed)
+* `reviewed_by` (INT, Nullable, FK -> `users.id` ON DELETE SET NULL)
+* `reviewed_at` (TIMESTAMP, Nullable)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
+* `INDEX (status, created_at)`

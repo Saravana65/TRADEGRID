@@ -5,7 +5,7 @@
 * **Repository:** [https://github.com/Saravana65/TRADEGRID](https://github.com/Saravana65/TRADEGRID)
 * **Default Branch:** `main`
 * **Architecture:** Modular Monolith
-* **Current Status:** **Phase 5D Multiplayer Trading Competitions & Real-Time Leaderboards Complete** (185 Passing Tests, Isolated Tournament Portfolios & Capital, Server-Authoritative Leaderboard Engine, Deterministic Tie-Breakers, Scoped Price-Time Order Books, Private Join-Code Arenas, Interactive Tournament Terminal, 100-Client WebSocket Load Benchmark)
+* **Current Status:** **Phase 5E Global Trader Chat, Symbol Discussion Rooms, Social Mentions & Direct Messaging Complete** (209 Passing Tests, Real-Time Socket.IO Chat, Symbol Isolation, Canonical 1-on-1 DMs, @username Mentions, Rate Limiting, XSS Sanitization, Safety/Blocking/Moderation, 100-Client WebSocket Load Benchmark)
 
 ---
 
@@ -104,8 +104,18 @@ TRADEGRID/
   * **Frontend Tournament Arena:** Responsive `CompetitionsPage.tsx` and `CompetitionDetailPage.tsx` featuring real-time podium, isolated order entry terminal, open orders desk, execution tape, and champion award banner.
   * **High-Concurrency Load Benchmark:** Verified 100 simultaneous connected clients streaming live competition leaderboard updates with zero packet loss.
 
+* [x] **Phase 5E — Global Trader Chat, Symbol Discussion Rooms, Social Mentions & Direct Messaging:**
+  * **Relational Chat Schema:** Migration `010_create_chat_tables.ts` establishing 8 tables (`chat_rooms`, `chat_conversations`, `chat_conversation_participants`, `chat_messages`, `chat_message_mentions`, `chat_notifications`, `chat_user_blocks`, `chat_reports`) with foreign key constraints, cascade rules, and composite indexes.
+  * **Global & Symbol-Specific Chat Rooms:** Authenticated real-time chat with cursor pagination (`before`, `limit`), room validation ensuring only catalog-registered equity symbols (`symbol-reliance`, `symbol-tcs`, etc.) can host discussion channels.
+  * **Private Direct Messaging (1-on-1):** Canonical user ordering (`user1_id < user2_id`) with `UNIQUE(user1_id, user2_id)` constraint guaranteeing a single conversation instance between pairs of traders. Server-side Socket.IO room authorization strictly blocks non-participants.
+  * **Social Mentions & Notifications:** Automated extraction of `@username` tags, verification against user directory, mention record creation (`chat_message_mentions`), and immediate in-app notifications (`chat_notifications`). Unmatched handles treated harmlessly as plain text.
+  * **Safety, Blocking & Abuse Moderation:** Bi-directional user blocking (`chat_user_blocks`), community reporting (`chat_reports`), and an administrative moderation workflow with report review, dismissal, and message soft-deletion (`is_deleted = true`).
+  * **Security & Financial Integrity:** In-memory sliding rate limiter (30 msgs/min), strict HTML entity escaping protecting against stored XSS, and zero raw SQL queries. Zero modification or disruption to wallet balances, double-entry ledger, matching engine, or competition state.
+  * **Frontend Trader Chat Terminal:** Interactive responsive terminal UI (`ChatPage.tsx`) featuring Global Chat, Stock Discussions, Direct Messages, Notifications, and Blocked Users tabs. Features include cursor pagination, `@username` autocomplete dropdown, typing indicators, read receipts, and action modals for Start DM and Report Message. Accessible from primary sidebar navigation.
+  * **High-Concurrency Load Benchmark:** Verified 100 simultaneous connected WebSocket clients broadcasting and receiving messages in global chat with 100% packet delivery rate.
+
 ### Automated Testing Suite
-* **185 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 12 test suites:
+* **209 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 13 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
   * `tests/wallet.test.ts` (16 tests)
@@ -118,6 +128,7 @@ TRADEGRID/
   * `tests/bots.test.ts` (19 tests, verifying Phase 5B bot lifecycle, inventory skewing, risk controls, admin APIs, and 100-socket multi-bot load benchmark)
   * `tests/news.test.ts` (21 tests, verifying Phase 5C news schemas, disclaimers, RBAC, lifecycle, decay math, scope weighting, bot integration, financial invariants, real-time events, and 100-client load benchmark)
   * `tests/competitions.test.ts` (20 tests, verifying Phase 5D competition lifecycle, participant enrollment, private join codes, capacity limits, isolated trading, matching, wash prevention, server-authoritative rankings, tie-breakers, post-completion freeze, WebSocket authorization, and 100-client load benchmark)
+  * `tests/chat.test.ts` (24 tests, verifying Phase 5E chat rooms, symbol validation, DMs, @mentions, notifications, rate limiting, XSS sanitization, blocking, reporting, admin moderation, and 100-client load benchmark)
 
 ---
 

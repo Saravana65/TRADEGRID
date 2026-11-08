@@ -539,7 +539,11 @@ export type WebSocketChannel =
   | `user:${number}`
   | 'admin:bots'
   | 'news'
-  | 'admin:news';
+  | 'admin:news'
+  | `competition:${number}`
+  | 'chat:global'
+  | `chat:symbol:${string}`
+  | `chat:conversation:${number}`;
 
 export interface SubscriptionRequest {
   channel: string;
@@ -1191,6 +1195,157 @@ export interface CompetitionCancelledEvent {
   reason?: string;
   timestamp: string;
 }
+
+// ============================================================================
+// PHASE 5E: GLOBAL TRADER CHAT, SYMBOL DISCUSSION ROOMS, SOCIAL MENTIONS & DIRECT MESSAGING
+// ============================================================================
+
+export type ChatRoomType = 'GLOBAL' | 'SYMBOL';
+
+export interface ChatRoom {
+  id: number;
+  slug: string;
+  name: string;
+  type: ChatRoomType;
+  symbol?: string | null;
+  description?: string | null;
+  isActive: boolean;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  id: number;
+  roomId?: number | null;
+  conversationId?: number | null;
+  senderId: number;
+  senderUsername?: string;
+  senderRole?: UserRole;
+  content: string;
+  idempotencyKey?: string | null;
+  isDeleted: boolean;
+  mentions?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatConversation {
+  id: number;
+  user1Id: number;
+  user2Id: number;
+  otherUser?: {
+    id: number;
+    username: string;
+    role: UserRole;
+  };
+  lastMessage?: ChatMessage | null;
+  lastMessageAt?: string | null;
+  unreadCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessageMention {
+  id: number;
+  messageId: number;
+  mentionedUserId: number;
+  mentionedUsername?: string;
+  roomId?: number | null;
+  conversationId?: number | null;
+  createdAt: string;
+}
+
+export type ChatNotificationType = 'MENTION' | 'DIRECT_MESSAGE' | 'SYSTEM';
+
+export interface ChatNotification {
+  id: number;
+  userId: number;
+  type: ChatNotificationType;
+  title: string;
+  content: string;
+  referenceId?: number | null;
+  referenceType?: string | null;
+  referenceSlug?: string | null;
+  isRead: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface ChatUserBlock {
+  id: number;
+  blockerId: number;
+  blockedId: number;
+  blockedUsername?: string;
+  reason?: string | null;
+  createdAt: string;
+}
+
+export type ChatReportReason = 'SPAM' | 'HARASSMENT' | 'MANIPULATION' | 'OFFENSIVE' | 'OTHER';
+export type ChatReportStatus = 'PENDING' | 'REVIEWED' | 'DISMISSED' | 'ACTIONED';
+
+export interface ChatReport {
+  id: number;
+  reporterId: number;
+  reporterUsername?: string;
+  reportedUserId?: number | null;
+  reportedUsername?: string;
+  messageId?: number | null;
+  messageContent?: string | null;
+  reason: ChatReportReason;
+  description?: string | null;
+  status: ChatReportStatus;
+  reviewedBy?: number | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Phase 5E Real-Time WebSocket Events
+export interface ChatMessageNewEvent {
+  eventId: string;
+  roomId: number;
+  roomSlug: string;
+  message: ChatMessage;
+  timestamp: string;
+}
+
+export interface ChatDirectMessageEvent {
+  eventId: string;
+  conversationId: number;
+  message: ChatMessage;
+  timestamp: string;
+}
+
+export interface ChatMentionNewEvent {
+  eventId: string;
+  notification: ChatNotification;
+  message: ChatMessage;
+  timestamp: string;
+}
+
+export interface ChatNotificationNewEvent {
+  eventId: string;
+  notification: ChatNotification;
+  timestamp: string;
+}
+
+export interface ChatTypingEvent {
+  roomId?: number;
+  conversationId?: number;
+  userId: number;
+  username: string;
+  isTyping: boolean;
+  timestamp: string;
+}
+
+export interface ChatMessageReadEvent {
+  conversationId: number;
+  userId: number;
+  lastReadMessageId: number;
+  timestamp: string;
+}
+
 
 
 

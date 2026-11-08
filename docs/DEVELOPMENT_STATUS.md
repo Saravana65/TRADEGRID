@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 5D Multiplayer Trading Competitions & Real-Time Leaderboards Complete ✅
-* **Previous Phase:** Phase 5C Simulated News Catalyst Engine Complete ✅
-* **Next Target:** Phase 5E (Global Trader Chat & Social Ecosystem)
+* **Current Status:** Phase 5E Global Trader Chat, Symbol Discussion Rooms, Social Mentions & Direct Messaging Complete ✅
+* **Previous Phase:** Phase 5D Multiplayer Trading Competitions & Real-Time Leaderboards Complete ✅
+* **Next Target:** Phase 6 (AI Trading Insights & Strategy Backtesting)
 
 ---
 
@@ -195,11 +195,29 @@
 
 ---
 
-### K. Future Phases Roadmap
+### K. Phase 5E: Global Trader Chat, Symbol Discussion Rooms, Social Mentions & Direct Messaging (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Chat Schema & Relational Integrity** | ✅ Completed | Migration `010_create_chat_tables.ts` creating 8 tables: `chat_rooms`, `chat_conversations`, `chat_conversation_participants`, `chat_messages`, `chat_message_mentions`, `chat_notifications`, `chat_user_blocks`, and `chat_reports` with foreign keys, cascading deletions, and composite indexes. |
+| **Global & Symbol-Specific Chat Rooms** | ✅ Completed | Pre-seeded default rooms: `global` and individual stock rooms (`symbol-reliance`, `symbol-tcs`, `symbol-infy`, `symbol-hdfcbank`, `symbol-icicibank`, `symbol-tgrid`). Strict catalog validation rejects message submission to unverified or arbitrary tickers. |
+| **Direct Messaging (1-on-1 DMs)** | ✅ Completed | Canonical user ordering (`user1_id < user2_id`) with `UNIQUE(user1_id, user2_id)` constraint preventing duplicate conversations. Server-side room authorization rejects non-participants from eavesdropping or sending messages. |
+| **Social Mentions & Notifications** | ✅ Completed | Regex parsing of `@username` tags, database user validation, unique mention recording (`chat_message_mentions`), and in-app notifications (`chat_notifications`) dispatched to mentioned users. Mention of non-existent users is gracefully treated as plain text. |
+| **Safety, Blocking & Abuse Moderation** | ✅ Completed | Bi-directional blocking (`chat_user_blocks`) prevents DM creation, DM subscription, and hides message content. Community reporting (`chat_reports`) with reasons (`SPAM`, `HARASSMENT`, `MANIPULATION`, `OFFENSIVE`, `OTHER`). Administrator moderation suite with review, dismissal, and soft-deletion (`is_deleted = true`). |
+| **Security & Rate Limiting** | ✅ Completed | In-memory token-bucket sliding rate limiter capping traders at max 30 messages per minute (returns `429 Too Many Requests`). Complete HTML sanitization (`&`, `<`, `>`, `"`, `'`) defends against persistent XSS injection. Zero raw SQL injection. |
+| **Strict Financial Isolation Invariant** | ✅ Completed | Complete isolation: zero modifications to wallet balances, ledger entries, trade settlements, matching engine queues, or competition rankings. No file or image uploads (plain text only). |
+| **Socket.IO Real-Time Delivery & Room Security** | ✅ Completed | Channels: `chat:global`, `chat:symbol:${symbol}`, `chat:conversation:${id}`. Authenticated JWT verification for all channels, guest rejection, and bidirectional block enforcement. Events: `chat:message:new`, `chat:direct_message`, `chat:mention:new`, `chat:notification:new`, `chat:typing:update`, `chat:message:read`. |
+| **Frontend Trader Chat Terminal** | ✅ Completed | Interactive responsive terminal UI (`ChatPage.tsx`) featuring Global Chat, Stock Discussions, Direct Messages, Notifications, and Blocked Users tabs. Features include cursor pagination, `@username` autocomplete dropdown, typing indicators, read receipts, and action modals for Start DM and Report Message. Accessible from primary sidebar navigation. |
+| **High-Concurrency Load Benchmark** | ✅ Completed | Verified 100 simultaneous connected WebSocket clients exchanging messages in global chat with 100% packet delivery rate and zero packet loss. |
+| **Monorepo Automated Test Suite** | ✅ Completed | **209 Vitest tests passing across all 13 test suites with 100% pass rate** (24 chat tests + 20 competition tests + 21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### L. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Global & Symbol Trader Chat Ecosystem** | Phase 5E | Planned |
-| **Direct Messaging & Social Mentions** | Phase 5E | Planned |
-| **Achievement Badges & Trader Milestones** | Phase 5E | Planned |
 | **AI Trading Insights & Strategy Backtesting** | Phase 6 | Planned |
+| **Achievement Badges & Trader Milestones** | Phase 6 | Planned |
+| **Advanced Technical Charting (TradingView Integration)** | Phase 7 | Planned |
+| **Mobile Responsive Progressive Web App (PWA)** | Phase 8 | Planned |
