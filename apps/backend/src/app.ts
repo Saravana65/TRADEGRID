@@ -93,6 +93,11 @@ import {
   AutomatedStrategyRunnerController,
 } from './modules/strategies';
 import {
+  betaRouter as defaultBetaRouter,
+  createBetaRouter,
+  BetaController,
+} from './modules/beta';
+import {
   authRateLimiter,
   orderRateLimiter,
   marketRateLimiter,
@@ -117,6 +122,7 @@ export interface AppDependencies {
   achievementController?: AchievementController;
   strategyController?: StrategyController;
   automatedStrategyRunnerController?: AutomatedStrategyRunnerController;
+  betaController?: BetaController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -309,11 +315,16 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createAutomatedStrategyRunnerRouter(dependencies.automatedStrategyRunnerController)
     : defaultAutomatedStrategyRunnerRouter;
 
+  const activeBetaRouter = dependencies.betaController
+    ? createBetaRouter(dependencies.betaController)
+    : defaultBetaRouter;
+
   // 6. Tiered Rate Limiting Protection (Auth, Orders, Market Data)
   app.use('/api/v1/auth', authRateLimiter);
   app.use('/api/v1/orders', orderRateLimiter);
   app.use('/api/v1/market', marketRateLimiter);
 
+  app.use('/api/v1/beta', activeBetaRouter);
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);

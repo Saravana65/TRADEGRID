@@ -1,6 +1,6 @@
 {
   "name": "@tradegrid/backend",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.1",
   "private": true,
   "description": "TRADEGRID Modular Monolith Backend API",
   "main": "dist/server.js",
