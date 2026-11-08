@@ -4,7 +4,7 @@
 **Branch:** `main`  
 **Latest Update:** 2026-11-09T00:00:00+05:30  
 **Current Phase:** Phase 12 — Beta Launch and Final Hardening  
-**Current Milestone:** Phase 12B Completed, Proceeding to Phase 12C  
+**Current Milestone:** Phase 12C Completed, Proceeding to Phase 12D  
 
 ---
 
@@ -25,7 +25,7 @@
 | **11F** | Production Readiness Audit (Read-Only) | Production Audit Gatekeeper | ✅ **CLEARED** | Full regression: 410/410 tests passed across all 29 suites (100% pass rate) |
 | **12A** | Beta Environment & Release Management | `feat(phase-12a): prepare controlled beta environment` | ✅ **COMPLETED** | `tests/beta-environment.test.ts` (9/9 passed), v1.0.0-beta.1 manifest |
 | **12B** | User Onboarding & Documentation | `feat(phase-12b): implement onboarding and documentation` | ✅ **COMPLETED** | `docs/ONBOARDING_GUIDE.md`, `tests/onboarding.test.ts` (5/5 passed) |
-| **12C** | Controlled Beta Testing (Multi-Account) | `test(phase-12c): complete controlled beta verification` | ⏳ PENDING | Scheduled |
+| **12C** | Controlled Beta Testing (Multi-Account) | `test(phase-12c): complete controlled beta verification` | ✅ **COMPLETED** | `tests/beta-integration.test.ts` (5 accounts e2e, 0 ledger errors, $0 cost) |
 | **12D** | Final Bug Fixes & Release Candidate | `release(phase-12d): prepare TRADEGRID release candidate` | ⏳ PENDING | Scheduled |
 | **12E** | Final Security & Launch Readiness Audit | Final Launch Readiness Decision | ⏳ PENDING | Final Gatekeeper |
 

@@ -47,7 +47,7 @@ export class BacktestEngine {
     const { signals } = strategy.evaluate(candles, params.strategyParams);
 
     // 3. Execution Simulation State
-    const initialCapital = params.initialCapital || 100000;
+    const initialCapital = params.initialCapital ? Number(params.initialCapital) : 100000;
     let cash = initialCapital;
     let openPosition: {
       entryBarIndex: number;
