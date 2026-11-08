@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Trophy,
   MessageSquare,
+  Cpu,
 } from 'lucide-react';
 
 interface NavItem {
@@ -34,6 +35,7 @@ export const Sidebar: React.FC = () => {
     { name: 'Portfolio', path: '/portfolio', icon: Briefcase },
     { name: 'Competitions', path: '/competitions', icon: Trophy },
     { name: 'Trader Chat', path: '/chat', icon: MessageSquare },
+    { name: 'Quant Research', path: '/research', icon: Cpu },
     { name: 'Watchlist', path: '/watchlist', icon: Star },
     { name: 'Simulated News', path: '/news', icon: Newspaper },
     { name: 'History & Ledger', path: '/history', icon: History },

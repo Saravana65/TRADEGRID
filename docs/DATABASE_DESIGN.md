@@ -843,3 +843,84 @@ Implemented in migration `010_create_chat_tables.ts`.
 * `reviewed_at` (TIMESTAMP, Nullable)
 * `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
 * `INDEX (status, created_at)`
+
+---
+
+## 15. Phase 6: Quantitative Research & Strategy Backtesting Schema
+
+Implemented in migration `011_create_backtesting_and_insights_tables.ts`.
+
+### 15.1 `backtest_runs` Table
+* `id` (INT, PK, Auto-increment)
+* `user_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `instrument_id` (INT, FK -> `instruments.id` ON DELETE CASCADE, Indexed)
+* `symbol` (VARCHAR(16), Not Null, Indexed)
+* `strategy_type` (ENUM: `SMA_CROSSOVER`, `EMA_CROSSOVER`, `RSI_MOMENTUM`, `MACD_TREND`, `BOLLINGER_REVERSION`, `BREAKOUT`, Not Null, Indexed)
+* `interval` (VARCHAR(8), default `'1d'`)
+* `start_date` (TIMESTAMP, Not Null)
+* `end_date` (TIMESTAMP, Not Null)
+* `initial_capital` (DECIMAL(19,4), Not Null)
+* `final_equity` (DECIMAL(19,4), Not Null)
+* `net_profit` (DECIMAL(19,4), Not Null)
+* `total_return_percent` (DECIMAL(10,4), Not Null)
+* `benchmark_return_percent` (DECIMAL(10,4), Not Null)
+* `cagr_percent` (DECIMAL(10,4), default 0.0000)
+* `max_drawdown_percent` (DECIMAL(10,4), Not Null)
+* `sharpe_ratio` (DECIMAL(10,4), Not Null)
+* `sortino_ratio` (DECIMAL(10,4), Not Null)
+* `win_rate_percent` (DECIMAL(10,4), Not Null)
+* `profit_factor` (DECIMAL(10,4), Not Null)
+* `total_trades` (INT, Unsigned, Not Null)
+* `winning_trades` (INT, Unsigned, Not Null)
+* `losing_trades` (INT, Unsigned, Not Null)
+* `parameters` (JSON, Not Null)
+* `ai_analysis` (JSON, Nullable)
+* `execution_time_ms` (INT, default 0)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
+* `INDEX (user_id, created_at)`
+
+### 15.2 `backtest_trades` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `backtest_run_id` (INT, FK -> `backtest_runs.id` ON DELETE CASCADE, Indexed)
+* `trade_number` (INT, Not Null)
+* `entry_timestamp` (TIMESTAMP, Not Null)
+* `exit_timestamp` (TIMESTAMP, Not Null)
+* `side` (VARCHAR(8), default `'LONG'`)
+* `entry_price` (DECIMAL(18,4), Not Null)
+* `exit_price` (DECIMAL(18,4), Not Null)
+* `quantity` (DECIMAL(18,4), Not Null)
+* `notional` (DECIMAL(19,4), Not Null)
+* `gross_profit_loss` (DECIMAL(19,4), Not Null)
+* `net_profit_loss` (DECIMAL(19,4), Not Null)
+* `return_percent` (DECIMAL(10,4), Not Null)
+* `commission` (DECIMAL(18,4), default 0.0000)
+* `slippage` (DECIMAL(18,4), default 0.0000)
+* `exit_reason` (ENUM: `SIGNAL`, `STOP_LOSS`, `TAKE_PROFIT`, `END_OF_DATA`, Not Null)
+* `bars_held` (INT, default 0)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `INDEX (backtest_run_id, trade_number)`
+
+### 15.3 `backtest_equity_snapshots` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `backtest_run_id` (INT, FK -> `backtest_runs.id` ON DELETE CASCADE, Indexed)
+* `timestamp` (TIMESTAMP, Not Null)
+* `equity` (DECIMAL(19,4), Not Null)
+* `cash` (DECIMAL(19,4), Not Null)
+* `drawdown_percent` (DECIMAL(10,4), Not Null)
+* `benchmark_equity` (DECIMAL(19,4), Not Null)
+* `INDEX (backtest_run_id, timestamp)`
+
+### 15.4 `quantitative_signals` Table
+* `id` (INT, PK, Auto-increment)
+* `instrument_id` (INT, FK -> `instruments.id` ON DELETE CASCADE, Indexed)
+* `symbol` (VARCHAR(16), Not Null, Indexed)
+* `strategy_type` (ENUM: `SMA_CROSSOVER`, `EMA_CROSSOVER`, `RSI_MOMENTUM`, `MACD_TREND`, `BOLLINGER_REVERSION`, `BREAKOUT`, Not Null, Indexed)
+* `signal_type` (ENUM: `BUY`, `SELL`, `HOLD`, Not Null, Indexed)
+* `strength` (ENUM: `WEAK`, `MODERATE`, `STRONG`, Not Null)
+* `score` (DECIMAL(6,2), Not Null)
+* `current_price` (DECIMAL(18,4), Not Null)
+* `indicator_values` (JSON, Not Null)
+* `explanation` (TEXT, Not Null)
+* `timestamp` (TIMESTAMP, Not Null, Indexed)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `INDEX (symbol, strategy_type, timestamp)`

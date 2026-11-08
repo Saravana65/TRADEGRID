@@ -686,7 +686,30 @@ Restricted strictly to authenticated administrator sockets (`role: 'ADMIN'`). Re
 
 ---
 
-## 15. Future Roadmap (Phase 6 & Beyond)
+## 15. Quantitative Research, Strategy Backtesting & Portfolio Insights (`/api/v1/research`)
 
-- `/api/v1/ai/insights`: Automated AI-assisted market analysis and portfolio optimization advice.
-- `/api/v1/achievements`: Trader milestone badges, performance tiers, and achievement tracking.
+### 15.1 Strategy Backtesting Engine
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/v1/research/backtest` | User | Execute a server-authoritative backtest run against historical candles. Configures capital, strategy parameters, sizing, stop-loss/take-profit, slippage, and commissions. Returns metrics, trades, equity curve, and AI analysis. |
+| `GET` | `/api/v1/research/backtests` | User | Retrieve list of historical backtest runs executed by the authenticated trader (`limit` query param). |
+| `GET` | `/api/v1/research/backtests/:id` | User | Fetch full backtest run results including all simulated trade executions and equity snapshots. Strictly enforces user isolation. |
+| `POST` | `/api/v1/research/compare` | User | Execute multiple quantitative algorithms simultaneously on the same symbol to generate a side-by-side comparative performance matrix and AI recommendation. |
+
+### 15.2 Quantitative Signals Scanner
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/research/signals` | Optional | Scan active market instruments with technical indicators. Returns BUY/SELL/HOLD ratings, normalized scores (-100 to +100), strength indicators (WEAK, MODERATE, STRONG), indicator snapshots, and plain-English condition explanations. |
+
+### 15.3 Portfolio Risk & Health Insights
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/research/portfolio-insights` | User | Generate portfolio diversification analytics on authentic user holdings: asset and sector allocations, Herfindahl-Hirschman Index (HHI), max single-stock weight %, diversification score (0-100), automated risk warnings, and AI health review. |
+
+---
+
+## 16. Future Roadmap (Phase 7 & Beyond)
+
+- `/api/v1/charting/tradingview`: Advanced TradingView lightweight and technical overlay streaming.
+- `/api/v1/achievements`: Trader milestone badges, performance tiers, and quantitative mastery tracking.
+- `/api/v1/custom-strategies`: User-scriptable strategy execution in isolated V8 sandbox.

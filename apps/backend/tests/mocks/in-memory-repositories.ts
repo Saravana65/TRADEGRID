@@ -2518,6 +2518,70 @@ export class InMemoryChatRepository implements IChatRepository {
   }
 }
 
+// ============================================================================
+// PHASE 6: IN-MEMORY RESEARCH REPOSITORY
+// ============================================================================
+
+import { IResearchRepository } from '../../src/modules/research/research.types';
+import { BacktestResult, QuantitativeSignal } from '@tradegrid/shared-types';
+
+export class InMemoryResearchRepository implements IResearchRepository {
+  private backtestRuns: Map<number, BacktestResult> = new Map();
+  private signals: QuantitativeSignal[] = [];
+  private nextRunId = 1;
+
+  async saveBacktestResult(result: BacktestResult): Promise<number> {
+    const id = this.nextRunId++;
+    const saved = { ...result, runId: id };
+    this.backtestRuns.set(id, saved);
+    return id;
+  }
+
+  async findBacktestRunById(id: number): Promise<BacktestResult | null> {
+    const res = this.backtestRuns.get(id);
+    return res ? JSON.parse(JSON.stringify(res)) : null;
+  }
+
+  async findBacktestRunsByUserId(userId: number, limit: number = 20): Promise<BacktestResult[]> {
+    const runs = Array.from(this.backtestRuns.values())
+      .filter((r) => r.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit);
+    return JSON.parse(JSON.stringify(runs));
+  }
+
+  async saveSignals(signals: QuantitativeSignal[]): Promise<void> {
+    this.signals.push(...signals);
+  }
+
+  async findLatestSignals(options?: {
+    symbol?: string;
+    strategyType?: string;
+    signalType?: string;
+    limit?: number;
+  }): Promise<QuantitativeSignal[]> {
+    let result = [...this.signals];
+    if (options?.symbol) {
+      result = result.filter((s) => s.symbol.toUpperCase() === options.symbol!.toUpperCase());
+    }
+    if (options?.strategyType) {
+      result = result.filter((s) => s.strategyType === options.strategyType);
+    }
+    if (options?.signalType) {
+      result = result.filter((s) => s.signalType === options.signalType);
+    }
+    result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return result.slice(0, options?.limit || 20);
+  }
+
+  clear(): void {
+    this.backtestRuns.clear();
+    this.signals = [];
+    this.nextRunId = 1;
+  }
+}
+
+
 
 
 

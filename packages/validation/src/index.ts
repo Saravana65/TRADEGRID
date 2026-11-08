@@ -923,6 +923,84 @@ export const reviewReportSchema = z.object({
 
 export type ReviewReportInput = z.infer<typeof reviewReportSchema>;
 
+// ============================================================================
+// Phase 6: Strategy Backtesting & Quantitative Research Schemas
+// ============================================================================
+
+export const quantitativeStrategyTypeSchema = z.enum([
+  'SMA_CROSSOVER',
+  'EMA_CROSSOVER',
+  'RSI_MOMENTUM',
+  'MACD_TREND',
+  'BOLLINGER_REVERSION',
+  'BREAKOUT',
+]);
+
+export const positionSizingTypeSchema = z.enum([
+  'FIXED_PERCENT',
+  'FIXED_QUANTITY',
+  'FIXED_AMOUNT',
+]);
+
+export const runBacktestSchema = z.object({
+  symbol: z.string().trim().min(1, 'Symbol is required').max(16),
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d']).default('1d'),
+  startDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  endDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  strategyType: quantitativeStrategyTypeSchema,
+  strategyParams: z.record(z.union([z.number(), z.string(), z.boolean()])).default({}),
+  initialCapital: z
+    .number()
+    .min(1000, 'Initial capital must be at least $1,000')
+    .max(10000000, 'Initial capital cannot exceed $10,000,000')
+    .default(100000),
+  positionSizing: z
+    .object({
+      type: positionSizingTypeSchema.default('FIXED_PERCENT'),
+      value: z.number().min(0.01).max(1000000).default(25),
+    })
+    .default({ type: 'FIXED_PERCENT', value: 25 }),
+  stopLossPercent: z.number().min(0.1).max(50).optional().nullable(),
+  takeProfitPercent: z.number().min(0.1).max(200).optional().nullable(),
+  slippagePercent: z.number().min(0).max(5).default(0.05),
+  commissionPercent: z.number().min(0).max(5).default(0.1),
+  includeAIAnalysis: z.boolean().default(true),
+});
+
+export type RunBacktestInput = z.infer<typeof runBacktestSchema>;
+
+export const compareStrategiesSchema = z.object({
+  symbol: z.string().trim().min(1, 'Symbol is required').max(16),
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d']).default('1d'),
+  startDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  endDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  initialCapital: z.number().min(1000).max(10000000).default(100000),
+  strategies: z.array(quantitativeStrategyTypeSchema).min(2).max(6).default([
+    'SMA_CROSSOVER',
+    'EMA_CROSSOVER',
+    'RSI_MOMENTUM',
+    'MACD_TREND',
+    'BOLLINGER_REVERSION',
+    'BREAKOUT',
+  ]),
+});
+
+export type CompareStrategiesInput = z.infer<typeof compareStrategiesSchema>;
+
+export const quantitativeSignalsQuerySchema = z.object({
+  strategyType: quantitativeStrategyTypeSchema.optional(),
+  symbol: z.string().trim().max(16).optional(),
+  signalType: z.enum(['BUY', 'SELL', 'HOLD']).optional(),
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d']).default('1d'),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(50, Math.max(1, parseInt(String(val), 10) || 20)) : 20)),
+});
+
+export type QuantitativeSignalsQueryInput = z.infer<typeof quantitativeSignalsQuerySchema>;
+
+
 
 
 

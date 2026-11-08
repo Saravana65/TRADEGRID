@@ -5,7 +5,7 @@
 * **Repository:** [https://github.com/Saravana65/TRADEGRID](https://github.com/Saravana65/TRADEGRID)
 * **Default Branch:** `main`
 * **Architecture:** Modular Monolith
-* **Current Status:** **Phase 5E Global Trader Chat, Symbol Discussion Rooms, Social Mentions & Direct Messaging Complete** (209 Passing Tests, Real-Time Socket.IO Chat, Symbol Isolation, Canonical 1-on-1 DMs, @username Mentions, Rate Limiting, XSS Sanitization, Safety/Blocking/Moderation, 100-Client WebSocket Load Benchmark)
+* **Current Status:** **Phase 6 AI Trading Insights & Strategy Backtesting Engine Complete** (235 Passing Tests, Server-Authoritative Backtesting, Anti-Lookahead Bias, 6 Algorithmic Strategies, Sharpe/Sortino/Drawdown Analytics, Rule-Based Signals Scanner, Portfolio Concentration Risk & HHI, Deterministic AI Commentary, Interactive Quantitative Terminal)
 
 ---
 
@@ -114,8 +114,19 @@ TRADEGRID/
   * **Frontend Trader Chat Terminal:** Interactive responsive terminal UI (`ChatPage.tsx`) featuring Global Chat, Stock Discussions, Direct Messages, Notifications, and Blocked Users tabs. Features include cursor pagination, `@username` autocomplete dropdown, typing indicators, read receipts, and action modals for Start DM and Report Message. Accessible from primary sidebar navigation.
   * **High-Concurrency Load Benchmark:** Verified 100 simultaneous connected WebSocket clients broadcasting and receiving messages in global chat with 100% packet delivery rate.
 
+* [x] **Phase 6 — AI Trading Insights & Strategy Backtesting Engine:**
+  * **Quantitative Research Schema:** Migration `011_create_backtesting_and_insights_tables.ts` establishing `backtest_runs`, `backtest_trades`, `backtest_equity_snapshots`, and `quantitative_signals` with cascading foreign keys and indexes.
+  * **Mathematical Indicators Suite:** Pure, deterministic implementations of SMA, EMA, RSI (Wilder's smoothing), MACD (12/26/9), Bollinger Bands (20-period with sample standard deviation), and Donchian Breakout Channels.
+  * **Server-Authoritative Backtesting:** Strict anti-lookahead bias enforcement. Simulates variable position sizing (`FIXED_PERCENT`, `FIXED_QUANTITY`, `FIXED_AMOUNT`), execution slippage, commissions/fees, and Stop-Loss / Take-Profit exit rules.
+  * **6 Algorithmic Strategies:** Simple Moving Average Crossover, Exponential Moving Average Crossover, RSI Momentum & Mean Reversion, MACD Trend, Bollinger Bands Reversion, and Donchian Breakout.
+  * **Financial Metrics Analytics:** Annualized Sharpe Ratio, Annualized Sortino Ratio, Maximum Drawdown %, Total Return %, Benchmark Comparison, CAGR %, Win Rate %, and Profit Factor.
+  * **Quantitative Signal Generator:** Rule-based scanner evaluating active market instruments, outputting BUY, SELL, or HOLD ratings, confidence scores (-100 to +100), strength meters, and plain-English technical condition explanations.
+  * **Portfolio Risk & Health Insights:** Read-only analysis of authentic trader holdings: asset and sector allocations, Herfindahl-Hirschman Index (HHI), max single-stock concentration weight %, and automated risk warnings (`CONCENTRATION`, `SECTOR_EXPOSURE`, `CASH_DRAG`).
+  * **Provider-Independent AI Commentary:** Deterministic quantitative reasoning engine generating backtest post-mortems, portfolio health reviews, and strategy comparisons without requiring external paid API keys.
+  * **Frontend Quantitative Terminal:** Interactive responsive terminal at `/research` featuring Backtester (with parameter controls, equity curves, metrics cards, and trade logs), Live Signals Scanner, Portfolio Health Analyzer, and Multi-Strategy Comparison Matrix.
+
 ### Automated Testing Suite
-* **209 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 13 test suites:
+* **235 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 14 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
   * `tests/wallet.test.ts` (16 tests)
@@ -129,6 +140,7 @@ TRADEGRID/
   * `tests/news.test.ts` (21 tests, verifying Phase 5C news schemas, disclaimers, RBAC, lifecycle, decay math, scope weighting, bot integration, financial invariants, real-time events, and 100-client load benchmark)
   * `tests/competitions.test.ts` (20 tests, verifying Phase 5D competition lifecycle, participant enrollment, private join codes, capacity limits, isolated trading, matching, wash prevention, server-authoritative rankings, tie-breakers, post-completion freeze, WebSocket authorization, and 100-client load benchmark)
   * `tests/chat.test.ts` (24 tests, verifying Phase 5E chat rooms, symbol validation, DMs, @mentions, notifications, rate limiting, XSS sanitization, blocking, reporting, admin moderation, and 100-client load benchmark)
+  * `tests/backtest.test.ts` (26 tests, verifying Phase 6 indicator mathematics, strategy reproducibility, anti-lookahead bias, slippage/commission, Sharpe/Sortino ratios, drawdown math, signals scanner, portfolio HHI, and AI commentary)
 
 ---
 

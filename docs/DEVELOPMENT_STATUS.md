@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 5E Global Trader Chat, Symbol Discussion Rooms, Social Mentions & Direct Messaging Complete ✅
-* **Previous Phase:** Phase 5D Multiplayer Trading Competitions & Real-Time Leaderboards Complete ✅
-* **Next Target:** Phase 6 (AI Trading Insights & Strategy Backtesting)
+* **Current Status:** Phase 6 AI Trading Insights & Strategy Backtesting Engine Complete ✅
+* **Previous Phase:** Phase 5E Global Trader Chat, Symbol Discussion Rooms, Social Mentions & Direct Messaging Complete ✅
+* **Next Target:** Phase 7 (Advanced Technical Charting & Trader Achievements)
 
 ---
 
@@ -213,11 +213,28 @@
 
 ---
 
-### L. Future Phases Roadmap
+### L. Phase 6: AI Trading Insights & Strategy Backtesting Engine (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Quantitative Research Schema** | ✅ Completed | Migration `011_create_backtesting_and_insights_tables.ts` introducing `backtest_runs`, `backtest_trades`, `backtest_equity_snapshots`, and `quantitative_signals` with composite indexes and cascading foreign keys. |
+| **Technical Indicator Suite** | ✅ Completed | Deterministic, chronological implementations of SMA, EMA, RSI (Wilder's smoothing), MACD (Fast/Slow/Signal/Histogram), Bollinger Bands (Middle/Upper/Lower with standard deviation), and Donchian Breakout Channels. |
+| **Server-Authoritative Backtesting Engine** | ✅ Completed | Pure execution engine enforcing strict anti-lookahead bias. Incorporates configurable virtual capital, slippage models, transaction fees/brokerage commissions, position sizing (`FIXED_PERCENT`, `FIXED_QUANTITY`, `FIXED_AMOUNT`), and Stop-Loss / Take-Profit exit triggers. |
+| **6 Algorithmic Strategies** | ✅ Completed | Reproducible strategy implementations: SMA Crossover, EMA Crossover, RSI Momentum & Mean Reversion, MACD Trend, Bollinger Bands Mean Reversion, and Donchian Channel Breakout. |
+| **Financial Performance Metrics** | ✅ Completed | Comprehensive risk & return metrics: Total Return %, Benchmark Return %, CAGR %, Maximum Drawdown %, Annualized Sharpe Ratio, Annualized Sortino Ratio, Win Rate %, Profit Factor, Total Trades, Average Win/Loss, and Exposure %. |
+| **Quantitative Signals Scanner** | ✅ Completed | Rule-based engine scanning active instruments across strategies, outputting BUY, SELL, or HOLD ratings, normalized confidence scores (-100 to +100), strength indicators (WEAK, MODERATE, STRONG), technical indicator snapshots, and plain-English condition explanations. |
+| **Portfolio Risk & Health Insights** | ✅ Completed | Server-side analysis of authentic trader holdings: asset and sector allocations, Herfindahl-Hirschman Index (HHI) concentration metric, max single-asset weight %, diversification scores (0-100), and automated risk warnings (`CONCENTRATION`, `SECTOR_EXPOSURE`, `CASH_DRAG`). Strictly read-only; never touches ledger or wallet. |
+| **Provider-Independent AI Commentary** | ✅ Completed | Deterministic AI reasoning engine generating context-aware backtest post-mortems, portfolio health reviews, and multi-strategy comparison summaries with explicit simulated research disclaimers without requiring external paid API keys. |
+| **Frontend Quantitative Terminal** | ✅ Completed | Interactive responsive terminal at `/research` with 4 operational views: Strategy Backtester (with parameter controls, equity curve charts, metrics cards, and trade logs), Live Signals Scanner, Portfolio Risk & Health Analyzer, and Multi-Strategy Comparison Matrix. Added to primary sidebar navigation. |
+| **Monorepo Automated Test Suite** | ✅ Completed | **235 Vitest tests passing across all 14 test suites with 100% pass rate** (26 backtest/research tests + 24 chat tests + 20 competition tests + 21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### M. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **AI Trading Insights & Strategy Backtesting** | Phase 6 | Planned |
-| **Achievement Badges & Trader Milestones** | Phase 6 | Planned |
 | **Advanced Technical Charting (TradingView Integration)** | Phase 7 | Planned |
-| **Mobile Responsive Progressive Web App (PWA)** | Phase 8 | Planned |
+| **Achievement Badges & Trader Milestones** | Phase 7 | Planned |
+| **Custom User Strategy Scripting (DSL / Python Sandboxing)** | Phase 8 | Planned |
+| **Mobile Responsive Progressive Web App (PWA)** | Phase 9 | Planned |

@@ -1346,6 +1346,195 @@ export interface ChatMessageReadEvent {
   timestamp: string;
 }
 
+// ============================================================================
+// PHASE 6: AI TRADING INSIGHTS & STRATEGY BACKTESTING ENGINE
+// ============================================================================
+
+export type QuantitativeStrategyType =
+  | 'SMA_CROSSOVER'
+  | 'EMA_CROSSOVER'
+  | 'RSI_MOMENTUM'
+  | 'MACD_TREND'
+  | 'BOLLINGER_REVERSION'
+  | 'BREAKOUT';
+
+export type PositionSizingType = 'FIXED_PERCENT' | 'FIXED_QUANTITY' | 'FIXED_AMOUNT';
+
+export interface BacktestParameters {
+  instrumentId: number;
+  symbol: string;
+  interval: CandleInterval;
+  startDate: string;
+  endDate: string;
+  strategyType: QuantitativeStrategyType;
+  strategyParams: Record<string, number | string | boolean>;
+  initialCapital: number;
+  positionSizing: {
+    type: PositionSizingType;
+    value: number; // e.g. 25% or 100 shares or $10,000
+  };
+  stopLossPercent?: number; // e.g. 2.5
+  takeProfitPercent?: number; // e.g. 5.0
+  slippagePercent: number; // e.g. 0.05%
+  commissionPercent: number; // e.g. 0.1%
+}
+
+export type BacktestExitReason = 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'END_OF_DATA';
+
+export interface BacktestTrade {
+  id: number;
+  tradeNumber: number;
+  entryTimestamp: string;
+  exitTimestamp: string;
+  side: 'LONG';
+  entryPrice: number;
+  exitPrice: number;
+  quantity: number;
+  notional: number;
+  grossProfitLoss: number;
+  netProfitLoss: number;
+  returnPercent: number;
+  commission: number;
+  slippage: number;
+  exitReason: BacktestExitReason;
+  barsHeld: number;
+}
+
+export interface BacktestEquityPoint {
+  timestamp: string;
+  equity: number;
+  cash: number;
+  drawdownPercent: number;
+  benchmarkEquity: number;
+}
+
+export interface BacktestPerformanceMetrics {
+  initialCapital: number;
+  finalEquity: number;
+  netProfit: number;
+  totalReturnPercent: number;
+  benchmarkReturnPercent: number;
+  cagrPercent: number;
+  maxDrawdownPercent: number;
+  sharpeRatio: number;
+  sortinoRatio: number;
+  winRatePercent: number;
+  profitFactor: number;
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  avgWinAmount: number;
+  avgLossAmount: number;
+  avgReturnPercent: number;
+  exposurePercent: number;
+  profitFactorDisplay: string;
+}
+
+export interface AIBacktestAnalysis {
+  summary: string;
+  strategyStrengths: string[];
+  riskFactors: string[];
+  optimizationSuggestions: string[];
+  marketRegimeFit: string;
+  verdict: 'STRONG_CANDIDATE' | 'MODERATE_POTENTIAL' | 'HIGH_RISK_WARNING';
+  isAIGenerated: true;
+  disclaimer: string;
+}
+
+export interface BacktestResult {
+  runId: number;
+  userId: number;
+  parameters: BacktestParameters;
+  metrics: BacktestPerformanceMetrics;
+  trades: BacktestTrade[];
+  equityCurve: BacktestEquityPoint[];
+  aiAnalysis?: AIBacktestAnalysis | null;
+  candlesAnalyzed: number;
+  executionTimeMs: number;
+  createdAt: string;
+}
+
+export type SignalType = 'BUY' | 'SELL' | 'HOLD';
+export type SignalStrength = 'WEAK' | 'MODERATE' | 'STRONG';
+
+export interface QuantitativeSignal {
+  id: number;
+  instrumentId: number;
+  symbol: string;
+  name: string;
+  strategyType: QuantitativeStrategyType;
+  signalType: SignalType;
+  strength: SignalStrength;
+  score: number; // -100 to +100
+  currentPrice: number;
+  indicatorValues: Record<string, number | string | null>;
+  explanation: string;
+  timestamp: string;
+  disclaimer: string;
+}
+
+export interface PortfolioAssetAllocationItem {
+  instrumentId: number;
+  symbol: string;
+  name: string;
+  sector: string;
+  marketValue: number;
+  weightPercent: number;
+}
+
+export interface PortfolioSectorAllocationItem {
+  sector: string;
+  marketValue: number;
+  weightPercent: number;
+}
+
+export interface PortfolioRiskWarning {
+  level: 'INFO' | 'WARNING' | 'CRITICAL';
+  type: 'CONCENTRATION' | 'SECTOR_EXPOSURE' | 'CASH_DRAG' | 'VOLATILITY';
+  message: string;
+}
+
+export interface AIPortfolioReview {
+  summary: string;
+  healthGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  concentrationAssessment: string;
+  actionableRecommendations: string[];
+  isAIGenerated: true;
+  disclaimer: string;
+}
+
+export interface PortfolioInsight {
+  userId: number;
+  portfolioValue: number;
+  cashBalance: number;
+  investedValue: number;
+  cashRatioPercent: number;
+  investedRatioPercent: number;
+  totalPositions: number;
+  assetAllocation: PortfolioAssetAllocationItem[];
+  sectorAllocation: PortfolioSectorAllocationItem[];
+  concentrationHhi: number;
+  maxAssetWeightPercent: number;
+  maxAssetSymbol: string;
+  volatilityAnnualizedPercent: number;
+  maxDrawdownPercent: number;
+  diversificationScore: number; // 0 - 100
+  riskWarnings: PortfolioRiskWarning[];
+  aiReview?: AIPortfolioReview | null;
+  generatedAt: string;
+}
+
+export interface AIStrategyComparison {
+  instrumentSymbol: string;
+  bestPerformingStrategy: QuantitativeStrategyType;
+  comparisonSummary: string;
+  tradeOffs: string[];
+  recommendation: string;
+  isAIGenerated: true;
+  disclaimer: string;
+}
+
+
 
 
 
