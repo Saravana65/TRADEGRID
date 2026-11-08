@@ -438,10 +438,10 @@ export const TradingTerminalPage: React.FC = () => {
             </span>
           </div>
           <Link
-            to={`/markets/${selectedInstrument?.symbol || symbol}`}
+            to={`/chart?symbol=${selectedInstrument?.symbol || symbol}`}
             className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-xs border border-cyan-500/30 px-2 py-1 rounded-lg hover:bg-cyan-500/10 transition-colors"
           >
-            Full Chart <ExternalLink className="w-3 h-3" />
+            Technical Studio <ExternalLink className="w-3 h-3" />
           </Link>
         </div>
       </div>

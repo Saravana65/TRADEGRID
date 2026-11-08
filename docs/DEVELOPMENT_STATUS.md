@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 6 AI Trading Insights & Strategy Backtesting Engine Complete ✅
-* **Previous Phase:** Phase 5E Global Trader Chat, Symbol Discussion Rooms, Social Mentions & Direct Messaging Complete ✅
-* **Next Target:** Phase 7 (Advanced Technical Charting & Trader Achievements)
+* **Current Status:** Phase 7 Advanced Technical Charting Complete ✅
+* **Previous Phase:** Phase 6 AI Trading Insights & Strategy Backtesting Engine Complete ✅
+* **Next Target:** Phase 8 Trader Achievements and Gamification
 
 ---
 
@@ -230,11 +230,28 @@
 
 ---
 
-### M. Future Phases Roadmap
+### M. Phase 7: Advanced Technical Charting & Indicator Studio (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **User Chart Preferences Schema** | ✅ Completed | Migration `012_create_chart_preferences_table.ts` creating `user_chart_preferences` with `UNIQUE(user_id, symbol)` constraint and `user_id` index. |
+| **Strict User Isolation Invariant** | ✅ Completed | Fully server-authoritative preference persistence. User A cannot view, modify, or overwrite User B's chart layouts, indicator parameters, or workspace settings. Returns clean defaults when no custom configuration exists. |
+| **Technical Indicator Mathematics** | ✅ Completed | Chronological pure implementations of Volume-Weighted Average Price (VWAP), Stochastic Oscillator (%K, %D with slowing SMA smoothing), Bollinger Bands (Middle, Upper, Lower), SMA, EMA, RSI, and MACD. Handles edge cases (zero volume, flat prices) gracefully. |
+| **Derived Volume Profile Engine** | ✅ Completed | OHLCV bar-derived volume partition across configurable price bins (12 to 48 bins), Point of Control (POC) peak volume bin identification, and Value Area (VAH and VAL) enclosing $\ge 70\%$ of total volume. Explicit `isEstimated: true` flag and transparency disclaimer attached. |
+| **Server-Side REST APIs** | ✅ Completed | `GET /api/v1/charting/preferences`, `POST /api/v1/charting/preferences`, `DELETE /api/v1/charting/preferences`, `GET /api/v1/charting/volume-profile`, and `POST /api/v1/charting/calculate`. |
+| **TradingView Lightweight Charts v4 Integration** | ✅ Completed | Upgraded charting experience supporting switchable Candlestick, Line, and Area series, integrated Volume histogram, dynamic overlay series (SMA, EMA, Bollinger, VWAP), and separate sub-chart oscillator panels (RSI with 70/30 thresholds). |
+| **Frontend Charting Studio** | ✅ Completed | Dedicated full-screen Charting Studio page at `/chart` and embedded `AdvancedTradingChart` component. Quick instrument switcher, interactive indicator modal, timeframe selector (1m, 5m, 15m, 1h, 1d), Volume Profile HUD, and "Save Workspace" persistence. Added to primary sidebar navigation. |
+| **Live WebSocket Market Feed** | ✅ Completed | Real-time price update subscription (`market:price_update`) dynamically updating live candles and ticks without polling. |
+| **High-Concurrency Load Benchmark** | ✅ Completed | Verified 100 simultaneous concurrent users making technical charting, volume profile, and workspace preference requests without error or packet degradation. |
+| **Monorepo Automated Test Suite** | ✅ Completed | **251 Vitest tests passing across all 15 test suites with 100% pass rate** (16 charting tests + 26 backtest/research tests + 24 chat tests + 20 competition tests + 21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### N. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Advanced Technical Charting (TradingView Integration)** | Phase 7 | Planned |
-| **Achievement Badges & Trader Milestones** | Phase 7 | Planned |
-| **Custom User Strategy Scripting (DSL / Python Sandboxing)** | Phase 8 | Planned |
-| **Mobile Responsive Progressive Web App (PWA)** | Phase 9 | Planned |
+| **Trader Achievements & Gamification (Server-Authoritative Badges & Levels)** | Phase 8 | Up Next |
+| **Custom User Strategy Scripting (DSL / Python Sandboxing)** | Phase 9 | Planned |
+| **Mobile Responsive Progressive Web App (PWA)** | Phase 10 | Planned |
+

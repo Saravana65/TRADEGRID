@@ -1534,9 +1534,120 @@ export interface AIStrategyComparison {
   disclaimer: string;
 }
 
+// ============================================================================
+// Phase 7: Advanced Technical Charting & Indicator Types
+// ============================================================================
 
+export type ChartType = 'CANDLESTICK' | 'LINE' | 'AREA' | 'BAR';
 
+export type IndicatorType =
+  | 'SMA'
+  | 'EMA'
+  | 'BOLLINGER_BANDS'
+  | 'VWAP'
+  | 'RSI'
+  | 'MACD'
+  | 'STOCHASTIC';
 
+export type IndicatorPanelType = 'OVERLAY' | 'SEPARATE';
 
+export interface IndicatorConfig {
+  id: string;
+  type: IndicatorType;
+  panel: IndicatorPanelType;
+  enabled: boolean;
+  params: {
+    period?: number;
+    fastPeriod?: number;
+    slowPeriod?: number;
+    signalPeriod?: number;
+    multiplier?: number;
+    kPeriod?: number;
+    dPeriod?: number;
+    slowing?: number;
+    source?: 'close' | 'high' | 'low' | 'open';
+  };
+  style: {
+    color?: string;
+    lineWidth?: number;
+    secondaryColor?: string;
+    tertiaryColor?: string;
+    histogramUpColor?: string;
+    histogramDownColor?: string;
+  };
+}
 
+export interface VolumeProfileConfig {
+  enabled: boolean;
+  binsCount: number;
+  valueAreaPercent: number;
+  pocColor: string;
+  valueAreaColor: string;
+  nonValueAreaColor: string;
+  showLabels: boolean;
+}
+
+export interface VolumeProfileBin {
+  priceLow: number;
+  priceHigh: number;
+  midPrice: number;
+  volume: number;
+  percentage: number;
+  isInValueArea: boolean;
+}
+
+export interface VolumeProfileData {
+  bins: VolumeProfileBin[];
+  pocPrice: number;
+  vahPrice: number;
+  valPrice: number;
+  totalVolume: number;
+  valueAreaVolume: number;
+  isEstimated: true;
+  disclaimer: string;
+}
+
+export interface UserChartPreference {
+  id?: number;
+  userId: number;
+  symbol: string;
+  interval: string;
+  chartType: ChartType;
+  indicatorsConfig: IndicatorConfig[];
+  volumeProfileConfig: VolumeProfileConfig;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SaveChartPreferenceRequest {
+  symbol: string;
+  interval: string;
+  chartType: ChartType;
+  indicatorsConfig: IndicatorConfig[];
+  volumeProfileConfig: VolumeProfileConfig;
+}
+
+export interface IndicatorCalculationSeries {
+  indicatorId: string;
+  type: IndicatorType;
+  timestamps: string[];
+  data: {
+    values?: (number | null)[];
+    upper?: (number | null)[];
+    middle?: (number | null)[];
+    lower?: (number | null)[];
+    macd?: (number | null)[];
+    signal?: (number | null)[];
+    histogram?: (number | null)[];
+    k?: (number | null)[];
+    d?: (number | null)[];
+  };
+}
+
+export interface IndicatorCalculationResponse {
+  symbol: string;
+  interval: string;
+  series: IndicatorCalculationSeries[];
+  volumeProfile?: VolumeProfileData;
+}
 

@@ -1000,9 +1000,99 @@ export const quantitativeSignalsQuerySchema = z.object({
 
 export type QuantitativeSignalsQueryInput = z.infer<typeof quantitativeSignalsQuerySchema>;
 
+// ============================================================================
+// Phase 7: Advanced Technical Charting Validation Schemas
+// ============================================================================
 
+export const chartTypeSchema = z.enum(['CANDLESTICK', 'LINE', 'AREA', 'BAR']);
 
+export const indicatorTypeSchema = z.enum([
+  'SMA',
+  'EMA',
+  'BOLLINGER_BANDS',
+  'VWAP',
+  'RSI',
+  'MACD',
+  'STOCHASTIC',
+]);
 
+export const indicatorConfigSchema = z.object({
+  id: z.string().min(1).max(64),
+  type: indicatorTypeSchema,
+  panel: z.enum(['OVERLAY', 'SEPARATE']),
+  enabled: z.boolean(),
+  params: z.object({
+    period: z.number().int().min(1).max(500).optional(),
+    fastPeriod: z.number().int().min(1).max(500).optional(),
+    slowPeriod: z.number().int().min(1).max(500).optional(),
+    signalPeriod: z.number().int().min(1).max(500).optional(),
+    multiplier: z.number().min(0.1).max(10).optional(),
+    kPeriod: z.number().int().min(1).max(500).optional(),
+    dPeriod: z.number().int().min(1).max(500).optional(),
+    slowing: z.number().int().min(1).max(500).optional(),
+    source: z.enum(['close', 'high', 'low', 'open']).optional(),
+  }).default({}),
+  style: z.object({
+    color: z.string().max(32).optional(),
+    lineWidth: z.number().min(1).max(10).optional(),
+    secondaryColor: z.string().max(32).optional(),
+    tertiaryColor: z.string().max(32).optional(),
+    histogramUpColor: z.string().max(32).optional(),
+    histogramDownColor: z.string().max(32).optional(),
+  }).default({}),
+});
 
+export const volumeProfileConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  binsCount: z.number().int().min(5).max(100).default(24),
+  valueAreaPercent: z.number().min(10).max(95).default(70),
+  pocColor: z.string().max(32).default('#F59E0B'),
+  valueAreaColor: z.string().max(32).default('rgba(59, 130, 246, 0.4)'),
+  nonValueAreaColor: z.string().max(32).default('rgba(107, 114, 128, 0.2)'),
+  showLabels: z.boolean().default(true),
+});
 
+export const saveChartPreferenceSchema = z.object({
+  symbol: z.string().trim().min(1).max(16).default('DEFAULT'),
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d']).default('1d'),
+  chartType: chartTypeSchema.default('CANDLESTICK'),
+  indicatorsConfig: z.array(indicatorConfigSchema).default([]),
+  volumeProfileConfig: volumeProfileConfigSchema.default({
+    enabled: false,
+    binsCount: 24,
+    valueAreaPercent: 70,
+    pocColor: '#F59E0B',
+    valueAreaColor: 'rgba(59, 130, 246, 0.4)',
+    nonValueAreaColor: 'rgba(107, 114, 128, 0.2)',
+    showLabels: true,
+  }),
+});
+
+export type SaveChartPreferenceInput = z.infer<typeof saveChartPreferenceSchema>;
+
+export const volumeProfileQuerySchema = z.object({
+  symbol: z.string().trim().min(1).max(16),
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d']).default('1d'),
+  binsCount: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(5, parseInt(String(val), 10) || 24)) : 24)),
+  valueAreaPercent: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(95, Math.max(10, parseFloat(String(val)) || 70)) : 70)),
+});
+
+export type VolumeProfileQueryInput = z.infer<typeof volumeProfileQuerySchema>;
+
+export const calculateIndicatorsSchema = z.object({
+  symbol: z.string().trim().min(1).max(16),
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d']).default('1d'),
+  indicators: z.array(indicatorConfigSchema).min(1).max(20),
+  startDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  endDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  includeVolumeProfile: z.boolean().default(false),
+});
+
+export type CalculateIndicatorsInput = z.infer<typeof calculateIndicatorsSchema>;
 

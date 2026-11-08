@@ -16,6 +16,7 @@ import { CompetitionsPage } from './pages/CompetitionsPage';
 import { CompetitionDetailPage } from './pages/CompetitionDetailPage';
 import { ChatPage } from './pages/ChatPage';
 import { ResearchPage } from './pages/ResearchPage';
+import { AdvancedChartingPage } from './pages/AdvancedChartingPage';
 import { TradingTerminalPage } from './pages/TradingTerminalPage';
 import { TransactionHistoryPage } from './pages/TransactionHistoryPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
@@ -87,6 +88,7 @@ export const App: React.FC = () => {
           <Route path="watchlist" element={<WatchlistPage />} />
           <Route path="news" element={<NewsPage />} />
           <Route path="trade" element={<TradingTerminalPage />} />
+          <Route path="chart" element={<AdvancedChartingPage />} />
           <Route path="history" element={<TransactionHistoryPage />} />
           <Route path="admin" element={<AdminDashboardPage />} />
         </Route>

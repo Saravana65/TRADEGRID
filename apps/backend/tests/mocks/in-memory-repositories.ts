@@ -2581,6 +2581,64 @@ export class InMemoryResearchRepository implements IResearchRepository {
   }
 }
 
+// ============================================================================
+// PHASE 7: IN-MEMORY CHART PREFERENCE REPOSITORY
+// ============================================================================
+
+import { IChartPreferenceRepository } from '../../src/modules/charting/charting.types';
+import { UserChartPreference } from '@tradegrid/shared-types';
+
+export class InMemoryChartPreferenceRepository implements IChartPreferenceRepository {
+  private preferences: Map<string, UserChartPreference> = new Map();
+  private nextId = 1;
+
+  private makeKey(userId: number, symbol: string): string {
+    return `${userId}:${symbol.toUpperCase()}`;
+  }
+
+  async findByUserAndSymbol(userId: number, symbol: string): Promise<UserChartPreference | null> {
+    const pref = this.preferences.get(this.makeKey(userId, symbol));
+    return pref ? JSON.parse(JSON.stringify(pref)) : null;
+  }
+
+  async findDefaultByUser(userId: number): Promise<UserChartPreference | null> {
+    const pref = this.preferences.get(this.makeKey(userId, 'DEFAULT'));
+    return pref ? JSON.parse(JSON.stringify(pref)) : null;
+  }
+
+  async findAllByUser(userId: number): Promise<UserChartPreference[]> {
+    const list = Array.from(this.preferences.values()).filter((p) => p.userId === userId);
+    return JSON.parse(JSON.stringify(list));
+  }
+
+  async savePreference(preference: UserChartPreference): Promise<UserChartPreference> {
+    const key = this.makeKey(preference.userId, preference.symbol);
+    const existing = this.preferences.get(key);
+    const now = new Date().toISOString();
+
+    const saved: UserChartPreference = {
+      ...preference,
+      id: existing?.id || this.nextId++,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    };
+
+    this.preferences.set(key, saved);
+    return JSON.parse(JSON.stringify(saved));
+  }
+
+  async deletePreference(userId: number, symbol: string): Promise<boolean> {
+    const key = this.makeKey(userId, symbol);
+    return this.preferences.delete(key);
+  }
+
+  clear(): void {
+    this.preferences.clear();
+    this.nextId = 1;
+  }
+}
+
+
 
 
 

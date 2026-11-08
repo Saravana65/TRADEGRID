@@ -32,6 +32,7 @@ export const Sidebar: React.FC = () => {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Markets', path: '/markets', icon: BarChart3 },
     { name: 'Trading Terminal', path: '/trade', icon: CandlestickChart },
+    { name: 'Charting Studio', path: '/chart', icon: TrendingUp },
     { name: 'Portfolio', path: '/portfolio', icon: Briefcase },
     { name: 'Competitions', path: '/competitions', icon: Trophy },
     { name: 'Trader Chat', path: '/chat', icon: MessageSquare },
