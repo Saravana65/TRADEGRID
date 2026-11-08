@@ -187,6 +187,30 @@ export class RealtimeService implements IRealtimeService {
   }
 
   /**
+   * Broadcasts a source-attributed normalized market quote with provenance metadata to room market:{symbol}.
+   */
+  broadcastNormalizedQuote(quote: any, isStale: boolean = false): void {
+    try {
+      if (!this.io) return;
+      const normSymbol = quote.symbol.toUpperCase();
+      const sequence = this.getNextSequence(`NORM_QUOTE_${normSymbol}`);
+      const payload = {
+        ...quote,
+        isStale,
+        sequence,
+        broadcastTimestamp: new Date().toISOString(),
+      };
+      this.io.to(`market:${normSymbol}`).emit('market:quote', payload);
+      logger.debug(
+        `[WS] Broadcast market:quote for ${normSymbol} [Source: ${quote.source}, Provider: ${quote.provider}] seq #${sequence}`
+      );
+    } catch (err: any) {
+      logger.error(`[WS] Failed to broadcast normalized quote: ${err.message}`);
+    }
+  }
+
+
+  /**
    * Broadcasts market status (ACTIVE, HALTED, SUSPENDED) to market room.
    */
   broadcastMarketStatus(symbol: string | undefined, marketStatus: InstrumentStatus, reason?: string): void {
