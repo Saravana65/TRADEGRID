@@ -92,6 +92,11 @@ import {
   createAutomatedStrategyRunnerRouter,
   AutomatedStrategyRunnerController,
 } from './modules/strategies';
+import {
+  authRateLimiter,
+  orderRateLimiter,
+  marketRateLimiter,
+} from './middleware/rate-limiter.middleware';
 import { adminRouter } from './modules/admin';
 
 export interface AppDependencies {
@@ -248,6 +253,11 @@ export function createApp(dependencies: AppDependencies = {}): Application {
   const activeRunnerRouter = dependencies.automatedStrategyRunnerController
     ? createAutomatedStrategyRunnerRouter(dependencies.automatedStrategyRunnerController)
     : defaultAutomatedStrategyRunnerRouter;
+
+  // 6. Tiered Rate Limiting Protection (Auth, Orders, Market Data)
+  app.use('/api/v1/auth', authRateLimiter);
+  app.use('/api/v1/orders', orderRateLimiter);
+  app.use('/api/v1/market', marketRateLimiter);
 
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
