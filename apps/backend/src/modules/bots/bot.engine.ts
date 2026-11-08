@@ -11,6 +11,8 @@ import { BotRiskService, botRiskService as defaultRiskService } from './risk/bot
 import { MarketMakerStrategy } from './strategies/market-maker.strategy';
 import { RandomizedLiquidityGeneratorStrategy } from './strategies/liquidity-generator.strategy';
 import { IRealtimeService, realtimeService as defaultRealtimeService } from '../../websocket/realtime.service';
+import { NewsService, newsService as defaultNewsService } from '../news/news.service';
+import { CatalystImpactResult } from '../news/news.types';
 import { BotRecord, BotConfigurationRecord, DesiredQuote } from './bot.types';
 
 export class BotEngine {
@@ -23,7 +25,8 @@ export class BotEngine {
     private readonly instrumentRepo: IInstrumentRepository = defaultInstrumentRepo,
     private readonly marketDataRepo: IMarketDataRepository = defaultMarketDataRepo,
     private readonly riskService: BotRiskService = defaultRiskService,
-    private readonly realtimeService: IRealtimeService = defaultRealtimeService
+    private readonly realtimeService: IRealtimeService = defaultRealtimeService,
+    private readonly newsService?: NewsService
   ) {}
 
   /**
@@ -97,7 +100,23 @@ export class BotEngine {
       }
     }
 
-    // 5. Select & Execute Strategy
+    // 5. Retrieve Active Catalyst Impact for Instrument (if News Engine available)
+    let catalystImpact: CatalystImpactResult | undefined;
+    const activeNewsService = this.newsService || defaultNewsService;
+    if (activeNewsService) {
+      try {
+        catalystImpact = await activeNewsService.getCompositeImpactForInstrument(
+          instrument.symbol,
+          instrument.sector || undefined
+        );
+      } catch (err: any) {
+        logger.debug(
+          `[BOT ENGINE] No catalyst impact or error retrieving for ${instrument.symbol}: ${err.message}`
+        );
+      }
+    }
+
+    // 6. Select & Execute Strategy
     let strategy;
     if (bot.strategy_type === 'RANDOM_LIQUIDITY') {
       strategy = new RandomizedLiquidityGeneratorStrategy();
@@ -113,6 +132,7 @@ export class BotEngine {
       referencePrice,
       currentInventory,
       availableCash,
+      catalystImpact,
     });
 
     if (!decision.shouldQuote || !decision.desiredQuote) {

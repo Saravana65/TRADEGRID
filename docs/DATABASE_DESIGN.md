@@ -605,3 +605,54 @@ Immutable chronological audit trail of all quotation cycles and risk assessments
 ### 11.5 `orders.is_bot` Flag
 Indexed boolean flag added to `orders` table to distinguish bot liquidity from human traders:
 * `is_bot` (BOOLEAN, default false, Indexed)
+
+---
+
+## 12. Phase 5C: Simulated News Catalyst Engine Schema
+
+Migration `008_create_news_and_catalysts_tables.ts` introduces simulated news and catalyst tables:
+
+### 12.1 `news_articles` Table
+Stores published and scheduled simulated breaking financial news:
+* `id` (INT, PK, Auto-increment)
+* `author_id` (INT, FK -> `users.id`, Nullable) — Administrator who generated the story
+* `headline` (VARCHAR(255), Not Null)
+* `summary` (TEXT, Not Null)
+* `content` (TEXT, Not Null)
+* `category` (ENUM: `Earnings`, `Revenue`, `Management`, `Product Launch`, `Partnership`, `Regulatory`, `Legal`, `Economic`, `Industry`, `Competition`, `Crisis`, `Market Sentiment`, `Other`)
+* `impact_direction` (ENUM: `POSITIVE`, `NEGATIVE`, `NEUTRAL`)
+* `severity` (ENUM: `LOW`, `MEDIUM`, `HIGH`, `EXTREME`)
+* `target_scope` (ENUM: `INSTRUMENT`, `SECTOR`, `MARKET`)
+* `target_symbol` (VARCHAR(16), Nullable, Indexed)
+* `target_sector` (VARCHAR(64), Nullable, Indexed)
+* `status` (ENUM: `DRAFT`, `SCHEDULED`, `PUBLISHED`, `ACTIVE`, `EXPIRED`, `CANCELLED`, Indexed)
+* `disclaimer` (VARCHAR(255), Not Null) — Mandatory legal warning: `"SIMULATED NEWS — NOT REAL FINANCIAL NEWS"`
+* `scheduled_at` (TIMESTAMP, Nullable)
+* `published_at` (TIMESTAMP, Nullable)
+* `expires_at` (TIMESTAMP, Nullable)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `updated_at` (TIMESTAMP, default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)
+
+### 12.2 `news_catalysts` Table
+Stores quantitative shock parameters attached to simulated news articles:
+* `id` (INT, PK, Auto-increment)
+* `news_article_id` (INT, FK -> `news_articles.id` ON DELETE CASCADE, Unique)
+* `sentiment_score` (DECIMAL(5,4), Not Null) — Range from -1.0000 (extreme bearish) to +1.0000 (extreme bullish)
+* `volatility_factor` (DECIMAL(5,4), default 1.0000) — Spread widening factor (1.0000 to 5.0000)
+* `expected_participation` (DECIMAL(5,4), default 1.0000) — Volume expansion multiplier (1.0000 to 5.0000)
+* `duration_seconds` (INT, default 300) — Total catalyst lifespan in seconds
+* `status` (ENUM: `PENDING`, `ACTIVE`, `DECAYING`, `EXPIRED`, `CANCELLED`, Indexed)
+* `activated_at` (TIMESTAMP, Nullable)
+* `expired_at` (TIMESTAMP, Nullable)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `updated_at` (TIMESTAMP, default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)
+
+### 12.3 `news_catalyst_executions` Table
+Chronological audit log recording catalyst lifecycle milestones and effective decay computations:
+* `id` (BIGINT, PK, Auto-increment)
+* `news_catalyst_id` (INT, FK -> `news_catalysts.id` ON DELETE CASCADE, Indexed)
+* `action` (ENUM: `ACTIVATED`, `DECAY_TICK`, `EXPIRED`, `CANCELLED`)
+* `effective_impact` (DECIMAL(7,4), Not Null) — Calculated real-time decay impact
+* `affected_instruments` (TEXT, Nullable) — JSON serialized list of impacted symbols
+* `details` (JSON, Nullable) — Additional scheduler execution details
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)

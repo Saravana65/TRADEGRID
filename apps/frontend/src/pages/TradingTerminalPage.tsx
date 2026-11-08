@@ -5,13 +5,14 @@ import { useWalletStore } from '../store/walletStore';
 import { useOrderStore } from '../store/orderStore';
 import { useAuthStore } from '../store/authStore';
 import { tradeApiService } from '../services/trade.service';
+import { newsApiService } from '../services/news.service';
 import { socketService } from '../services/socket.service';
 import { formatCurrency, formatNumber, formatDate } from '../utils/formatters';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Badge } from '../components/common/Badge';
-import { OrderSide, OrderType, OrderBook, Trade } from '@tradegrid/shared-types';
+import { OrderSide, OrderType, OrderBook, Trade, ActiveCatalystSummary } from '@tradegrid/shared-types';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -24,6 +25,7 @@ import {
   ExternalLink,
   Ban,
   Activity,
+  Radio,
 } from 'lucide-react';
 
 export const TradingTerminalPage: React.FC = () => {
@@ -71,6 +73,28 @@ export const TradingTerminalPage: React.FC = () => {
   const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [isLoadingBook, setIsLoadingBook] = useState(false);
+  const [activeCatalyst, setActiveCatalyst] = useState<ActiveCatalystSummary | null>(null);
+
+  // Phase 5C: Fetch Active Catalyst Impact for Current Symbol / Sector
+  const checkActiveCatalysts = useCallback(async () => {
+    try {
+      const catalysts = await newsApiService.getActiveCatalysts();
+      const sym = (selectedInstrument?.symbol || symbol).toUpperCase();
+      const sec = selectedInstrument?.sector;
+      const matching = catalysts.find(
+        (c) =>
+          (c.targetScope === 'INSTRUMENT' && c.targetSymbol?.toUpperCase() === sym) ||
+          (c.targetScope === 'SECTOR' &&
+            c.targetSector &&
+            sec &&
+            c.targetSector.toLowerCase() === sec.toLowerCase()) ||
+          c.targetScope === 'MARKET'
+      );
+      setActiveCatalyst(matching || null);
+    } catch {
+      // Silently catch catalyst lookup
+    }
+  }, [selectedInstrument, symbol]);
 
   // Fetch Order Book & Market Tape Initial Baseline
   const fetchMarketDepth = useCallback(async () => {
@@ -109,10 +133,11 @@ export const TradingTerminalPage: React.FC = () => {
     if (symbol) {
       fetchInstrumentDetail(symbol);
       fetchMarketDepth();
+      checkActiveCatalysts();
     }
-  }, [symbol, fetchInstrumentDetail, fetchMarketDepth]);
+  }, [symbol, fetchInstrumentDetail, fetchMarketDepth, checkActiveCatalysts]);
 
-  // Phase 5A: Real-Time WebSocket Streaming Subscriptions & Handlers
+  // Phase 5A & 5C: Real-Time WebSocket Streaming Subscriptions & Handlers
   useEffect(() => {
     if (!symbol) return;
     const normSymbol = symbol.toUpperCase();
@@ -121,11 +146,12 @@ export const TradingTerminalPage: React.FC = () => {
     const marketChannel = `market:${normSymbol}`;
     const userChannel = user?.id ? `user:${user.id}` : null;
 
-    // Connect and subscribe to symbol channels
+    // Connect and subscribe to symbol channels and global news channel
     socketService.connect();
     socketService.subscribe(obChannel);
     socketService.subscribe(tradesChannel);
     socketService.subscribe(marketChannel);
+    socketService.subscribe('news');
     if (userChannel) {
       socketService.subscribe(userChannel);
     }
@@ -189,10 +215,21 @@ export const TradingTerminalPage: React.FC = () => {
     socketService.on('order:cancelled', handleOrderEvent);
     socketService.on('portfolio:updated', handlePortfolioEvent);
 
+    const handleNewsChange = () => {
+      checkActiveCatalysts();
+    };
+
+    socketService.on('news:published', handleNewsChange);
+    socketService.on('news:updated', handleNewsChange);
+    socketService.on('news:expired', handleNewsChange);
+    socketService.on('news:catalyst:started', handleNewsChange);
+    socketService.on('news:catalyst:completed', handleNewsChange);
+
     return () => {
       socketService.unsubscribe(obChannel);
       socketService.unsubscribe(tradesChannel);
       socketService.unsubscribe(marketChannel);
+      socketService.unsubscribe('news');
       if (userChannel) {
         socketService.unsubscribe(userChannel);
       }
@@ -204,8 +241,13 @@ export const TradingTerminalPage: React.FC = () => {
       socketService.off('order:filled', handleOrderEvent);
       socketService.off('order:cancelled', handleOrderEvent);
       socketService.off('portfolio:updated', handlePortfolioEvent);
+      socketService.off('news:published', handleNewsChange);
+      socketService.off('news:updated', handleNewsChange);
+      socketService.off('news:expired', handleNewsChange);
+      socketService.off('news:catalyst:started', handleNewsChange);
+      socketService.off('news:catalyst:completed', handleNewsChange);
     };
-  }, [symbol, user?.id, fetchOrders, fetchWalletSummary]);
+  }, [symbol, user?.id, fetchOrders, fetchWalletSummary, checkActiveCatalysts]);
 
   // Update limit price default when quote loads
   useEffect(() => {
@@ -403,6 +445,25 @@ export const TradingTerminalPage: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* Phase 5C: Active News Catalyst Banner for Current Symbol */}
+      {activeCatalyst && (
+        <div className="bg-purple-950/40 border border-purple-800/50 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2.5 text-purple-200">
+            <Radio className="w-4 h-4 text-purple-400 animate-pulse flex-shrink-0" />
+            <div>
+              <span className="font-bold text-purple-300 mr-2">
+                ACTIVE NEWS CATALYST ({activeCatalyst.targetScope === 'INSTRUMENT' ? `$${activeCatalyst.targetSymbol}` : activeCatalyst.targetScope}):
+              </span>
+              <span>{activeCatalyst.headline}</span>
+              <span className="text-purple-400 ml-2 font-semibold">
+                (Vol: {activeCatalyst.volatilityFactor}x • Decay: {activeCatalyst.decayRemainingPercent}% remaining)
+              </span>
+            </div>
+          </div>
+          <Badge variant="simulated">BOT PARTICIPATION SHIFT</Badge>
+        </div>
+      )}
 
       {/* Main Terminal Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

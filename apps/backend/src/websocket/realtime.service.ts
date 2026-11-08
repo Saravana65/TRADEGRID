@@ -20,6 +20,13 @@ import {
   BotOrderGeneratedEvent,
   BotExecutionEvent,
   BotRiskWarningEvent,
+  NewsArticle,
+  NewsPublishedEvent,
+  NewsUpdatedEvent,
+  NewsExpiredEvent,
+  CatalystStartedEvent,
+  CatalystUpdatedEvent,
+  CatalystCompletedEvent,
 } from '@tradegrid/shared-types';
 
 export interface IRealtimeService {
@@ -62,6 +69,12 @@ export interface IRealtimeService {
   emitBotOrderGenerated?(event: BotOrderGeneratedEvent): void;
   emitBotExecution?(event: BotExecutionEvent): void;
   emitBotRiskWarning?(event: BotRiskWarningEvent): void;
+  emitNewsPublished(article: NewsArticle | NewsPublishedEvent): void;
+  emitNewsUpdated(article: NewsArticle | NewsUpdatedEvent): void;
+  emitNewsExpired(newsIdOrEvent: number | NewsExpiredEvent, catalystId?: number): void;
+  emitCatalystStarted(articleOrEvent: any, catalyst?: any): void;
+  emitCatalystUpdated(catalystIdOrEvent: number | CatalystUpdatedEvent, newsId?: number, effectiveImpact?: string, decayRemainingPercent?: number): void;
+  emitCatalystCompleted(catalystIdOrEvent: number | CatalystCompletedEvent, newsId?: number): void;
   setIO(io: Server): void;
 }
 
@@ -451,13 +464,145 @@ export class RealtimeService implements IRealtimeService {
   /**
    * Emits bot risk warnings and circuit breakers to admin:bots.
    */
-  emitBotRiskWarning(event: BotRiskWarningEvent): void {
+  /**
+   * Emits news published event to news and admin:news channels.
+   */
+  emitNewsPublished(article: NewsArticle | NewsPublishedEvent): void {
     try {
       if (!this.io) return;
-      this.io.to('admin:bots').emit('bot:risk_warning', event);
-      logger.warn(`[WS] Emitted bot:risk_warning to admin:bots for Bot #${event.botId}: ${event.ruleBreached}`);
+      const event: NewsPublishedEvent = 'eventId' in article ? article : {
+        eventId: crypto.randomUUID(),
+        newsId: article.id,
+        headline: article.headline,
+        summary: article.summary,
+        category: article.category,
+        impactDirection: article.impactDirection,
+        severity: article.severity,
+        targetScope: article.targetScope,
+        targetSymbol: article.targetSymbol || null,
+        targetSector: article.targetSector || null,
+        isSimulated: article.isSimulated,
+        publishedAt: article.publishedAt || new Date().toISOString(),
+        expiresAt: article.expiresAt || null,
+        timestamp: new Date().toISOString(),
+      };
+      this.io.to('news').to('admin:news').emit('news:published', event);
+      logger.debug(`[WS] Emitted news:published to news/admin:news for News #${event.newsId}`);
     } catch (err: any) {
-      logger.error(`[WS] Failed to emit bot risk warning: ${err.message}`);
+      logger.error(`[WS] Failed to emit news published: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits news updated/cancelled event to news and admin:news channels.
+   */
+  emitNewsUpdated(article: NewsArticle | NewsUpdatedEvent): void {
+    try {
+      if (!this.io) return;
+      const event: NewsUpdatedEvent = 'eventId' in article ? article : {
+        eventId: crypto.randomUUID(),
+        newsId: article.id,
+        status: article.status,
+        headline: article.headline,
+        updatedAt: article.updatedAt || new Date().toISOString(),
+        timestamp: new Date().toISOString(),
+      };
+      this.io.to('news').to('admin:news').emit('news:updated', event);
+      logger.debug(`[WS] Emitted news:updated to news/admin:news for News #${event.newsId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit news updated: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits news expired event to news and admin:news channels.
+   */
+  emitNewsExpired(newsIdOrEvent: number | NewsExpiredEvent, catalystId?: number): void {
+    try {
+      if (!this.io) return;
+      const event: NewsExpiredEvent = typeof newsIdOrEvent === 'object' ? newsIdOrEvent : {
+        eventId: crypto.randomUUID(),
+        newsId: newsIdOrEvent,
+        catalystId,
+        expiredAt: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
+      };
+      this.io.to('news').to('admin:news').emit('news:expired', event);
+      logger.debug(`[WS] Emitted news:expired to news/admin:news for News #${event.newsId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit news expired: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits catalyst started event to news and admin:news channels.
+   */
+  emitCatalystStarted(articleOrEvent: any, catalyst?: any): void {
+    try {
+      if (!this.io) return;
+      const event: CatalystStartedEvent = 'eventId' in articleOrEvent ? articleOrEvent : {
+        eventId: crypto.randomUUID(),
+        catalystId: catalyst?.id || 0,
+        newsId: articleOrEvent.id,
+        headline: articleOrEvent.headline,
+        targetScope: articleOrEvent.target_scope || articleOrEvent.targetScope,
+        targetSymbol: articleOrEvent.target_symbol || articleOrEvent.targetSymbol || null,
+        targetSector: articleOrEvent.target_sector || articleOrEvent.targetSector || null,
+        sentimentScore: catalyst?.sentiment_score || catalyst?.sentimentScore || '0.00',
+        volatilityFactor: catalyst?.volatility_factor || catalyst?.volatilityFactor || '1.00',
+        durationSeconds: catalyst?.duration_seconds || catalyst?.durationSeconds || 300,
+        timestamp: new Date().toISOString(),
+      };
+      this.io.to('news').to('admin:news').emit('news:catalyst:started', event);
+      logger.debug(`[WS] Emitted news:catalyst:started for Catalyst #${event.catalystId} (News #${event.newsId})`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit catalyst started: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits catalyst updated (decay progress) to news and admin:news channels.
+   */
+  emitCatalystUpdated(
+    catalystIdOrEvent: number | CatalystUpdatedEvent,
+    newsId?: number,
+    effectiveImpact?: string,
+    decayRemainingPercent?: number
+  ): void {
+    try {
+      if (!this.io) return;
+      const event: CatalystUpdatedEvent = typeof catalystIdOrEvent === 'object' ? catalystIdOrEvent : {
+        eventId: crypto.randomUUID(),
+        catalystId: catalystIdOrEvent,
+        newsId: newsId || 0,
+        effectiveImpact: effectiveImpact || '0.0000',
+        decayRemainingPercent: decayRemainingPercent ?? 100,
+        timestamp: new Date().toISOString(),
+      };
+      this.io.to('news').to('admin:news').emit('news:catalyst:updated', event);
+      logger.debug(`[WS] Emitted news:catalyst:updated for Catalyst #${event.catalystId}: impact=${event.effectiveImpact}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit catalyst updated: ${err.message}`);
+    }
+  }
+
+  /**
+   * Emits catalyst completed event to news and admin:news channels.
+   */
+  emitCatalystCompleted(catalystIdOrEvent: number | CatalystCompletedEvent, newsId?: number): void {
+    try {
+      if (!this.io) return;
+      const event: CatalystCompletedEvent = typeof catalystIdOrEvent === 'object' ? catalystIdOrEvent : {
+        eventId: crypto.randomUUID(),
+        catalystId: catalystIdOrEvent,
+        newsId: newsId || 0,
+        completedAt: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
+      };
+      this.io.to('news').to('admin:news').emit('news:catalyst:completed', event);
+      logger.debug(`[WS] Emitted news:catalyst:completed for Catalyst #${event.catalystId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit catalyst completed: ${err.message}`);
     }
   }
 }

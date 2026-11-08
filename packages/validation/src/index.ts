@@ -400,8 +400,8 @@ export const subscriptionSchema = z.object({
     .min(3, 'Channel name is too short')
     .max(64, 'Channel name is too long')
     .regex(
-      /^(market|orderbook|trades):[A-Za-z0-9_-]+$|^user:\d+$|^admin:bots$/,
-      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", "user:USER_ID", or "admin:bots"'
+      /^(market|orderbook|trades):[A-Za-z0-9_-]+$|^user:\d+$|^(admin:bots|news|admin:news)$/,
+      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", "user:USER_ID", "admin:bots", "news", or "admin:news"'
     ),
 });
 
@@ -524,6 +524,163 @@ export const botLogQuerySchema = z.object({
 });
 
 export type BotLogQueryInput = z.infer<typeof botLogQuerySchema>;
+
+// ============================================================================
+// Phase 5C: Simulated News Catalyst Engine Validation Schemas
+// ============================================================================
+
+export const newsCategorySchema = z.enum([
+  'Earnings',
+  'Revenue',
+  'Management',
+  'Product Launch',
+  'Partnership',
+  'Regulatory',
+  'Legal',
+  'Economic',
+  'Industry',
+  'Competition',
+  'Crisis',
+  'Market Sentiment',
+  'Other',
+]);
+
+export const newsImpactDirectionSchema = z.enum(['POSITIVE', 'NEGATIVE', 'NEUTRAL']);
+
+export const newsSeveritySchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'EXTREME']);
+
+export const newsTargetScopeSchema = z.enum(['INSTRUMENT', 'SECTOR', 'MARKET']);
+
+export const newsStatusSchema = z.enum([
+  'DRAFT',
+  'SCHEDULED',
+  'PUBLISHED',
+  'ACTIVE',
+  'EXPIRED',
+  'CANCELLED',
+]);
+
+export const catalystConfigSchema = z.object({
+  sentimentScore: z
+    .string()
+    .regex(/^-?\d+(\.\d{1,4})?$/, 'Sentiment score must be a decimal between -1.0000 and +1.0000')
+    .refine((v) => Math.abs(parseFloat(v)) <= 1.0, 'Sentiment score must be between -1.0000 and +1.0000')
+    .optional(),
+  volatilityFactor: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/, 'Volatility factor must be a positive decimal')
+    .refine((v) => parseFloat(v) >= 1.0 && parseFloat(v) <= 10.0, 'Volatility factor must be between 1.0 and 10.0')
+    .optional(),
+  expectedParticipation: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional(),
+  durationSeconds: z
+    .number()
+    .int()
+    .min(10, 'Catalyst duration must be at least 10 seconds')
+    .max(86400, 'Catalyst duration cannot exceed 24 hours')
+    .optional(),
+  decayRate: z
+    .string()
+    .regex(/^\d+(\.\d{1,4})?$/)
+    .optional(),
+});
+
+export const createNewsSchema = z
+  .object({
+    headline: z
+      .string({ required_error: 'News headline is required' })
+      .trim()
+      .min(5, 'Headline must be at least 5 characters')
+      .max(255, 'Headline cannot exceed 255 characters'),
+    summary: z
+      .string({ required_error: 'News summary is required' })
+      .trim()
+      .min(10, 'Summary must be at least 10 characters')
+      .max(2000, 'Summary cannot exceed 2000 characters'),
+    content: z.string().trim().max(10000).optional(),
+    category: newsCategorySchema,
+    impactDirection: newsImpactDirectionSchema,
+    severity: newsSeveritySchema,
+    targetScope: newsTargetScopeSchema,
+    targetId: z.string().trim().optional(),
+    targetSymbol: z.string().trim().max(16).optional(),
+    targetSector: z.string().trim().max(64).optional(),
+    scheduledAt: z.string().datetime().optional().nullable(),
+    publishImmediately: z.boolean().optional(),
+    catalyst: catalystConfigSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.targetScope === 'INSTRUMENT' && !data.targetSymbol && !data.targetId) {
+        return false;
+      }
+      if (data.targetScope === 'SECTOR' && !data.targetSector && !data.targetId) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'targetSymbol is required for INSTRUMENT scope, targetSector is required for SECTOR scope',
+    }
+  );
+
+export type CreateNewsInput = z.infer<typeof createNewsSchema>;
+
+export const updateNewsSchema = z.object({
+  headline: z.string().trim().min(5).max(255).optional(),
+  summary: z.string().trim().min(10).max(2000).optional(),
+  content: z.string().trim().max(10000).optional(),
+  category: newsCategorySchema.optional(),
+  impactDirection: newsImpactDirectionSchema.optional(),
+  severity: newsSeveritySchema.optional(),
+  targetScope: newsTargetScopeSchema.optional(),
+  targetId: z.string().trim().optional(),
+  targetSymbol: z.string().trim().max(16).optional(),
+  targetSector: z.string().trim().max(64).optional(),
+  scheduledAt: z.string().datetime().optional().nullable(),
+  catalyst: catalystConfigSchema.optional(),
+});
+
+export type UpdateNewsInput = z.infer<typeof updateNewsSchema>;
+
+export const scheduleNewsSchema = z.object({
+  scheduledAt: z.string().datetime('scheduledAt must be a valid ISO 8601 datetime string'),
+});
+
+export type ScheduleNewsInput = z.infer<typeof scheduleNewsSchema>;
+
+export const newsIdParamSchema = z.object({
+  id: z
+    .union([z.string(), z.number()])
+    .transform((val) => parseInt(String(val), 10))
+    .refine((val) => !isNaN(val) && val > 0, 'Invalid news article ID'),
+});
+
+export type NewsIdParamInput = z.infer<typeof newsIdParamSchema>;
+
+export const newsQuerySchema = z.object({
+  category: newsCategorySchema.optional(),
+  impactDirection: newsImpactDirectionSchema.optional(),
+  severity: newsSeveritySchema.optional(),
+  targetScope: newsTargetScopeSchema.optional(),
+  targetSymbol: z.string().trim().optional(),
+  targetSector: z.string().trim().optional(),
+  status: newsStatusSchema.optional(),
+  search: z.string().trim().optional(),
+  page: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.max(1, parseInt(String(val), 10) || 1) : 1)),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(String(val), 10) || 20)) : 20)),
+});
+
+export type NewsQueryInput = z.infer<typeof newsQuerySchema>;
+
 
 
 

@@ -48,7 +48,14 @@ export class MarketMakerStrategy implements IBotStrategy {
         skewMultiplier = '1.0';
     }
 
-    // 2. Compute Effective Spread
+    // 2. Compute Effective Spread (widened during high news catalyst volatility)
+    if (ctx.catalystImpact && FinancialMath.gt(ctx.catalystImpact.volatilityMultiplier, '1.0')) {
+      spreadMultiplier = FinancialMath.mul(
+        spreadMultiplier,
+        ctx.catalystImpact.volatilityMultiplier
+      );
+    }
+
     const rawSpreadBps = FinancialMath.mul(config.spread_bps, spreadMultiplier);
     // Min 5 bps to prevent zero/negative spreads
     const effectiveSpreadBps = FinancialMath.max(rawSpreadBps, '5.0');
@@ -75,9 +82,20 @@ export class MarketMakerStrategy implements IBotStrategy {
     }
 
     // 5. Compute Adjusted Mid Price
+    // News Catalyst Sentiment shift: positive news shifts reservation price higher, negative shifts lower
+    let catalystPriceShift = '0.0000';
+    if (ctx.catalystImpact && !FinancialMath.isZero(ctx.catalystImpact.sentimentScore)) {
+      const sentimentShiftRatio = FinancialMath.mul(
+        ctx.catalystImpact.sentimentScore,
+        '0.0500' // up to 5% reservation price skew per sentiment score unit
+      );
+      catalystPriceShift = FinancialMath.mul(referencePrice, sentimentShiftRatio);
+    }
+
     // When inventory > 0, adjustedMid < refPrice (bids and asks shift lower to encourage selling)
     // When inventory < 0, adjustedMid > refPrice (bids and asks shift higher to encourage buying)
-    const adjustedMidPrice = FinancialMath.sub(referencePrice, inventorySkewOffset);
+    const reservationMid = FinancialMath.add(referencePrice, catalystPriceShift);
+    const adjustedMidPrice = FinancialMath.sub(reservationMid, inventorySkewOffset);
 
     // 6. Compute Desired Bid & Ask Prices
     let bidPrice = FinancialMath.sub(adjustedMidPrice, halfSpread);
@@ -91,6 +109,12 @@ export class MarketMakerStrategy implements IBotStrategy {
     }
 
     // 7. Compute Desired Order Quantities
+    if (ctx.catalystImpact && FinancialMath.gt(ctx.catalystImpact.expectedParticipation, '1.0')) {
+      qtyMultiplier = FinancialMath.mul(
+        qtyMultiplier,
+        ctx.catalystImpact.expectedParticipation
+      );
+    }
     let targetQty = FinancialMath.mul(config.order_quantity, qtyMultiplier);
     targetQty = FinancialMath.min(targetQty, config.max_order_quantity);
 

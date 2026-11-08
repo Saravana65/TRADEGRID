@@ -560,8 +560,44 @@ Restricted exclusively to authenticated administrator sockets.
 
 ---
 
-## 12. Future Roadmap (Phase 5C & Beyond)
+## 12. Simulated News Catalyst Engine REST APIs (`/api/v1/news` & `/api/v1/admin/news`)
 
-- `/api/v1/admin/market/shock`: Simulated volatility injection and catalyst engine.
+### 12.1 Public News Endpoints (`/api/v1/news`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/news` | List published simulated news articles with filters (`category`, `impactDirection`, `status`, `search`, `limit`, `offset`). |
+| `GET` | `/api/v1/news/:id` | Fetch single news article by ID along with attached catalyst parameters and mandatory disclaimer. |
+| `GET` | `/api/v1/news/catalysts/active` | Fetch all currently active catalysts with real-time decay remaining percentages, effective impact, and volatility multipliers. |
+
+### 12.2 Administrator News Endpoints (`/api/v1/admin/news`)
+All endpoints in this group require role `ADMIN`.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/admin/news` | Create a new simulated news article with optional catalyst shock parameters (`sentimentScore`, `volatilityFactor`, `durationSeconds`). Supports immediate publication or future scheduling. |
+| `POST` | `/api/v1/admin/news/:id/publish` | Manually publish a `DRAFT` or `SCHEDULED` article immediately and activate its catalyst. |
+| `POST` | `/api/v1/admin/news/:id/cancel` | Cancel an active or scheduled news article and deactivate its catalyst impact immediately. |
+| `GET`  | `/api/v1/admin/news/metrics` | Aggregate summary metrics (total articles, active catalysts, scheduled articles, expired articles). |
+| `GET`  | `/api/v1/admin/news/:id/executions` | Fetch chronological audit execution history for a given news catalyst. |
+
+### 12.3 Real-Time News Channels (`news` & `admin:news`)
+
+#### Public Channel: `news`
+Open to both guest sockets and authenticated users:
+* `news:published`: Broadcast when a simulated news article is published.
+* `news:updated`: Broadcast when an article or catalyst state is updated.
+* `news:expired`: Broadcast when an article reaches its expiration duration.
+* `news:catalyst:started`: Broadcast when a catalyst goes live.
+* `news:catalyst:updated`: Broadcast on catalyst decay ticks.
+* `news:catalyst:completed`: Broadcast when a catalyst completes its duration.
+
+#### Protected Channel: `admin:news`
+Restricted strictly to authenticated administrator sockets (`role: 'ADMIN'`). Receives all news events along with execution audit notifications.
+
+---
+
+## 13. Future Roadmap (Phase 5D & Beyond)
+
 - `/api/v1/contests`: Educational trading competitions and tournaments.
 - `/api/v1/social/chat`: Symbol-specific and global trader chat rooms.
+- `/api/v1/achievements`: Trader milestone badges and achievement tracking.

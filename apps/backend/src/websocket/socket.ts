@@ -156,6 +156,18 @@ export function initWebSocket(httpServer: HttpServer): Server {
         }
       }
 
+      // Authorization guard for administrative news rooms
+      if (channel === 'admin:news') {
+        if (socket.data.isGuest || socket.data.userRole !== 'ADMIN') {
+          socketMetrics.rejectedSubscriptions += 1;
+          const errMsg = 'Unauthorized: Only exchange administrators can subscribe to admin news channels';
+          logger.warn(`[WS] Unauthorized subscription attempt by ${clientIdentifier} to ${channel}`);
+          socket.emit('error:unauthorized', { channel, message: errMsg });
+          if (ack) ack({ status: 'error', message: errMsg, channel });
+          return;
+        }
+      }
+
       // Join room
       socket.join(channel);
       logger.debug(`[WS] ${clientIdentifier} subscribed to ${channel}`);

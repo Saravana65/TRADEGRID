@@ -6,6 +6,7 @@ import { initWebSocket } from './websocket/socket';
 import { closeDatabaseConnection } from './database/connection';
 import { orderBookRecoveryService } from './modules/matching/order-book-recovery.service';
 import { botScheduler } from './modules/bots';
+import { newsScheduler } from './modules/news';
 
 let server: http.Server;
 
@@ -38,6 +39,13 @@ async function startServer() {
     } catch (err: any) {
       logger.error(`[BOOTSTRAP] Failed to start bot scheduler: ${err.message}`);
     }
+
+    // Phase 5C: Start simulated news catalyst scheduler
+    try {
+      newsScheduler.start(1000);
+    } catch (err: any) {
+      logger.error(`[BOOTSTRAP] Failed to start news scheduler: ${err.message}`);
+    }
   });
 }
 
@@ -49,6 +57,12 @@ async function handleShutdown(signal: string) {
     await botScheduler.stop();
   } catch (err: any) {
     logger.error(`[SHUTDOWN] Failed to stop bot scheduler: ${err.message}`);
+  }
+
+  try {
+    newsScheduler.stop();
+  } catch (err: any) {
+    logger.error(`[SHUTDOWN] Failed to stop news scheduler: ${err.message}`);
   }
 
   if (server) {

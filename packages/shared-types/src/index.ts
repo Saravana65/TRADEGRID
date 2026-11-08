@@ -537,7 +537,9 @@ export type WebSocketChannel =
   | `orderbook:${string}`
   | `trades:${string}`
   | `user:${number}`
-  | 'admin:bots';
+  | 'admin:bots'
+  | 'news'
+  | 'admin:news';
 
 export interface SubscriptionRequest {
   channel: string;
@@ -705,6 +707,256 @@ export interface BotRiskWarningEvent {
   actionTaken: 'QUOTE_SKIPPED' | 'BOT_PAUSED' | 'KILLED';
   timestamp: string;
 }
+
+// ============================================================================
+// Phase 5C: Simulated News Catalyst Engine Types
+// ============================================================================
+
+export type NewsCategory =
+  | 'Earnings'
+  | 'Revenue'
+  | 'Management'
+  | 'Product Launch'
+  | 'Partnership'
+  | 'Regulatory'
+  | 'Legal'
+  | 'Economic'
+  | 'Industry'
+  | 'Competition'
+  | 'Crisis'
+  | 'Market Sentiment'
+  | 'Other';
+
+export type NewsImpactDirection = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+
+export type NewsSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME';
+
+export type NewsTargetScope = 'INSTRUMENT' | 'SECTOR' | 'MARKET';
+
+export type NewsStatus =
+  | 'DRAFT'
+  | 'SCHEDULED'
+  | 'PUBLISHED'
+  | 'ACTIVE'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export type CatalystStatus =
+  | 'PENDING'
+  | 'ACTIVE'
+  | 'DECAYING'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export type CatalystActionType =
+  | 'SCHEDULED'
+  | 'PUBLISHED'
+  | 'CATALYST_ACTIVATED'
+  | 'TICK_APPLIED'
+  | 'DECAY_APPLIED'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export interface NewsCatalyst {
+  id?: number;
+  newsId: number;
+  sentimentScore: string; // -1.0000 to +1.0000
+  volatilityFactor: string; // 1.0000 to 5.0000
+  expectedParticipation: string; // 1.0000 to 3.0000
+  durationSeconds: number; // e.g. 300
+  decayRate: string; // e.g. 0.0200
+  status: CatalystStatus;
+  activatedAt?: string | null;
+  decayStartsAt?: string | null;
+  expiredAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface NewsArticle {
+  id: number;
+  headline: string;
+  summary: string;
+  content?: string | null;
+  category: NewsCategory;
+  impactDirection: NewsImpactDirection;
+  severity: NewsSeverity;
+  targetScope: NewsTargetScope;
+  targetId?: string | null;
+  targetSymbol?: string | null;
+  targetSector?: string | null;
+  status: NewsStatus;
+  isSimulated: boolean;
+  createdBy: number;
+  scheduledAt?: string | null;
+  publishedAt?: string | null;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  catalyst?: NewsCatalyst | null;
+}
+
+export interface NewsCatalystExecution {
+  id: number;
+  catalystId: number;
+  newsId: number;
+  action: CatalystActionType;
+  effectiveImpact: string; // calculated newsImpact
+  affectedInstruments?: string[];
+  details?: Record<string, unknown> | string;
+  createdAt: string;
+}
+
+export interface ActiveCatalystSummary {
+  catalystId: number;
+  newsId: number;
+  headline: string;
+  category: NewsCategory;
+  impactDirection: NewsImpactDirection;
+  severity: NewsSeverity;
+  targetScope: NewsTargetScope;
+  targetSymbol?: string | null;
+  targetSector?: string | null;
+  sentimentScore: string;
+  volatilityFactor: string;
+  effectiveImpact: string;
+  decayRemainingPercent: number;
+  activatedAt: string;
+  expiresAt: string;
+}
+
+export interface NewsMetricsSummary {
+  totalArticles: number;
+  activeCatalysts: number;
+  scheduledArticles: number;
+  publishedArticles: number;
+  expiredArticles: number;
+  cancelledArticles: number;
+}
+
+export interface NewsFilterQuery {
+  category?: NewsCategory;
+  impactDirection?: NewsImpactDirection;
+  severity?: NewsSeverity;
+  targetScope?: NewsTargetScope;
+  targetSymbol?: string;
+  targetSector?: string;
+  status?: NewsStatus;
+  isSimulated?: boolean;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface CreateNewsRequest {
+  headline: string;
+  summary: string;
+  content?: string;
+  category: NewsCategory;
+  impactDirection: NewsImpactDirection;
+  severity: NewsSeverity;
+  targetScope: NewsTargetScope;
+  targetId?: string;
+  targetSymbol?: string;
+  targetSector?: string;
+  scheduledAt?: string;
+  publishImmediately?: boolean;
+  catalyst?: {
+    sentimentScore?: string;
+    volatilityFactor?: string;
+    expectedParticipation?: string;
+    durationSeconds?: number;
+    decayRate?: string;
+  };
+}
+
+export interface UpdateNewsRequest {
+  headline?: string;
+  summary?: string;
+  content?: string;
+  category?: NewsCategory;
+  impactDirection?: NewsImpactDirection;
+  severity?: NewsSeverity;
+  targetScope?: NewsTargetScope;
+  targetId?: string;
+  targetSymbol?: string;
+  targetSector?: string;
+  scheduledAt?: string;
+  catalyst?: {
+    sentimentScore?: string;
+    volatilityFactor?: string;
+    expectedParticipation?: string;
+    durationSeconds?: number;
+    decayRate?: string;
+  };
+}
+
+// Phase 5C Real-Time WebSocket Events
+export interface NewsPublishedEvent {
+  eventId: string;
+  newsId: number;
+  headline: string;
+  summary: string;
+  category: NewsCategory;
+  impactDirection: NewsImpactDirection;
+  severity: NewsSeverity;
+  targetScope: NewsTargetScope;
+  targetSymbol?: string | null;
+  targetSector?: string | null;
+  isSimulated: boolean;
+  publishedAt: string;
+  expiresAt?: string | null;
+  timestamp: string;
+}
+
+export interface NewsUpdatedEvent {
+  eventId: string;
+  newsId: number;
+  status: NewsStatus;
+  headline: string;
+  updatedAt: string;
+  timestamp: string;
+}
+
+export interface NewsExpiredEvent {
+  eventId: string;
+  newsId: number;
+  catalystId?: number;
+  expiredAt: string;
+  timestamp: string;
+}
+
+export interface CatalystStartedEvent {
+  eventId: string;
+  catalystId: number;
+  newsId: number;
+  headline: string;
+  targetScope: NewsTargetScope;
+  targetSymbol?: string | null;
+  targetSector?: string | null;
+  sentimentScore: string;
+  volatilityFactor: string;
+  durationSeconds: number;
+  timestamp: string;
+}
+
+export interface CatalystUpdatedEvent {
+  eventId: string;
+  catalystId: number;
+  newsId: number;
+  effectiveImpact: string;
+  decayRemainingPercent: number;
+  timestamp: string;
+}
+
+export interface CatalystCompletedEvent {
+  eventId: string;
+  catalystId: number;
+  newsId: number;
+  completedAt: string;
+  timestamp: string;
+}
+
 
 
 

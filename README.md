@@ -5,7 +5,7 @@
 * **Repository:** [https://github.com/Saravana65/TRADEGRID](https://github.com/Saravana65/TRADEGRID)
 * **Default Branch:** `main`
 * **Architecture:** Modular Monolith
-* **Current Status:** **Phase 5B Autonomous Market-Making Bots & Simulated Liquidity Generators Complete** (144 Passing Tests, Autonomous Bot Fleet, Avellaneda-Stoikov Inventory Skewing, Multi-Tiered Risk Circuit Breakers, Admin Management Cockpit, Socket.IO `admin:bots` Channel, 100-Socket Multi-Bot Benchmark)
+* **Current Status:** **Phase 5C Simulated News Catalyst Engine Complete** (165 Passing Tests, Mathematical Decay Model, Autonomous Bot Skewing & Volatility Widening, Strict Financial Invariants, Admin News Cockpit, Real-Time Socket.IO Streaming, 100-Socket Load Benchmark)
 
 ---
 
@@ -84,8 +84,18 @@ TRADEGRID/
   * **Frontend Admin Bot Cockpit:** Interactive bot fleet dashboard, aggregate metrics cards, bot registration modal, emergency kill switch, and execution logs modal.
   * **Terminal Visual Indicator:** Discrete `[BOT]` badge indicators displayed on bot orders and trade executions.
 
+* [x] **Phase 5C — Simulated News Catalyst Engine:**
+  * **Mandatory Simulated News Guardrails:** Strict disclaimers across API payloads and UI (`"SIMULATED NEWS — NOT REAL FINANCIAL NEWS"`).
+  * **Mathematical Catalyst Decay Model:** Real-time decaying composite impact ($\text{impact}(t) = \text{sentiment} \times \text{severity} \times \text{relevance} \times \text{decayFactor}(t)$).
+  * **Relevance Scope Weighting:** Symbol (1.0), Sector (0.7), Market (0.4) relevance scaling.
+  * **Zero Financial Manipulation Invariant:** Absolutely zero direct price overwrites, fake trades, fake orders, or wallet balance alterations.
+  * **Autonomous Bot Integration:** Active catalysts dynamically skew reservation prices ($P_{res}$) and expand quote spreads on Avellaneda-Stoikov market makers to realistically price risk.
+  * **Lifecycle State Machine & Auto-Publishing:** Full `DRAFT` -> `SCHEDULED` -> `PUBLISHED` -> `ACTIVE` -> `EXPIRED` lifecycle with background scheduler.
+  * **Admin REST & Socket.IO Streaming:** Public `/api/v1/news` and protected `/api/v1/admin/news` endpoints; public `news` and admin `admin:news` WebSocket channels.
+  * **Frontend Admin News Cockpit & Wire:** Interactive admin catalyst management tab, live news page with search/filters, and terminal active catalyst alert banners.
+
 ### Automated Testing Suite
-* **144 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 10 test suites:
+* **165 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 11 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
   * `tests/wallet.test.ts` (16 tests)
@@ -96,6 +106,7 @@ TRADEGRID/
   * `tests/websocket.test.ts` (15 tests, including 100-client load benchmark)
   * `tests/reliability.test.ts` (13 tests verifying Phase 5A.1 reliability invariants)
   * `tests/bots.test.ts` (19 tests, verifying Phase 5B bot lifecycle, inventory skewing, risk controls, admin APIs, and 100-socket multi-bot load benchmark)
+  * `tests/news.test.ts` (21 tests, verifying Phase 5C news schemas, disclaimers, RBAC, lifecycle, decay math, scope weighting, bot integration, financial invariants, real-time events, and 100-client load benchmark)
 
 ---
 

@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 5B Autonomous Market-Making Bots & Simulated Liquidity Generators Complete ✅
-* **Previous Phase:** Phase 5A.1 Financial Reliability & Hardened Matching Integration Complete ✅
-* **Next Target:** Phase 5C (Trading Competitions, Social Leaderboards & Chat Ecosystem)
+* **Current Status:** Phase 5C Simulated News Catalyst Engine Complete ✅
+* **Previous Phase:** Phase 5B Autonomous Market-Making Bots & Simulated Liquidity Generators Complete ✅
+* **Next Target:** Phase 5D (Trading Competitions, Social Leaderboards & Chat Ecosystem)
 
 ---
 
@@ -158,11 +158,31 @@
 
 ---
 
-### I. Future Phases Roadmap
+### I. Phase 5C: Simulated News Catalyst Engine (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Mandatory Simulated News Guardrails** | ✅ Completed | Strict legal/educational disclaimers enforced across all database payloads, REST responses, WebSocket messages, and UI wire views: `"SIMULATED NEWS — NOT REAL FINANCIAL NEWS"`. |
+| **News & Catalysts Schema** | ✅ Completed | Migration `008_create_news_and_catalysts_tables.ts` creating `news_articles`, `news_catalysts`, and `news_catalyst_executions` with composite indexes and cascade relations. |
+| **Mathematical Catalyst Impact Model** | ✅ Completed | `CatalystEngine` computing real-time time-decaying composite impact: $\text{impact}(t) = \text{sentiment} \times \text{severity} \times \text{relevance} \times \text{decayFactor}(t)$. Constant impact through duration half-life followed by linear decay to 0.0 at expiration. |
+| **Relevance & Scope Weighting** | ✅ Completed | Deterministic relevance weights: Single Instrument (1.0), Sector-Wide (0.7), Market-Wide (0.4), Unrelated (0.0). Supports overlapping multi-catalyst composite aggregation. |
+| **Financial Invariants Preserved** | ✅ Completed | Strict financial safety: Zero direct overwrites to `instrument.last_price`, zero fake trades injected into trade tape, zero synthetic order book manipulations, and zero direct wallet balance alterations. All market movements stem exclusively from genuine orders matched through the central matching engine. |
+| **Autonomous Bot Strategy Integration** | ✅ Completed | Avellaneda-Stoikov market maker bots ingest active catalyst impact: sentiment skews reservation prices ($P_{res} = P_{ref} + P_{ref} \times \text{sentiment} \times 0.05 - \text{skew}$) and volatility multipliers expand quote spreads ($\text{spread} = \text{spread} \times \text{volatilityMultiplier}$) to realistically manage inventory risk during simulated breaking news. |
+| **Lifecycle State Machine & Auto-Publishing** | ✅ Completed | Strict state machine: `DRAFT` -> `SCHEDULED` -> `PUBLISHED` -> `ACTIVE` -> `EXPIRED`, with manual administrator `CANCELLED` override. Background `NewsScheduler` automatically activates scheduled articles, decrements decay, and triggers expiration. |
+| **REST API Suite** | ✅ Completed | Public endpoints `GET /api/v1/news`, `GET /api/v1/news/:id`, `GET /api/v1/news/catalysts/active`, and protected admin endpoints `POST /api/v1/admin/news`, `POST /api/v1/admin/news/:id/publish`, `POST /api/v1/admin/news/:id/cancel`, `GET /api/v1/admin/news/metrics`, and `GET /api/v1/admin/news/:id/executions`. |
+| **Socket.IO Real-Time Channels** | ✅ Completed | Public `news` channel broadcasting `news:published`, `news:updated`, `news:expired`, `news:catalyst:started`, `news:catalyst:updated`, `news:catalyst:completed`. Protected `admin:news` channel strictly guarded by administrator JWT claims. |
+| **Frontend Admin News Cockpit** | ✅ Completed | Dedicated "News Catalyst Engine (Phase 5C)" tab in Admin Cockpit with aggregate metrics (Stories, Active Catalysts, Scheduled Articles, Expired), search/category/status filters, news creation modal with catalyst shock parameters, manual publish/cancel controls, and execution audit modal. |
+| **Frontend News Wire & Terminal Alerts** | ✅ Completed | Revamped `NewsPage.tsx` with live active catalyst banner, search, category filters, and educational disclaimers. Pulsing catalyst alert banner on `TradingTerminalPage.tsx` notifying traders when active news impacts their selected symbol. |
+| **100 Concurrent Client Benchmark** | ✅ Completed | Verified 100 simultaneous connected WebSocket clients receiving news broadcasts without packet loss or event starvation. |
+| **Monorepo Automated Test Suite** | ✅ Completed | **165 Vitest tests passing across all 11 test suites with 100% pass rate** (21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### J. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Admin News Catalyst Injector** | Phase 5C | Planned |
-| **Trading Competitions & Leaderboards** | Phase 5C | Planned |
-| **Global & Symbol Chat Rooms** | Phase 5C | Planned |
-| **Achievement Badges & Milestones** | Phase 5D | Planned |
+| **Trading Competitions & Tournaments** | Phase 5D | Planned |
+| **Social Leaderboards & Rankings** | Phase 5D | Planned |
+| **Global & Symbol Trader Chat Ecosystem** | Phase 5D | Planned |
+| **Achievement Badges & Milestones** | Phase 5E | Planned |

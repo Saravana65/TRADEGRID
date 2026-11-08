@@ -50,7 +50,13 @@ import {
   BotController,
 } from './modules/bots';
 import { watchlistRouter } from './modules/watchlist';
-import { newsRouter } from './modules/news';
+import {
+  newsRouter as defaultNewsRouter,
+  adminNewsRouter as defaultAdminNewsRouter,
+  createNewsRouter,
+  createAdminNewsRouter,
+  NewsController,
+} from './modules/news';
 import { competitionsRouter } from './modules/competitions';
 import { chatRouter } from './modules/chat';
 import { adminRouter } from './modules/admin';
@@ -65,6 +71,7 @@ export interface AppDependencies {
   tradeController?: TradeController;
   portfolioController?: PortfolioController;
   botController?: BotController;
+  newsController?: NewsController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -162,6 +169,14 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createBotRouter(dependencies.botController)
     : defaultBotRouter;
 
+  const activeNewsRouter = dependencies.newsController
+    ? createNewsRouter(dependencies.newsController)
+    : defaultNewsRouter;
+
+  const activeAdminNewsRouter = dependencies.newsController
+    ? createAdminNewsRouter(dependencies.newsController)
+    : defaultAdminNewsRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);
@@ -170,12 +185,13 @@ export function createApp(dependencies: AppDependencies = {}): Application {
   app.use('/api/v1/market', activeMarketRouter);
   app.use('/api/v1/admin/instruments', activeAdminInstrumentRouter);
   app.use('/api/v1/admin/bots', activeBotRouter);
+  app.use('/api/v1/admin/news', activeAdminNewsRouter);
   app.use('/api/v1/orders', activeOrderRouter);
   app.use('/api/v1/trades', activeTradeRouter);
   app.use('/api/v1/trading', activeTradeRouter);
   app.use('/api/v1/portfolio', activePortfolioRouter);
   app.use('/api/v1/watchlist', watchlistRouter);
-  app.use('/api/v1/news', newsRouter);
+  app.use('/api/v1/news', activeNewsRouter);
   app.use('/api/v1/competitions', competitionsRouter);
   app.use('/api/v1/chat', chatRouter);
   app.use('/api/v1/admin', adminRouter);

@@ -10,6 +10,7 @@ import { Input } from '../components/common/Input';
 import { Table, TableColumn } from '../components/common/Table';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { AdminBotsTab } from '../components/admin/AdminBotsTab';
+import { AdminNewsTab } from '../components/admin/AdminNewsTab';
 import {
   ShieldAlert,
   Power,
@@ -24,6 +25,7 @@ import {
   ArrowDownLeft,
   Bot as BotIcon,
   Sliders,
+  Newspaper,
 } from 'lucide-react';
 
 interface ManagedUser {
@@ -60,7 +62,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'BOTS' | 'OPERATIONS'>('BOTS');
+  const [activeTab, setActiveTab] = useState<'BOTS' | 'NEWS' | 'OPERATIONS'>('BOTS');
 
   // Wallet adjustment modal state
   const [targetUser, setTargetUser] = useState<ManagedUser | null>(null);
@@ -283,7 +285,7 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {/* Top Administration Tabs */}
-      <div className="flex items-center gap-2 border-b border-card-border pb-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-card-border pb-3">
         <button
           onClick={() => setActiveTab('BOTS')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
@@ -294,6 +296,17 @@ export const AdminDashboardPage: React.FC = () => {
         >
           <BotIcon className="w-4 h-4 text-cyan-400" />
           Autonomous Market-Making Bots (Phase 5B)
+        </button>
+        <button
+          onClick={() => setActiveTab('NEWS')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
+            activeTab === 'NEWS'
+              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-lg shadow-purple-500/10'
+              : 'text-slate-400 hover:text-white bg-[#090D16] border border-card-border'
+          }`}
+        >
+          <Newspaper className="w-4 h-4 text-purple-400" />
+          News Catalyst Engine (Phase 5C)
         </button>
         <button
           onClick={() => setActiveTab('OPERATIONS')}
@@ -310,6 +323,8 @@ export const AdminDashboardPage: React.FC = () => {
 
       {activeTab === 'BOTS' ? (
         <AdminBotsTab />
+      ) : activeTab === 'NEWS' ? (
+        <AdminNewsTab />
       ) : (
         <>
           {/* Global Exchange Halt / Circuit Breaker Desk */}

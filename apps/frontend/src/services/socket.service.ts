@@ -13,7 +13,7 @@ class SocketService {
       return this.socket;
     }
 
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('tg_access_token') || localStorage.getItem('access_token');
     const wsUrl = import.meta.env.VITE_WS_URL || window.location.origin.replace(/^http/, 'ws');
 
     this.socket = io(wsUrl, {

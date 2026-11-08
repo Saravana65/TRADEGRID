@@ -36,7 +36,13 @@ import {
   PositionRecord,
   UpsertPositionData,
 } from '../../src/modules/portfolio/position.repository';
-import { TradeFilterQuery } from '@tradegrid/shared-types';
+import { TradeFilterQuery, NewsFilterQuery, NewsMetricsSummary } from '@tradegrid/shared-types';
+import { INewsRepository } from '../../src/modules/news/news.repository';
+import {
+  NewsArticleRecord,
+  NewsCatalystRecord,
+  NewsCatalystExecutionRecord,
+} from '../../src/modules/news/news.types';
 
 export class InMemoryUserRepository implements IUserRepository {
   private users: UserRecord[] = [];
@@ -1293,6 +1299,258 @@ export class InMemoryBotRepository implements IBotRepository {
     this.nextConfigId = 1;
     this.nextInstId = 1;
     this.nextLogId = 1;
+  }
+}
+
+export class InMemoryNewsRepository implements INewsRepository {
+  private articles: NewsArticleRecord[] = [];
+  private catalysts: NewsCatalystRecord[] = [];
+  private executions: NewsCatalystExecutionRecord[] = [];
+  private nextArticleId = 1;
+  private nextCatalystId = 1;
+  private nextExecutionId = 1;
+
+  async createArticle(
+    articleData: Omit<NewsArticleRecord, 'id' | 'created_at' | 'updated_at'>,
+    catalystData?: Omit<NewsCatalystRecord, 'id' | 'news_id' | 'created_at' | 'updated_at'>
+  ): Promise<{ article: NewsArticleRecord; catalyst?: NewsCatalystRecord }> {
+    const article: NewsArticleRecord = {
+      id: this.nextArticleId++,
+      ...articleData,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.articles.unshift(article);
+
+    let catalyst: NewsCatalystRecord | undefined;
+    if (catalystData) {
+      catalyst = {
+        id: this.nextCatalystId++,
+        news_id: article.id,
+        ...catalystData,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      this.catalysts.push(catalyst);
+    }
+
+    return { article: { ...article }, catalyst: catalyst ? { ...catalyst } : undefined };
+  }
+
+  async findById(
+    id: number
+  ): Promise<{ article: NewsArticleRecord; catalyst?: NewsCatalystRecord } | null> {
+    const article = this.articles.find((a) => a.id === id);
+    if (!article) return null;
+    const catalyst = this.catalysts.find((c) => c.news_id === id);
+    return {
+      article: { ...article },
+      catalyst: catalyst ? { ...catalyst } : undefined,
+    };
+  }
+
+  async findArticles(
+    filter?: NewsFilterQuery
+  ): Promise<{ articles: (NewsArticleRecord & { catalyst?: NewsCatalystRecord })[]; total: number }> {
+    let results = [...this.articles];
+
+    if (filter) {
+      if (filter.category) {
+        results = results.filter((a) => a.category === filter.category);
+      }
+      if (filter.impactDirection) {
+        results = results.filter((a) => a.impact_direction === filter.impactDirection);
+      }
+      if (filter.severity) {
+        results = results.filter((a) => a.severity === filter.severity);
+      }
+      if (filter.targetScope) {
+        results = results.filter((a) => a.target_scope === filter.targetScope);
+      }
+      if (filter.status) {
+        results = results.filter((a) => a.status === filter.status);
+      }
+      if (filter.targetSymbol) {
+        results = results.filter(
+          (a) => a.target_symbol?.toUpperCase() === filter.targetSymbol?.toUpperCase()
+        );
+      }
+      if (filter.search) {
+        const query = filter.search.toLowerCase();
+        results = results.filter(
+          (a) =>
+            a.headline.toLowerCase().includes(query) ||
+            a.summary.toLowerCase().includes(query)
+        );
+      }
+    }
+
+    const total = results.length;
+    const page = filter?.page || 1;
+    const limit = filter?.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const paged = results.slice(offset, offset + limit).map((a) => {
+      const catalyst = this.catalysts.find((c) => c.news_id === a.id);
+      return {
+        ...a,
+        catalyst: catalyst ? { ...catalyst } : undefined,
+      };
+    });
+
+    return { articles: paged, total };
+  }
+
+  async updateArticle(
+    id: number,
+    data: Partial<NewsArticleRecord>
+  ): Promise<NewsArticleRecord> {
+    const index = this.articles.findIndex((a) => a.id === id);
+    if (index === -1) {
+      throw new Error(`News article #${id} not found`);
+    }
+
+    this.articles[index] = {
+      ...this.articles[index],
+      ...data,
+      updated_at: new Date(),
+    };
+
+    return { ...this.articles[index] };
+  }
+
+  async deleteArticle(id: number): Promise<boolean> {
+    const initialLen = this.articles.length;
+    this.articles = this.articles.filter((a) => a.id !== id);
+    this.catalysts = this.catalysts.filter((c) => c.news_id !== id);
+    return this.articles.length < initialLen;
+  }
+
+  async findDueScheduledArticles(now: Date): Promise<NewsArticleRecord[]> {
+    return this.articles
+      .filter((a) => a.status === 'SCHEDULED' && a.scheduled_at && new Date(a.scheduled_at) <= now)
+      .map((a) => ({ ...a }));
+  }
+
+  async findActiveCatalysts(
+    _now: Date
+  ): Promise<{ article: NewsArticleRecord; catalyst: NewsCatalystRecord }[]> {
+    const activeResults: { article: NewsArticleRecord; catalyst: NewsCatalystRecord }[] = [];
+    for (const cat of this.catalysts) {
+      if (cat.status === 'ACTIVE' || cat.status === 'DECAYING') {
+        const article = this.articles.find((a) => a.id === cat.news_id);
+        if (article && (article.status === 'ACTIVE' || article.status === 'DECAYING')) {
+          activeResults.push({
+            article: { ...article },
+            catalyst: { ...cat },
+          });
+        }
+      }
+    }
+    return activeResults;
+  }
+
+  async findCatalystByNewsId(newsId: number): Promise<NewsCatalystRecord | null> {
+    const cat = this.catalysts.find((c) => c.news_id === newsId);
+    return cat ? { ...cat } : null;
+  }
+
+  async createCatalyst(
+    catalystData: Omit<NewsCatalystRecord, 'id' | 'created_at' | 'updated_at'>
+  ): Promise<NewsCatalystRecord> {
+    const record: NewsCatalystRecord = {
+      id: this.nextCatalystId++,
+      ...catalystData,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    this.catalysts.push(record);
+    return { ...record };
+  }
+
+  async updateCatalyst(
+    id: number,
+    data: Partial<NewsCatalystRecord>
+  ): Promise<NewsCatalystRecord> {
+    const index = this.catalysts.findIndex((c) => c.id === id);
+    if (index === -1) {
+      throw new Error(`Catalyst #${id} not found`);
+    }
+
+    this.catalysts[index] = {
+      ...this.catalysts[index],
+      ...data,
+      updated_at: new Date(),
+    };
+
+    return { ...this.catalysts[index] };
+  }
+
+  async createExecution(
+    executionData: Omit<NewsCatalystExecutionRecord, 'id' | 'created_at'>
+  ): Promise<NewsCatalystExecutionRecord> {
+    const record: NewsCatalystExecutionRecord = {
+      id: this.nextExecutionId++,
+      ...executionData,
+      created_at: new Date(),
+    };
+    this.executions.unshift(record);
+    return { ...record };
+  }
+
+  async findExecutionsByNewsId(
+    newsId: number,
+    options?: { page?: number; limit?: number }
+  ): Promise<{ executions: NewsCatalystExecutionRecord[]; total: number }> {
+    const filtered = this.executions.filter((e) => e.news_id === newsId);
+    const total = filtered.length;
+    const page = options?.page || 1;
+    const limit = options?.limit || 20;
+    const offset = (page - 1) * limit;
+    const paged = filtered.slice(offset, offset + limit);
+    return { executions: paged.map((e) => ({ ...e })), total };
+  }
+
+  async getMetricsSummary(): Promise<NewsMetricsSummary> {
+    const totalArticles = this.articles.length;
+    const activeCatalysts = this.catalysts.filter(
+      (c) => c.status === 'ACTIVE' || c.status === 'DECAYING'
+    ).length;
+    const scheduledArticles = this.articles.filter((a) => a.status === 'SCHEDULED').length;
+    const expiredArticles = this.articles.filter((a) => a.status === 'EXPIRED').length;
+
+    let sentimentSum = 0;
+    let maxVol = 1.0;
+    let activeWithCat = 0;
+
+    for (const c of this.catalysts) {
+      if (c.status === 'ACTIVE' || c.status === 'DECAYING') {
+        sentimentSum += parseFloat(c.sentiment_score || '0');
+        const v = parseFloat(c.volatility_factor || '1');
+        if (v > maxVol) maxVol = v;
+        activeWithCat++;
+      }
+    }
+
+    const avgSentiment = activeWithCat > 0 ? (sentimentSum / activeWithCat).toFixed(2) : '0.00';
+
+    return {
+      totalArticles,
+      activeCatalysts,
+      scheduledArticles,
+      expiredArticles,
+      averageSentimentScore: avgSentiment,
+      maxActiveVolatilityFactor: maxVol.toFixed(2),
+    };
+  }
+
+  clear(): void {
+    this.articles = [];
+    this.catalysts = [];
+    this.executions = [];
+    this.nextArticleId = 1;
+    this.nextCatalystId = 1;
+    this.nextExecutionId = 1;
   }
 }
 
