@@ -1,5 +1,5 @@
 # ==============================================================================
-# TRADEGRID Backend Dockerfile (Multi-stage build)
+# TRADEGRID Backend Dockerfile (Hardened Multi-Stage Production Build)
 # ==============================================================================
 
 # Stage 1: Build stage
@@ -7,7 +7,7 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-# Install native dependencies required by argon2 compilation
+# Install native build tools for compiling argon2
 RUN apk add --no-cache python3 make g++
 
 # Copy package manifests
@@ -16,7 +16,7 @@ COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/validation/package.json ./packages/validation/
 COPY apps/backend/package.json ./apps/backend/
 
-# Install all dependencies (including devDependencies)
+# Install dependencies (clean install)
 RUN npm ci
 
 # Copy source code and tsconfigs
@@ -34,25 +34,29 @@ FROM node:24-alpine AS runner
 
 WORKDIR /app
 
-# Install runtime utilities
-RUN apk add --no-cache curl
-
 ENV NODE_ENV=production
 ENV PORT=5000
 
-# Copy node_modules and built artifacts from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
-COPY --from=builder /app/packages/shared-types/package.json ./packages/shared-types/package.json
-COPY --from=builder /app/packages/validation/dist ./packages/validation/dist
-COPY --from=builder /app/packages/validation/package.json ./packages/validation/package.json
-COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
-COPY --from=builder /app/apps/backend/package.json ./apps/backend/package.json
-COPY --from=builder /app/database ./database
+# Security hardening: Create non-root user and group
+RUN addgroup -S tradegrid && adduser -S tradegrid -G tradegrid
+
+# Copy node_modules and built artifacts with non-root ownership
+COPY --from=builder --chown=tradegrid:tradegrid /app/node_modules ./node_modules
+COPY --from=builder --chown=tradegrid:tradegrid /app/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder --chown=tradegrid:tradegrid /app/packages/shared-types/package.json ./packages/shared-types/package.json
+COPY --from=builder --chown=tradegrid:tradegrid /app/packages/validation/dist ./packages/validation/dist
+COPY --from=builder --chown=tradegrid:tradegrid /app/packages/validation/package.json ./packages/validation/package.json
+COPY --from=builder --chown=tradegrid:tradegrid /app/apps/backend/dist ./apps/backend/dist
+COPY --from=builder --chown=tradegrid:tradegrid /app/apps/backend/package.json ./apps/backend/package.json
+COPY --from=builder --chown=tradegrid:tradegrid /app/database ./database
+
+# Switch to unprivileged non-root user
+USER tradegrid
 
 EXPOSE 5000
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
-  CMD curl -f http://localhost:5000/api/v1/health || exit 1
+# Built-in lightweight healthcheck using Node http module
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 5000) + '/api/v1/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 1
 
 CMD ["node", "apps/backend/dist/server.js"]

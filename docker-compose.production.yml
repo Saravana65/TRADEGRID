@@ -1,0 +1,129 @@
+# ==============================================================================
+# TRADEGRID Production Docker Compose Topology
+# Supports 100+ concurrent simulated traders at ₹0 additional infrastructure cost
+# Run with: docker compose -f docker-compose.production.yml up --build -d
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Database Tier: MySQL 8.0 Enterprise-Hardened RDBMS
+  # ----------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: tradegrid-mysql-prod
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
+      --innodb_buffer_pool_size=512M
+      --innodb_log_file_size=128M
+      --innodb_flush_log_at_trx_commit=2
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-tradegrid}
+      MYSQL_USER: ${DB_USER:-tradegrid_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-tradegrid_secure_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-tradegrid_root_password}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_prod_data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # 2. Application Tier: Node.js / Express / Socket.IO Core Engine
+  # ----------------------------------------------------------------------------
+  backend:
+    container_name: tradegrid-backend-prod
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-tradegrid}
+      DB_USER: ${DB_USER:-tradegrid_user}
+      DB_PASSWORD: ${DB_PASSWORD:-tradegrid_secure_password}
+      DB_POOL_MIN: ${DB_POOL_MIN:-5}
+      DB_POOL_MAX: ${DB_POOL_MAX:-25}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-tradegrid_production_access_jwt_secret_minimum_32_characters_12345}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-tradegrid_production_refresh_jwt_secret_minimum_32_characters_67890}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      MARKET_DATA_PRIMARY_PROVIDER: ${MARKET_DATA_PRIMARY_PROVIDER:-SIMULATED_PROVIDER}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "5000:5000"
+    volumes:
+      - backend_logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/v1/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  # ----------------------------------------------------------------------------
+  # 3. Web & Edge Tier: Production Nginx Reverse Proxy & React UI
+  # ----------------------------------------------------------------------------
+  frontend:
+    container_name: tradegrid-frontend-prod
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  mysql_prod_data:
+    driver: local
+  backend_logs:
+    driver: local
