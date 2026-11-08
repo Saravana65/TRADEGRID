@@ -16,6 +16,7 @@ import {
   Award,
   MessageSquare,
   Cpu,
+  Sliders,
 } from 'lucide-react';
 
 interface NavItem {
@@ -34,6 +35,7 @@ export const Sidebar: React.FC = () => {
     { name: 'Markets', path: '/markets', icon: BarChart3 },
     { name: 'Trading Terminal', path: '/trade', icon: CandlestickChart },
     { name: 'Charting Studio', path: '/chart', icon: TrendingUp },
+    { name: 'Strategy Studio', path: '/strategies', icon: Sliders },
     { name: 'Portfolio', path: '/portfolio', icon: Briefcase },
     { name: 'Competitions', path: '/competitions', icon: Trophy },
     { name: 'Achievements', path: '/achievements', icon: Award },

@@ -302,10 +302,25 @@
 
 ---
 
-### Q. Future Phases Roadmap
+### Q. Phase 9C: Strategy Studio UI & Visual Strategy Builder (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Dedicated Strategy Studio Page** | ✅ Completed | `StrategyStudioPage.tsx` providing a multi-tab interface: Strategies Dashboard, Visual & DSL Rule Studio, Simulation Runner, and Version History Inspector. |
+| **Visual Block-Based Builder** | ✅ Completed | Form-driven rule composition allowing users to configure strategy metadata, instrument symbol, timeframe, indicators (`SMA`, `EMA`, `RSI`, `MACD`, `BollingerBands`, `VWAP`), multi-condition entry and exit rule blocks, and risk management guardrails. |
+| **Dual-Mode Studio** | ✅ Completed | Real-time toggle between Visual Form Mode and Raw DSL Code Mode with live bidirectional synchronization. |
+| **Server-Authoritative Validation** | ✅ Completed | Interactive DSL validation invoking backend AST parser and type checker, rendering exact line, column, and diagnostic error callouts. |
+| **Backtest Simulation Integration** | ✅ Completed | Direct simulation execution returning chronological signals table (`BUY`, `SELL`), timestamp, execution price, reason, indicator snapshots, and performance diagnostics. |
+| **Frontend Strategy Service** | ✅ Completed | `strategyApiService` in `apps/frontend/src/services/strategy.service.ts` wrapping all Phase 9A and 9B REST APIs with JWT authentication. |
+| **Navigation & Routing** | ✅ Completed | Registered `/strategies` route in `App.tsx` and mounted `Strategy Studio` navigation item in `Sidebar.tsx`. |
+| **Automated Testing Suite** | ✅ Completed | **326 Vitest tests passing across all 19 test suites with 100% pass rate** (10 strategy studio tests + 19 strategy execution tests + 30 strategy tests + 16 achievement tests + 16 charting tests + 26 backtest/research tests + 24 chat tests + 20 competition tests + 21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### R. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Strategy Studio Frontend & Visual Builder** | Phase 9C | Planned |
+| **Background Strategy Runner & Automated Virtual Trading** | Phase 9D | In Progress |
 | **Mobile Responsive Progressive Web App (PWA)** | Phase 10 | Planned |
 

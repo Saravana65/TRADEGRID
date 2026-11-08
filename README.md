@@ -162,8 +162,16 @@ TRADEGRID/
   * **Execution REST APIs:** `POST /api/v1/strategies/:id/execute`, `GET /api/v1/strategies/:id/executions`, `GET /api/v1/strategies/executions/:executionId`, and `POST /api/v1/strategies/executions/:executionId/cancel`.
   * **Strict Financial Invariant:** Purely analytical signals; zero modification to virtual cash, wallets, ledger transactions, or live order books. $0 budget objective maintained.
 
+* [x] **Phase 9C — Strategy Studio UI & Visual Strategy Builder:**
+  * **Dedicated Strategy Studio Page (`StrategyStudioPage.tsx`):** Responsive dark-theme dashboard, interactive visual block editor, live DSL code previewer, version history inspector, and simulation execution results.
+  * **Visual Rule Builder:** Form-driven rule configuration allowing traders to declare indicators (`SMA`, `EMA`, `RSI`, `MACD`, `BollingerBands`, `VWAP`), configure series sources, assemble multi-condition entry/exit blocks (`and`, `or`, `crosses_above`, `crosses_below`), and establish stop-loss/take-profit risk guardrails.
+  * **Dual-Mode Studio:** Seamless switching between visual block builder and advanced raw TradeGrid DSL editor with live bidirectional synchronization.
+  * **Server-Authoritative Validation:** On-demand AST syntax and semantic validation with exact line and column diagnostic highlights.
+  * **Historical Simulation Runner:** Direct studio execution triggering sandboxed backtest runs with chronological signal tables, performance metrics, and historical run logs.
+  * **Navigation Integration:** Mounted at `/strategies` with dedicated sidebar navigation item in `Sidebar.tsx`.
+
 ### Automated Testing Suite
-* **316 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 18 test suites:
+* **326 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 19 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
   * `tests/wallet.test.ts` (16 tests)
@@ -182,6 +190,7 @@ TRADEGRID/
   * `tests/achievements.test.ts` (16 tests, verifying Phase 8 master definitions, server-authoritative idempotent unlocking, anti-double-credit guarantees, 100 pts/level math, title evolution, user isolation, public showcase privacy, global leaderboard, action triggers, and 100-user concurrency benchmark)
   * `tests/strategies.test.ts` (30 tests, verifying Phase 9A DSL lexer, parser, static validator, REST APIs, user ownership isolation, and 100-user load benchmark)
   * `tests/strategy-execution.test.ts` (19 tests, verifying Phase 9B AST evaluator, deterministic signals, anti-lookahead bias, timeout protection, REST APIs, user ownership isolation, and 100 concurrent executions benchmark)
+  * `tests/strategy-studio.test.ts` (10 tests, verifying Phase 9C visual builder DSL generation, indicator configuration, Studio CRUD lifecycle, version auto-snapshots, duplication, cascading deletion, and simulation integration)
 
 ---
 
