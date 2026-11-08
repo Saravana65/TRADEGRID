@@ -2789,6 +2789,142 @@ export class InMemoryAchievementRepository implements IAchievementRepository {
   }
 }
 
+// ============================================================================
+// Phase 9A: In-Memory Strategy Repository
+// ============================================================================
+
+import { IStrategyRepository } from '../../src/modules/strategies/strategy.types';
+import { UserStrategy, StrategyVersion } from '@tradegrid/shared-types';
+
+export class InMemoryStrategyRepository implements IStrategyRepository {
+  private strategies: Map<number, UserStrategy> = new Map();
+  private versions: StrategyVersion[] = [];
+  private nextStrategyId = 1;
+  private nextVersionId = 1;
+
+  async createStrategy(strategy: {
+    userId: number;
+    name: string;
+    description?: string;
+    instrumentSymbol: string;
+    timeframe: string;
+    dslCode: string;
+    isValid: boolean;
+    version: number;
+  }): Promise<UserStrategy> {
+    const id = this.nextStrategyId++;
+    const now = new Date().toISOString();
+    const created: UserStrategy = {
+      id,
+      userId: strategy.userId,
+      name: strategy.name,
+      description: strategy.description,
+      instrumentSymbol: strategy.instrumentSymbol,
+      timeframe: strategy.timeframe,
+      dslCode: strategy.dslCode,
+      isValid: strategy.isValid,
+      version: strategy.version,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.strategies.set(id, created);
+    return { ...created };
+  }
+
+  async findById(id: number): Promise<UserStrategy | null> {
+    const found = this.strategies.get(id);
+    return found ? { ...found } : null;
+  }
+
+  async findByUserId(userId: number): Promise<UserStrategy[]> {
+    return Array.from(this.strategies.values())
+      .filter((s) => s.userId === userId)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }
+
+  async updateStrategy(
+    id: number,
+    userId: number,
+    updates: Partial<{
+      name: string;
+      description: string;
+      instrumentSymbol: string;
+      timeframe: string;
+      dslCode: string;
+      isValid: boolean;
+      version: number;
+    }>
+  ): Promise<UserStrategy | null> {
+    const strategy = this.strategies.get(id);
+    if (!strategy || strategy.userId !== userId) return null;
+
+    const updated: UserStrategy = {
+      ...strategy,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    this.strategies.set(id, updated);
+    return { ...updated };
+  }
+
+  async deleteStrategy(id: number, userId: number): Promise<boolean> {
+    const strategy = this.strategies.get(id);
+    if (!strategy || strategy.userId !== userId) return false;
+    this.strategies.delete(id);
+    // Cascade delete versions
+    this.versions = this.versions.filter((v) => v.strategyId !== id);
+    return true;
+  }
+
+  async createVersion(version: {
+    strategyId: number;
+    userId: number;
+    version: number;
+    dslCode: string;
+    astSnapshot?: any;
+    changelog?: string;
+  }): Promise<StrategyVersion> {
+    const id = this.nextVersionId++;
+    const created: StrategyVersion = {
+      id,
+      strategyId: version.strategyId,
+      userId: version.userId,
+      version: version.version,
+      dslCode: version.dslCode,
+      astSnapshot: version.astSnapshot,
+      changelog: version.changelog,
+      createdAt: new Date().toISOString(),
+    };
+    this.versions.push(created);
+    return { ...created };
+  }
+
+  async getVersions(strategyId: number, userId: number): Promise<StrategyVersion[]> {
+    return this.versions
+      .filter((v) => v.strategyId === strategyId && v.userId === userId)
+      .sort((a, b) => b.version - a.version);
+  }
+
+  async getVersion(
+    strategyId: number,
+    version: number,
+    userId: number
+  ): Promise<StrategyVersion | null> {
+    const found = this.versions.find(
+      (v) => v.strategyId === strategyId && v.version === version && v.userId === userId
+    );
+    return found ? { ...found } : null;
+  }
+
+  clear(): void {
+    this.strategies.clear();
+    this.versions = [];
+    this.nextStrategyId = 1;
+    this.nextVersionId = 1;
+  }
+}
+
+
 
 
 

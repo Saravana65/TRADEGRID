@@ -84,6 +84,11 @@ import {
   createAchievementRouter,
   AchievementController,
 } from './modules/achievements';
+import {
+  strategyRouter as defaultStrategyRouter,
+  createStrategyRouter,
+  StrategyController,
+} from './modules/strategies';
 import { adminRouter } from './modules/admin';
 
 export interface AppDependencies {
@@ -102,6 +107,7 @@ export interface AppDependencies {
   researchController?: ResearchController;
   chartingController?: ChartingController;
   achievementController?: AchievementController;
+  strategyController?: StrategyController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -231,6 +237,10 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createAchievementRouter(dependencies.achievementController)
     : defaultAchievementRouter;
 
+  const activeStrategyRouter = dependencies.strategyController
+    ? createStrategyRouter(dependencies.strategyController)
+    : defaultStrategyRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);
@@ -252,6 +262,7 @@ export function createApp(dependencies: AppDependencies = {}): Application {
   app.use('/api/v1/research', activeResearchRouter);
   app.use('/api/v1/charting', activeChartingRouter);
   app.use('/api/v1/achievements', activeAchievementRouter);
+  app.use('/api/v1/strategies', activeStrategyRouter);
   app.use('/api/v1/admin', adminRouter);
 
   // 7. Catch-all 404 Route

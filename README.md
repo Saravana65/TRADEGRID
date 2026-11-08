@@ -143,8 +143,18 @@ TRADEGRID/
   * **Frontend Achievement Center:** Dedicated page at `/achievements` (`AchievementsPage.tsx`) with Level progression hero card, category filters, animated badge grid with locked/unlocked progress bars, real-time unlock celebration banner, and Global Hall of Fame leaderboard.
   * **Dashboard Showcase Widget:** Embedded status widget on `DashboardPage.tsx` with user level, dynamic title, XP progress bar, and recently unlocked badge pills.
 
+* [x] **Phase 9A — Custom User Strategy Scripting (DSL) & Validation Engine:**
+  * **Strategy Database Schema:** Migration `014_create_user_strategies_tables.ts` introducing `user_strategies` and `strategy_versions` with user-scoped isolation, cascading foreign keys, and unique versioning constraints.
+  * **Declarative Strategy DSL:** Structured line-oriented language supporting `strategy`, `description`, `instrument`, `timeframe`, `indicator`, `entry:`, `exit:`, and `risk:` configuration blocks.
+  * **Lexer & Scanner Architecture:** 1-indexed line/column tracking tokenizer supporting comments (`//`, `#`), strings, floats, percentages (`%`), multi-character comparison/cross operators (`crosses_above`, `crosses_below`), and prototype pollution guards (`__proto__`, `constructor`, `prototype`).
+  * **Recursive-Descent AST Parser:** Precedence-climbing expression parser generating pure AST representations with strict node count bounds (`MAX_AST_NODES = 500`) to defeat denial-of-service attempts.
+  * **Static Semantic Validator & Type Checker:** Server-authoritative rules engine verifying declared indicator functions (`SMA`, `EMA`, `RSI`, `MACD`, `BollingerBands`, `VWAP`), parameter validation, type checking, risk parameter bounds, and blocking all unsafe identifiers (`eval`, `process`, `require`, `window`).
+  * **Strategy Management REST APIs:** Complete CRUD suite under `/api/v1/strategies`: validation endpoint, creation, listing, updating, deletion, duplication, and full version history snapshots.
+  * **Strict User Ownership Isolation:** User B cannot read, modify, duplicate, or delete User A's private strategies (`403 FORBIDDEN_STRATEGY_ACCESS`).
+  * **Financial Isolation Safety Invariant:** DSL validation and strategy definitions are strictly analytical; zero modification to wallets, cash ledger, or live order matching.
+
 ### Automated Testing Suite
-* **267 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 16 test suites:
+* **297 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 17 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
   * `tests/wallet.test.ts` (16 tests)
@@ -158,6 +168,10 @@ TRADEGRID/
   * `tests/news.test.ts` (21 tests, verifying Phase 5C news schemas, disclaimers, RBAC, lifecycle, decay math, scope weighting, bot integration, financial invariants, real-time events, and 100-client load benchmark)
   * `tests/competitions.test.ts` (20 tests, verifying Phase 5D competition lifecycle, participant enrollment, private join codes, capacity limits, isolated trading, matching, wash prevention, server-authoritative rankings, tie-breakers, post-completion freeze, WebSocket authorization, and 100-client load benchmark)
   * `tests/chat.test.ts` (24 tests, verifying Phase 5E chat rooms, symbol validation, DMs, @mentions, notifications, rate limiting, XSS sanitization, blocking, reporting, admin moderation, and 100-client load benchmark)
+  * `tests/backtest.test.ts` (26 tests, verifying Phase 6 indicators, backtest execution, performance metrics, signals, and insights)
+  * `tests/charting.test.ts` (16 tests, verifying Phase 7 indicators, volume profile POC/VAH/VAL, user preferences, and 100-user load benchmark)
+  * `tests/achievements.test.ts` (16 tests, verifying Phase 8 achievements, idempotent unlocking, leveling math, leaderboards, and 100-user load benchmark)
+  * `tests/strategies.test.ts` (30 tests, verifying Phase 9A DSL lexer, parser, static validator, REST APIs, user ownership isolation, and 100-user load benchmark)
   * `tests/backtest.test.ts` (26 tests, verifying Phase 6 indicator mathematics, strategy reproducibility, anti-lookahead bias, slippage/commission, Sharpe/Sortino ratios, drawdown math, signals scanner, portfolio HHI, and AI commentary)
   * `tests/charting.test.ts` (16 tests, verifying Phase 7 VWAP, Stochastic, Bollinger Bands, Volume Profile POC/VAH/VAL, user chart workspace isolation, reset defaults, and 100-user concurrency benchmark)
   * `tests/achievements.test.ts` (16 tests, verifying Phase 8 master definitions, server-authoritative idempotent unlocking, anti-double-credit guarantees, 100 pts/level math, title evolution, user isolation, public showcase privacy, global leaderboard, action triggers, and 100-user concurrency benchmark)

@@ -1122,4 +1122,58 @@ export const achievementLeaderboardQuerySchema = z.object({
 
 export type AchievementLeaderboardQueryInput = z.infer<typeof achievementLeaderboardQuerySchema>;
 
+// ============================================================================
+// Phase 9A & 9B: Strategy DSL & Execution Validation Schemas
+// ============================================================================
+
+export const validateStrategySourceSchema = z.object({
+  dslCode: z.string().min(1, 'DSL source code cannot be empty').max(50000, 'DSL source code exceeds 50KB limit'),
+});
+
+export type ValidateStrategySourceInput = z.infer<typeof validateStrategySourceSchema>;
+
+export const createStrategySchema = z.object({
+  name: z.string().trim().min(1, 'Strategy name is required').max(128, 'Strategy name too long'),
+  description: z.string().trim().max(1000).optional(),
+  dslCode: z.string().min(1, 'DSL code is required').max(50000),
+  instrumentSymbol: z.string().trim().max(32).optional(),
+  timeframe: z.enum(['1m', '5m', '15m', '1h', '1d']).optional(),
+});
+
+export type CreateStrategyInput = z.infer<typeof createStrategySchema>;
+
+export const updateStrategySchema = z.object({
+  name: z.string().trim().min(1).max(128).optional(),
+  description: z.string().trim().max(1000).optional(),
+  dslCode: z.string().min(1).max(50000).optional(),
+  instrumentSymbol: z.string().trim().max(32).optional(),
+  timeframe: z.enum(['1m', '5m', '15m', '1h', '1d']).optional(),
+});
+
+export type UpdateStrategyInput = z.infer<typeof updateStrategySchema>;
+
+export const duplicateStrategySchema = z.object({
+  newName: z.string().trim().min(1).max(128).optional(),
+});
+
+export type DuplicateStrategyInput = z.infer<typeof duplicateStrategySchema>;
+
+export const createStrategyVersionSchema = z.object({
+  changelog: z.string().trim().max(500).optional(),
+});
+
+export type CreateStrategyVersionInput = z.infer<typeof createStrategyVersionSchema>;
+
+export const executeStrategySchema = z.object({
+  startDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  endDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+  initialCapital: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? String(val) : '100000.0000')),
+});
+
+export type ExecuteStrategyInput = z.infer<typeof executeStrategySchema>;
+
+
 

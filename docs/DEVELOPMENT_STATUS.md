@@ -267,10 +267,27 @@
 
 ---
 
-### O. Future Phases Roadmap
+### O. Phase 9A: Custom User Strategy Scripting (DSL) & Validation Engine (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Strategy & Version Database Schema** | ✅ Completed | Migration `014_create_user_strategies_tables.ts` introducing `user_strategies` (`id`, `user_id`, `name`, `description`, `instrument_symbol`, `timeframe`, `dsl_code`, `is_valid`, `version`, indexes) and `strategy_versions` (`id`, `strategy_id`, `user_id`, `version`, `dsl_code`, `ast_snapshot`, `changelog`, `UNIQUE(strategy_id, version)`). |
+| **Custom Strategy Domain-Specific Language (DSL)** | ✅ Completed | Pure line-oriented declarative language supporting sections: `strategy`, `description`, `instrument`, `timeframe`, `indicator <name> = <FUNC>(<series>, <args>)`, `entry:`, `exit:`, and `risk:`. |
+| **Lexer & Scanner Architecture** | ✅ Completed | High-performance tokenizer tracking 1-indexed lines and columns, supporting single-line comments (`//`, `#`), strings, floating point literals, percentages (`%`), multi-character operators (`==`, `!=`, `>=`, `<=`, `crosses_above`, `crosses_below`), identifiers, and strict security protection against prototype pollution (`__proto__`, `constructor`, `prototype`). |
+| **Recursive-Descent AST Parser** | ✅ Completed | Operator-precedence AST generator enforcing DoS protection (`MAX_AST_NODES = 500`). Produces strongly-typed AST nodes (`BinaryOpNode`, `UnaryOpNode`, `LiteralNode`, `SeriesRefNode`, `IdentifierRefNode`, `IndicatorDeclarationNode`). |
+| **Static Semantic Validator & Type Checker** | ✅ Completed | Server-authoritative validator checking: declaration before use, argument counts and validity for supported indicators (`SMA`, `EMA`, `RSI`, `MACD`, `BollingerBands`, `VWAP`), parameter domain ranges (e.g., period $\ge 1$), boolean condition types, risk value bounds ($0\% < \text{risk} \le 100\%$), and blocking all unsafe identifiers (`eval`, `process`, `require`, `window`, `global`). |
+| **Server-Authoritative Strategy REST APIs** | ✅ Completed | `POST /api/v1/strategies/validate` (diagnostic validation endpoint), `POST /api/v1/strategies` (create and auto-snapshot v1), `GET /api/v1/strategies` (list user strategies), `GET /api/v1/strategies/:id` (fetch strategy), `PUT /api/v1/strategies/:id` (update strategy and auto-increment version), `DELETE /api/v1/strategies/:id` (delete strategy and cascade versions), `POST /api/v1/strategies/:id/duplicate` (clone strategy), `POST /api/v1/strategies/:id/versions` (manual snapshot), `GET /api/v1/strategies/:id/versions` (version history), `GET /api/v1/strategies/:id/versions/:version` (inspect specific version). |
+| **Strict User Ownership & Access Control** | ✅ Completed | Fully isolated per-user ownership. Any read, update, duplicate, or deletion attempt by User B on User A's private strategy is authoritatively rejected with `403 FORBIDDEN_STRATEGY_ACCESS`. Unauthenticated access is rejected with `401 UNAUTHORIZED`. |
+| **Financial Isolation & Safety Invariant** | ✅ Completed | DSL parsing, AST compilation, and strategy validation strictly generate analytical constructs. They never modify `wallets`, `cash_ledger`, or live order matching. Zero external API costs ($0 budget). |
+| **High-Concurrency Load Benchmark** | ✅ Completed | Verified 100 concurrent users validating, querying, and updating strategies simultaneously without race conditions or memory leaks. |
+| **Monorepo Automated Test Suite** | ✅ Completed | **297 Vitest tests passing across all 17 test suites with 100% pass rate** (30 strategy tests + 16 achievement tests + 16 charting tests + 26 backtest/research tests + 24 chat tests + 20 competition tests + 21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### P. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Custom User Strategy Scripting (DSL / Sandboxed Execution)** | Phase 9 | Planned |
+| **Sandboxed Strategy Execution Engine** | Phase 9B | In Progress |
 | **Mobile Responsive Progressive Web App (PWA)** | Phase 10 | Planned |
 

@@ -1725,4 +1725,133 @@ export interface AchievementUnlockedEvent {
   unlockedAt: string;
 }
 
+// ============================================================================
+// Phase 9A & 9B: Custom Strategy DSL & Sandboxed Execution Types
+// ============================================================================
+
+export interface DSLValidationError {
+  line: number;
+  column: number;
+  message: string;
+  code: string;
+}
+
+export interface IndicatorDeclarationNode {
+  name: string;
+  indicatorName: string;
+  args: any[];
+  line?: number;
+  column?: number;
+}
+
+export interface DSLAST {
+  name: string;
+  description?: string;
+  instrument?: string;
+  timeframe?: string;
+  indicators: IndicatorDeclarationNode[];
+  entryConditions: any[];
+  exitConditions: any[];
+  riskSettings: Record<string, number>;
+}
+
+export interface DSLValidationResult {
+  isValid: boolean;
+  errors: DSLValidationError[];
+  ast?: DSLAST;
+  declaredIndicators?: string[];
+  inferredTimeframe?: string;
+  inferredInstrument?: string;
+}
+
+export interface UserStrategy {
+  id: number;
+  userId: number;
+  name: string;
+  description?: string;
+  instrumentSymbol: string;
+  timeframe: string;
+  dslCode: string;
+  isValid: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StrategyVersion {
+  id: number;
+  strategyId: number;
+  userId: number;
+  version: number;
+  dslCode: string;
+  astSnapshot?: DSLAST;
+  changelog?: string;
+  createdAt: string;
+}
+
+export interface CreateStrategyRequest {
+  name: string;
+  description?: string;
+  dslCode: string;
+  instrumentSymbol?: string;
+  timeframe?: string;
+}
+
+export interface UpdateStrategyRequest {
+  name?: string;
+  description?: string;
+  dslCode?: string;
+  instrumentSymbol?: string;
+  timeframe?: string;
+}
+
+export type ExecutionStatus =
+  | 'QUEUED'
+  | 'VALIDATING'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'TIMED_OUT';
+
+export interface StrategySignal {
+  timestamp: string;
+  signalType: SignalType;
+  price: number;
+  reason: string;
+  indicatorValues: Record<string, number>;
+}
+
+export interface StrategyExecution {
+  id: number;
+  executionId: string;
+  userId: number;
+  strategyId: number;
+  strategyVersion: number;
+  status: ExecutionStatus;
+  instrumentSymbol: string;
+  timeframe: string;
+  startDate: string;
+  endDate: string;
+  initialCapital: string;
+  totalSignalsCount: number;
+  buySignalsCount: number;
+  sellSignalsCount: number;
+  executionDurationMs?: number;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StrategyExecutionResult {
+  execution: StrategyExecution;
+  signals: StrategySignal[];
+  diagnostics: {
+    executionTimeMs: number;
+    barsProcessed: number;
+    memoryUsedKb?: number;
+  };
+}
+
+
 
