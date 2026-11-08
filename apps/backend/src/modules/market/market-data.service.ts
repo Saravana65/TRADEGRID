@@ -3,6 +3,9 @@ import {
   DataClassification,
   MarketOverviewSummary,
   MarketQuote,
+  NormalizedCandle,
+  NormalizedMarketQuote,
+  ProviderRegistryStatus,
 } from '@tradegrid/shared-types';
 import { CandleQueryInput } from '@tradegrid/validation';
 import { AppError } from '../../middleware/error.middleware';
@@ -20,6 +23,10 @@ import {
 } from './fixture-market-data.provider';
 import { MarketDataProvider } from './market-data-provider.interface';
 import { MatchingEngine, matchingEngine as defaultMatchingEngine } from '../matching/matching-engine';
+import {
+  marketDataProviderRegistry,
+  MarketDataProviderRegistry,
+} from './provider-registry';
 
 export class MarketDataService {
   constructor(
@@ -27,8 +34,42 @@ export class MarketDataService {
     private readonly instrumentRepo: IInstrumentRepository = instrumentRepository,
     private readonly provider: MarketDataProvider = fixtureMarketDataProvider,
     private readonly matchingEngine: MatchingEngine = defaultMatchingEngine,
-    private readonly tradeServiceInstance?: any
+    private readonly tradeServiceInstance?: any,
+    private readonly registry: MarketDataProviderRegistry = marketDataProviderRegistry
   ) {}
+
+  /**
+   * Retrieves provider registry status and health metrics across all active adapters.
+   */
+  getProviderRegistryStatus(): ProviderRegistryStatus {
+    return this.registry.getRegistryStatus();
+  }
+
+  /**
+   * Retrieves a normalized market quote with source attribution and automatic fallback.
+   */
+  async getNormalizedQuote(symbol: string, exchange?: string): Promise<NormalizedMarketQuote | null> {
+    return this.registry.getQuoteWithFallback(symbol, exchange);
+  }
+
+  /**
+   * Retrieves normalized candles with source attribution and automatic fallback.
+   */
+  async getNormalizedCandles(
+    symbol: string,
+    query: CandleQueryInput
+  ): Promise<NormalizedCandle[]> {
+    const fromDate = query.from ? new Date(query.from) : undefined;
+    const toDate = query.to ? new Date(query.to) : undefined;
+    return this.registry.getCandlesWithFallback(
+      symbol,
+      query.interval,
+      query.limit || 100,
+      fromDate,
+      toDate
+    );
+  }
+
 
   /**
    * Retrieves quotes for all instruments, optionally filtered by classification.

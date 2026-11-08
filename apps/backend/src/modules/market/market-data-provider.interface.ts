@@ -3,10 +3,15 @@ import {
   CandleInterval,
   DataClassification,
   MarketQuote,
+  MarketDataSourceProvenance,
+  NormalizedCandle,
+  NormalizedMarketQuote,
+  NormalizedOrderBook,
+  ProviderHealthMetrics,
 } from '@tradegrid/shared-types';
 
 /**
- * Market Data Provider Interface
+ * Market Data Provider Interface (Legacy / Direct Adapter Compatibility)
  *
  * Pluggable abstraction allowing TRADEGRID to source quotes and historical candles
  * from deterministic simulation fixtures, or future licensed live exchange feeds
@@ -38,3 +43,36 @@ export interface MarketDataProvider {
     to?: Date
   ): Promise<Candle[]>;
 }
+
+/**
+ * Phase 10: Advanced Market Data Provider Interface
+ *
+ * Standardized pluggable interface with source provenance, health metrics,
+ * order book depth, streaming subscriptions and seamless fallback capabilities.
+ */
+export interface IMarketDataProvider {
+  readonly id: string;
+  readonly name: string;
+  readonly source: MarketDataSourceProvenance;
+  readonly supportedExchanges: string[];
+
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  isConnected(): boolean;
+  getHealth(): ProviderHealthMetrics;
+
+  getQuote(symbol: string, exchange?: string): Promise<NormalizedMarketQuote | null>;
+  getQuotes(symbols?: string[]): Promise<NormalizedMarketQuote[]>;
+  getOrderBook?(symbol: string, depth?: number): Promise<NormalizedOrderBook | null>;
+  getCandles(
+    symbol: string,
+    interval: CandleInterval,
+    limit?: number,
+    from?: Date,
+    to?: Date
+  ): Promise<NormalizedCandle[]>;
+
+  subscribeQuotes?(symbols: string[], callback: (quote: NormalizedMarketQuote) => void): void;
+  unsubscribeQuotes?(symbols: string[]): void;
+}
+

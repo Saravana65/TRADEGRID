@@ -1918,6 +1918,97 @@ export interface AutomatedStrategyOrder {
   createdAt: string;
 }
 
+// ============================================================================
+// Phase 10: Market Data Provider Architecture & Indian Exchange Integration
+// ============================================================================
+
+export type MarketDataSourceProvenance = 'SIMULATED' | 'LICENSED_LIVE' | 'DELAYED' | 'HISTORICAL';
+
+export type ProviderConnectionStatus = 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' | 'RECONNECTING' | 'DEGRADED';
+
+export interface ProviderHealthMetrics {
+  providerId: string;
+  providerName: string;
+  source: MarketDataSourceProvenance;
+  status: ProviderConnectionStatus;
+  lastHeartbeat: string | null;
+  latencyMs: number;
+  reconnectCount: number;
+  messageRatePerSecond: number;
+  totalMessagesReceived: number;
+  errorCount: number;
+  isFallbackActive: boolean;
+  activeFeedName: string;
+  lastError: string | null;
+}
+
+export interface NormalizedMarketQuote {
+  symbol: string;
+  exchange: string;
+  lastPrice: string;
+  openPrice: string;
+  highPrice: string;
+  lowPrice: string;
+  previousClose: string;
+  changeAmount: string;
+  changePercent: string;
+  volume: string;
+  source: MarketDataSourceProvenance;
+  provider: string;
+  exchangeTimestamp: string;
+  ingestionTimestamp: string;
+  isDelayed: boolean;
+  delaySeconds: number;
+}
+
+export interface NormalizedOrderBookLevel {
+  price: string;
+  quantity: string;
+  ordersCount?: number;
+}
+
+export interface NormalizedOrderBook {
+  symbol: string;
+  exchange: string;
+  source: MarketDataSourceProvenance;
+  provider: string;
+  timestamp: string;
+  bids: NormalizedOrderBookLevel[];
+  asks: NormalizedOrderBookLevel[];
+}
+
+export interface NormalizedMarketTrade {
+  tradeId: string;
+  symbol: string;
+  exchange: string;
+  price: string;
+  quantity: string;
+  side?: 'BUY' | 'SELL';
+  source: MarketDataSourceProvenance;
+  provider: string;
+  timestamp: string;
+}
+
+export interface NormalizedCandle {
+  timestamp: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+  source: MarketDataSourceProvenance;
+  provider: string;
+  isComplete: boolean;
+}
+
+export interface ProviderRegistryStatus {
+  activeProvider: string;
+  defaultProvider: string;
+  isFallbackActive: boolean;
+  providers: ProviderHealthMetrics[];
+}
+
+
 
 
 

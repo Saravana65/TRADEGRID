@@ -105,6 +105,15 @@ export class MarketDataController {
       next(error);
     }
   };
+
+  getProviderHealth = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const status = this.service.getProviderRegistryStatus();
+      sendSuccess(res, status, 'Market data provider health status retrieved successfully', 200);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const marketDataController = new MarketDataController();

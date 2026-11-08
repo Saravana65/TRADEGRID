@@ -28,6 +28,9 @@ export function createMarketRouter(
   router.get('/orderbook/:symbol', controller.getOrderBook);
   router.get('/trades/:symbol', controller.getRecentTrades);
 
+  // Phase 10A: Market Data Provider Architecture & Health Status
+  router.get('/providers/health', controller.getProviderHealth);
+
   return router;
 }
 
