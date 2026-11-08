@@ -70,8 +70,11 @@ const knexConfig: { [key: string]: Knex.Config } = {
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: true } : false,
     },
     pool: {
-      min: 2,
-      max: config.DB_CONNECTION_LIMIT,
+      min: parseInt(process.env.DB_POOL_MIN || '5', 10),
+      max: parseInt(process.env.DB_POOL_MAX || String(config.DB_CONNECTION_LIMIT || 25), 10),
+      acquireTimeoutMillis: parseInt(process.env.DB_ACQUIRE_TIMEOUT_MS || '10000', 10),
+      createTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
     },
     migrations: {
       directory: migrationsPath,
