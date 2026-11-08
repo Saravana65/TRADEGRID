@@ -27,6 +27,15 @@ import {
   CatalystStartedEvent,
   CatalystUpdatedEvent,
   CatalystCompletedEvent,
+  CompetitionStartedEvent,
+  CompetitionEndedEvent,
+  CompetitionParticipantJoinedEvent,
+  CompetitionParticipantLeftEvent,
+  CompetitionOrderPlacedEvent,
+  CompetitionTradeExecutedEvent,
+  CompetitionLeaderboardUpdatedEvent,
+  CompetitionPortfolioUpdatedEvent,
+  CompetitionCancelledEvent,
 } from '@tradegrid/shared-types';
 
 export interface IRealtimeService {
@@ -603,6 +612,103 @@ export class RealtimeService implements IRealtimeService {
       logger.debug(`[WS] Emitted news:catalyst:completed for Catalyst #${event.catalystId}`);
     } catch (err: any) {
       logger.error(`[WS] Failed to emit catalyst completed: ${err.message}`);
+    }
+  }
+
+  // ==========================================================================
+  // Phase 5D: Competition Real-Time Events
+  // ==========================================================================
+
+  emitCompetitionStarted(event: CompetitionStartedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`competition:${event.competitionId}`).to('competitions').emit('competition:started', event);
+      logger.debug(`[WS] Emitted competition:started for Competition #${event.competitionId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:started: ${err.message}`);
+    }
+  }
+
+  emitCompetitionEnded(event: CompetitionEndedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`competition:${event.competitionId}`).to('competitions').emit('competition:ended', event);
+      logger.debug(`[WS] Emitted competition:ended for Competition #${event.competitionId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:ended: ${err.message}`);
+    }
+  }
+
+  emitCompetitionParticipantJoined(event: CompetitionParticipantJoinedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`competition:${event.competitionId}`).emit('competition:participant_joined', event);
+      logger.debug(`[WS] Emitted competition:participant_joined for User #${event.userId} in Comp #${event.competitionId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:participant_joined: ${err.message}`);
+    }
+  }
+
+  emitCompetitionParticipantLeft(event: CompetitionParticipantLeftEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`competition:${event.competitionId}`).emit('competition:participant_left', event);
+      logger.debug(`[WS] Emitted competition:participant_left for User #${event.userId} in Comp #${event.competitionId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:participant_left: ${err.message}`);
+    }
+  }
+
+  emitCompetitionOrderPlaced(event: CompetitionOrderPlacedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`competition:${event.competitionId}`).emit('competition:order_placed', event);
+      this.io.to(`user:${event.userId}`).emit('competition:order_placed', event);
+      logger.debug(`[WS] Emitted competition:order_placed for Order #${event.orderId} in Comp #${event.competitionId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:order_placed: ${err.message}`);
+    }
+  }
+
+  emitCompetitionTradeExecuted(event: CompetitionTradeExecutedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`competition:${event.competitionId}`).emit('competition:trade_executed', event);
+      this.io.to(`user:${event.buyerId}`).emit('competition:trade_executed', event);
+      this.io.to(`user:${event.sellerId}`).emit('competition:trade_executed', event);
+      logger.debug(`[WS] Emitted competition:trade_executed (${event.tradeReference}) in Comp #${event.competitionId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:trade_executed: ${err.message}`);
+    }
+  }
+
+  emitCompetitionLeaderboardUpdated(event: CompetitionLeaderboardUpdatedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`competition:${event.competitionId}`).emit('competition:leaderboard_updated', event);
+      logger.debug(`[WS] Emitted competition:leaderboard_updated for Comp #${event.competitionId} (${event.leaderboard.length} entries)`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:leaderboard_updated: ${err.message}`);
+    }
+  }
+
+  emitCompetitionPortfolioUpdated(event: CompetitionPortfolioUpdatedEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`user:${event.userId}`).emit('competition:portfolio_updated', event);
+      logger.debug(`[WS] Emitted competition:portfolio_updated to user:${event.userId} for Comp #${event.competitionId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:portfolio_updated: ${err.message}`);
+    }
+  }
+
+  emitCompetitionCancelled(event: CompetitionCancelledEvent): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`competition:${event.competitionId}`).emit('competition:cancelled', event);
+      logger.debug(`[WS] Emitted competition:cancelled for Comp #${event.competitionId}`);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit competition:cancelled: ${err.message}`);
     }
   }
 }

@@ -6,6 +6,13 @@ import { verifyAccessToken } from '../utils/jwt';
 import { realtimeService } from './realtime.service';
 import { subscriptionSchema } from '@tradegrid/validation';
 import { OrderBookSnapshotEvent } from '@tradegrid/shared-types';
+import { competitionRepo as defaultCompRepo, ICompetitionRepository } from '../modules/competitions';
+
+let activeCompRepo: ICompetitionRepository = defaultCompRepo;
+
+export function setCompetitionRepository(repo: ICompetitionRepository): void {
+  activeCompRepo = repo;
+}
 
 let io: Server | null = null;
 
@@ -165,6 +172,39 @@ export function initWebSocket(httpServer: HttpServer): Server {
           socket.emit('error:unauthorized', { channel, message: errMsg });
           if (ack) ack({ status: 'error', message: errMsg, channel });
           return;
+        }
+      }
+
+      // Authorization guard for private competition rooms
+      if (channel.startsWith('competition:')) {
+        const compId = parseInt(channel.split(':')[1], 10);
+        if (!isNaN(compId) && compId > 0) {
+          try {
+            const comp = await activeCompRepo.findById(compId);
+            if (comp && comp.visibility === 'PRIVATE') {
+              if (socket.data.isGuest) {
+                socketMetrics.rejectedSubscriptions += 1;
+                const errMsg = 'Unauthorized: Private competition rooms require authentication';
+                logger.warn(`[WS] Unauthorized guest subscription attempt to private ${channel}`);
+                socket.emit('error:unauthorized', { channel, message: errMsg });
+                if (ack) ack({ status: 'error', message: errMsg, channel });
+                return;
+              }
+              if (socket.data.userRole !== 'ADMIN' && socket.data.userId !== comp.creatorId) {
+                const participant = await activeCompRepo.findParticipant(compId, socket.data.userId);
+                if (!participant || participant.status !== 'JOINED') {
+                  socketMetrics.rejectedSubscriptions += 1;
+                  const errMsg = 'Unauthorized: You are not an enrolled participant in this private competition';
+                  logger.warn(`[WS] Unauthorized participant attempt by User #${socket.data.userId} to ${channel}`);
+                  socket.emit('error:unauthorized', { channel, message: errMsg });
+                  if (ack) ack({ status: 'error', message: errMsg, channel });
+                  return;
+                }
+              }
+            }
+          } catch (err: any) {
+            logger.warn(`[WS] Error validating competition subscription for ${channel}: ${err.message}`);
+          }
         }
       }
 

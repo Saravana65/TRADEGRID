@@ -10,7 +10,17 @@ import {
   OrderType,
   OrderStatus,
   OrderFilterQuery,
+  Competition,
+  CompetitionParticipant,
+  CompetitionAccount,
+  CompetitionPosition,
+  CompetitionOrder,
+  CompetitionTrade,
+  CompetitionLeaderboardEntry,
+  CompetitionStatus,
+  CompetitionVisibility,
 } from '@tradegrid/shared-types';
+import { ICompetitionRepository, CompetitionRecord, CompetitionParticipantRecord, CompetitionAccountRecord, CompetitionPositionRecord, CompetitionOrderRecord, CompetitionTradeRecord } from '../../src/modules/competitions/competition.types';
 import { IUserRepository, UserRecord, CreateUserData, SafeUserRecord } from '../../src/modules/users/user.repository';
 import { ISessionRepository, SessionRecord, CreateSessionData } from '../../src/modules/auth/session.repository';
 import { IWalletRepository, WalletRecord, CreateWalletData } from '../../src/modules/wallet/wallet.repository';
@@ -1553,5 +1563,464 @@ export class InMemoryNewsRepository implements INewsRepository {
     this.nextExecutionId = 1;
   }
 }
+
+export class InMemoryCompetitionRepository implements ICompetitionRepository {
+  private competitions: Competition[] = [];
+  private participants: CompetitionParticipant[] = [];
+  private accounts: CompetitionAccount[] = [];
+  private positions: CompetitionPosition[] = [];
+  private orders: CompetitionOrder[] = [];
+  private trades: CompetitionTrade[] = [];
+  private snapshots: { competitionId: number; isFinal: boolean; data: CompetitionLeaderboardEntry[]; createdAt: string }[] = [];
+  private auditLogs: any[] = [];
+
+  private nextCompId = 1;
+  private nextParticipantId = 1;
+  private nextAccountId = 1;
+  private nextPositionId = 1;
+  private nextOrderId = 1;
+  private nextTradeId = 1;
+
+  async transaction<T>(callback: (trx: Knex.Transaction) => Promise<T>): Promise<T> {
+    return callback({} as any);
+  }
+
+  async createCompetition(data: Partial<CompetitionRecord>): Promise<Competition> {
+    const id = this.nextCompId++;
+    const now = new Date().toISOString();
+    const comp: Competition = {
+      id,
+      name: data.name || `Competition ${id}`,
+      description: data.description || '',
+      creatorId: data.creator_id || 1,
+      visibility: data.visibility || 'PUBLIC',
+      joinCode: data.join_code || null,
+      startingCapital: data.starting_capital || '100000.0000',
+      maxParticipants: data.max_participants || 100,
+      minParticipants: data.min_participants || 2,
+      participantCount: 0,
+      startTime: data.start_time instanceof Date ? data.start_time.toISOString() : String(data.start_time || now),
+      endTime: data.end_time instanceof Date ? data.end_time.toISOString() : String(data.end_time || now),
+      allowedInstruments: data.allowed_instruments ? JSON.parse(data.allowed_instruments) : null,
+      permittedOrderTypes: data.permitted_order_types ? JSON.parse(data.permitted_order_types) : ['LIMIT', 'MARKET'],
+      status: (data.status as CompetitionStatus) || 'UPCOMING',
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.competitions.push(comp);
+    return { ...comp };
+  }
+
+  async findById(id: number): Promise<Competition | null> {
+    const c = this.competitions.find((x) => x.id === id);
+    if (!c) return null;
+    const participantCount = this.participants.filter(
+      (p) => p.competitionId === id && p.status === 'JOINED'
+    ).length;
+    return { ...c, participantCount };
+  }
+
+  async findCompetitions(filters: {
+    status?: CompetitionStatus;
+    visibility?: CompetitionVisibility;
+    search?: string;
+    userId?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ competitions: Competition[]; total: number }> {
+    let result = [...this.competitions];
+    if (filters.status) {
+      result = result.filter((c) => c.status === filters.status);
+    }
+    if (filters.visibility) {
+      result = result.filter((c) => c.visibility === filters.visibility);
+    }
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      result = result.filter(
+        (c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)
+      );
+    }
+    if (filters.userId) {
+      const joinedCompIds = new Set(
+        this.participants
+          .filter((p) => p.userId === filters.userId && p.status === 'JOINED')
+          .map((p) => p.competitionId)
+      );
+      result = result.filter((c) => joinedCompIds.has(c.id));
+    }
+
+    const total = result.length;
+    result.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+    const offset = filters.offset || 0;
+    const limit = filters.limit || 50;
+    const paged = result.slice(offset, offset + limit).map((c) => {
+      const participantCount = this.participants.filter(
+        (p) => p.competitionId === c.id && p.status === 'JOINED'
+      ).length;
+      return { ...c, participantCount };
+    });
+
+    return { competitions: paged, total };
+  }
+
+  async updateCompetition(id: number, data: Partial<CompetitionRecord>): Promise<Competition> {
+    const c = this.competitions.find((x) => x.id === id);
+    if (!c) throw new Error(`Competition #${id} not found`);
+    if (data.status) c.status = data.status;
+    if (data.name) c.name = data.name;
+    c.updatedAt = new Date().toISOString();
+    return { ...c };
+  }
+
+  async addParticipant(data: {
+    competitionId: number;
+    userId: number;
+    startingCapital: string;
+  }): Promise<CompetitionParticipant> {
+    const id = this.nextParticipantId++;
+    const now = new Date().toISOString();
+    const p: CompetitionParticipant = {
+      id,
+      competitionId: data.competitionId,
+      userId: data.userId,
+      username: `Trader #${data.userId}`,
+      status: 'JOINED',
+      startingCapital: data.startingCapital,
+      currentPortfolioValue: data.startingCapital,
+      totalReturnPercent: '0.0000',
+      rank: null,
+      tradeCount: 0,
+      joinedAt: now,
+      updatedAt: now,
+    };
+    this.participants.push(p);
+    return { ...p };
+  }
+
+  async findParticipant(competitionId: number, userId: number): Promise<CompetitionParticipant | null> {
+    const p = this.participants.find(
+      (x) => x.competitionId === competitionId && x.userId === userId
+    );
+    return p ? { ...p } : null;
+  }
+
+  async listParticipants(competitionId: number): Promise<CompetitionParticipant[]> {
+    return this.participants
+      .filter((p) => p.competitionId === competitionId && p.status === 'JOINED')
+      .sort((a, b) => parseFloat(b.totalReturnPercent) - parseFloat(a.totalReturnPercent))
+      .map((p, idx) => ({ ...p, rank: idx + 1 }));
+  }
+
+  async updateParticipant(
+    competitionId: number,
+    userId: number,
+    data: Partial<CompetitionParticipantRecord>
+  ): Promise<void> {
+    const p = this.participants.find(
+      (x) => x.competitionId === competitionId && x.userId === userId
+    );
+    if (!p) return;
+    if (data.status) p.status = data.status;
+    if (data.current_portfolio_value) p.currentPortfolioValue = data.current_portfolio_value;
+    if (data.total_return_percent) p.totalReturnPercent = data.total_return_percent;
+    if (data.rank !== undefined) p.rank = data.rank;
+    if (data.trade_count !== undefined) p.tradeCount = data.trade_count;
+    p.updatedAt = new Date().toISOString();
+  }
+
+  async countParticipants(competitionId: number): Promise<number> {
+    return this.participants.filter(
+      (p) => p.competitionId === competitionId && p.status === 'JOINED'
+    ).length;
+  }
+
+  async createAccount(data: {
+    competitionId: number;
+    userId: number;
+    startingCapital: string;
+  }): Promise<CompetitionAccount> {
+    const id = this.nextAccountId++;
+    const now = new Date().toISOString();
+    const acc: CompetitionAccount = {
+      id,
+      competitionId: data.competitionId,
+      userId: data.userId,
+      availableCash: data.startingCapital,
+      reservedCash: '0.0000',
+      totalCash: data.startingCapital,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.accounts.push(acc);
+    return { ...acc };
+  }
+
+  async getAccount(competitionId: number, userId: number): Promise<CompetitionAccount | null> {
+    const a = this.accounts.find(
+      (x) => x.competitionId === competitionId && x.userId === userId
+    );
+    if (!a) return null;
+    return {
+      ...a,
+      totalCash: (parseFloat(a.availableCash) + parseFloat(a.reservedCash)).toFixed(4),
+    };
+  }
+
+  async updateAccount(
+    competitionId: number,
+    userId: number,
+    data: Partial<CompetitionAccountRecord>
+  ): Promise<void> {
+    const a = this.accounts.find(
+      (x) => x.competitionId === competitionId && x.userId === userId
+    );
+    if (!a) return;
+    if (data.available_cash) a.availableCash = data.available_cash;
+    if (data.reserved_cash) a.reservedCash = data.reserved_cash;
+    a.totalCash = (parseFloat(a.availableCash) + parseFloat(a.reservedCash)).toFixed(4);
+    a.updatedAt = new Date().toISOString();
+  }
+
+  async getPosition(
+    competitionId: number,
+    userId: number,
+    instrumentId: number
+  ): Promise<CompetitionPosition | null> {
+    const p = this.positions.find(
+      (x) =>
+        x.competitionId === competitionId &&
+        x.userId === userId &&
+        x.instrumentId === instrumentId
+    );
+    return p ? { ...p } : null;
+  }
+
+  async listPositions(competitionId: number, userId: number): Promise<CompetitionPosition[]> {
+    return this.positions
+      .filter((p) => p.competitionId === competitionId && p.userId === userId)
+      .map((p) => ({ ...p }));
+  }
+
+  async upsertPosition(data: {
+    competitionId: number;
+    userId: number;
+    instrumentId: number;
+    quantity: string;
+    reservedQuantity?: string;
+    averageEntryPrice: string;
+    realizedPnl: string;
+  }): Promise<CompetitionPosition> {
+    let p = this.positions.find(
+      (x) =>
+        x.competitionId === data.competitionId &&
+        x.userId === data.userId &&
+        x.instrumentId === data.instrumentId
+    );
+
+    const now = new Date().toISOString();
+    if (p) {
+      p.quantity = data.quantity;
+      if (data.reservedQuantity !== undefined) p.reservedQuantity = data.reservedQuantity;
+      p.averageEntryPrice = data.averageEntryPrice;
+      p.realizedPnL = data.realizedPnl;
+      p.marketValue = (parseFloat(data.averageEntryPrice) * parseFloat(data.quantity)).toFixed(4);
+      p.updatedAt = now;
+      return { ...p };
+    } else {
+      const id = this.nextPositionId++;
+      p = {
+        id,
+        competitionId: data.competitionId,
+        userId: data.userId,
+        instrumentId: data.instrumentId,
+        symbol: `INST-${data.instrumentId}`,
+        quantity: data.quantity,
+        reservedQuantity: data.reservedQuantity || '0.0000',
+        averageEntryPrice: data.averageEntryPrice,
+        currentPrice: data.averageEntryPrice,
+        marketValue: (parseFloat(data.averageEntryPrice) * parseFloat(data.quantity)).toFixed(4),
+        unrealizedPnL: '0.0000',
+        realizedPnL: data.realizedPnl,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.positions.push(p);
+      return { ...p };
+    }
+  }
+
+  async createOrder(data: {
+    competitionId: number;
+    userId: number;
+    instrumentId: number;
+    side: 'BUY' | 'SELL';
+    orderType: 'LIMIT' | 'MARKET';
+    quantity: string;
+    limitPrice: string | null;
+    idempotencyKey?: string | null;
+  }): Promise<CompetitionOrder> {
+    const id = this.nextOrderId++;
+    const now = new Date().toISOString();
+    const ord: CompetitionOrder = {
+      id,
+      competitionId: data.competitionId,
+      userId: data.userId,
+      instrumentId: data.instrumentId,
+      symbol: `INST-${data.instrumentId}`,
+      side: data.side,
+      orderType: data.orderType,
+      quantity: data.quantity,
+      filledQuantity: '0.0000',
+      remainingQuantity: data.quantity,
+      limitPrice: data.limitPrice,
+      status: 'OPEN',
+      idempotencyKey: data.idempotencyKey || null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.orders.push(ord);
+    return { ...ord };
+  }
+
+  async getOrderById(id: number): Promise<CompetitionOrder | null> {
+    const o = this.orders.find((x) => x.id === id);
+    return o ? { ...o } : null;
+  }
+
+  async findOrderByIdempotencyKey(competitionId: number, key: string): Promise<CompetitionOrder | null> {
+    const o = this.orders.find(
+      (x) => x.competitionId === competitionId && x.idempotencyKey === key
+    );
+    return o ? { ...o } : null;
+  }
+
+  async listOrders(filters: {
+    competitionId: number;
+    userId?: number;
+    status?: string;
+    instrumentId?: number;
+    limit?: number;
+  }): Promise<CompetitionOrder[]> {
+    let result = this.orders.filter((o) => o.competitionId === filters.competitionId);
+    if (filters.userId) result = result.filter((o) => o.userId === filters.userId);
+    if (filters.status) result = result.filter((o) => o.status === filters.status);
+    if (filters.instrumentId) result = result.filter((o) => o.instrumentId === filters.instrumentId);
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (filters.limit) result = result.slice(0, filters.limit);
+    return result.map((o) => ({ ...o }));
+  }
+
+  async updateOrder(id: number, data: Partial<CompetitionOrderRecord>): Promise<void> {
+    const o = this.orders.find((x) => x.id === id);
+    if (!o) return;
+    if (data.status) o.status = data.status;
+    if (data.filled_quantity) o.filledQuantity = data.filled_quantity;
+    if (data.remaining_quantity) o.remainingQuantity = data.remaining_quantity;
+    o.updatedAt = new Date().toISOString();
+  }
+
+  async createTrade(data: {
+    tradeReference: string;
+    competitionId: number;
+    buyOrderId: number;
+    sellOrderId: number;
+    buyerId: number;
+    sellerId: number;
+    instrumentId: number;
+    price: string;
+    quantity: string;
+    amount: string;
+  }): Promise<CompetitionTrade> {
+    const id = this.nextTradeId++;
+    const now = new Date().toISOString();
+    const trd: CompetitionTrade = {
+      id,
+      tradeReference: data.tradeReference,
+      competitionId: data.competitionId,
+      buyOrderId: data.buyOrderId,
+      sellOrderId: data.sellOrderId,
+      buyerId: data.buyerId,
+      sellerId: data.sellerId,
+      buyerUsername: `Trader #${data.buyerId}`,
+      sellerUsername: `Trader #${data.sellerId}`,
+      instrumentId: data.instrumentId,
+      symbol: `INST-${data.instrumentId}`,
+      price: data.price,
+      quantity: data.quantity,
+      amount: data.amount,
+      executedAt: now,
+    };
+    this.trades.push(trd);
+    return { ...trd };
+  }
+
+  async listTrades(
+    competitionId: number,
+    options?: { limit?: number; userId?: number }
+  ): Promise<CompetitionTrade[]> {
+    let result = this.trades.filter((t) => t.competitionId === competitionId);
+    if (options?.userId) {
+      result = result.filter(
+        (t) => t.buyerId === options.userId || t.sellerId === options.userId
+      );
+    }
+    result.sort((a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime());
+    if (options?.limit) result = result.slice(0, options.limit);
+    return result.map((t) => ({ ...t }));
+  }
+
+  async saveLeaderboardSnapshot(
+    competitionId: number,
+    snapshotData: CompetitionLeaderboardEntry[],
+    isFinal = false
+  ): Promise<void> {
+    this.snapshots.push({
+      competitionId,
+      isFinal,
+      data: snapshotData.map((d) => ({ ...d })),
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  async getLatestLeaderboardSnapshot(
+    competitionId: number
+  ): Promise<CompetitionLeaderboardEntry[] | null> {
+    const snaps = this.snapshots.filter((s) => s.competitionId === competitionId);
+    if (snaps.length === 0) return null;
+    snaps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return snaps[0].data.map((d) => ({ ...d }));
+  }
+
+  async createAuditLog(competitionId: number, action: string, details?: any, userId?: number | null): Promise<void> {
+    this.auditLogs.push({
+      id: this.auditLogs.length + 1,
+      competitionId,
+      userId: userId || null,
+      action,
+      details,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  clear(): void {
+    this.competitions = [];
+    this.participants = [];
+    this.accounts = [];
+    this.positions = [];
+    this.orders = [];
+    this.trades = [];
+    this.snapshots = [];
+    this.auditLogs = [];
+    this.nextCompId = 1;
+    this.nextParticipantId = 1;
+    this.nextAccountId = 1;
+    this.nextPositionId = 1;
+    this.nextOrderId = 1;
+    this.nextTradeId = 1;
+  }
+}
+
 
 

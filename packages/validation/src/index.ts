@@ -400,8 +400,8 @@ export const subscriptionSchema = z.object({
     .min(3, 'Channel name is too short')
     .max(64, 'Channel name is too long')
     .regex(
-      /^(market|orderbook|trades):[A-Za-z0-9_-]+$|^user:\d+$|^(admin:bots|news|admin:news)$/,
-      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", "user:USER_ID", "admin:bots", "news", or "admin:news"'
+      /^(market|orderbook|trades|competition):[A-Za-z0-9_-]+$|^user:\d+$|^(admin:bots|news|admin:news)$/,
+      'Channel must be in format "market:SYMBOL", "orderbook:SYMBOL", "trades:SYMBOL", "user:USER_ID", "competition:ID", "admin:bots", "news", or "admin:news"'
     ),
 });
 
@@ -680,6 +680,144 @@ export const newsQuerySchema = z.object({
 });
 
 export type NewsQueryInput = z.infer<typeof newsQuerySchema>;
+
+// ============================================================================
+// Phase 5D: Multiplayer Trading Competitions & Leaderboards Schemas
+// ============================================================================
+
+export const competitionStatusSchema = z.enum([
+  'DRAFT',
+  'UPCOMING',
+  'ACTIVE',
+  'COMPLETED',
+  'CANCELLED',
+  'ARCHIVED',
+]);
+
+export const competitionVisibilitySchema = z.enum(['PUBLIC', 'PRIVATE']);
+
+export const createCompetitionSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(3, 'Competition name must be at least 3 characters')
+      .max(128, 'Competition name cannot exceed 128 characters'),
+    description: z
+      .string()
+      .trim()
+      .max(2000, 'Description cannot exceed 2000 characters')
+      .default(''),
+    visibility: competitionVisibilitySchema.default('PUBLIC'),
+    joinCode: z
+      .string()
+      .trim()
+      .max(32, 'Join code cannot exceed 32 characters')
+      .optional()
+      .nullable(),
+    startingCapital: z
+      .string()
+      .regex(/^\d+(\.\d{1,4})?$/, 'Starting capital must be a positive decimal with up to 4 decimal places')
+      .refine((val) => parseFloat(val) >= 1000, 'Starting capital must be at least ₹1,000')
+      .default('100000.0000'),
+    maxParticipants: z
+      .number()
+      .int()
+      .min(2, 'Maximum participants must be at least 2')
+      .max(1000, 'Maximum participants cannot exceed 1000')
+      .default(100),
+    minParticipants: z
+      .number()
+      .int()
+      .min(2, 'Minimum participants must be at least 2')
+      .max(500, 'Minimum participants cannot exceed 500')
+      .default(2),
+    startTime: z.string().datetime('Start time must be a valid ISO 8601 datetime string'),
+    endTime: z.string().datetime('End time must be a valid ISO 8601 datetime string'),
+    allowedInstruments: z.array(z.string().trim().toUpperCase()).optional().nullable(),
+    permittedOrderTypes: z
+      .array(z.enum(['LIMIT', 'MARKET']))
+      .min(1, 'At least one order type must be permitted')
+      .default(['LIMIT', 'MARKET']),
+  })
+  .refine(
+    (data) => new Date(data.endTime).getTime() > new Date(data.startTime).getTime(),
+    {
+      message: 'End time must be strictly after start time',
+      path: ['endTime'],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.visibility === 'PRIVATE' && (!data.joinCode || data.joinCode.trim().length === 0)) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Join code is required for private competitions',
+      path: ['joinCode'],
+    }
+  );
+
+export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
+
+export const joinCompetitionSchema = z.object({
+  joinCode: z.string().trim().max(32).optional().nullable(),
+});
+
+export type JoinCompetitionInput = z.infer<typeof joinCompetitionSchema>;
+
+export const createCompetitionOrderSchema = z
+  .object({
+    instrumentId: z
+      .union([z.string(), z.number()])
+      .transform((val) => parseInt(String(val), 10))
+      .refine((val) => !isNaN(val) && val > 0, 'Valid instrument ID required'),
+    side: z.enum(['BUY', 'SELL']),
+    orderType: z.enum(['LIMIT', 'MARKET']),
+    quantity: z
+      .string()
+      .regex(/^\d+(\.\d{1,4})?$/, 'Quantity must be a positive decimal with up to 4 decimal places')
+      .refine((val) => parseFloat(val) > 0, 'Quantity must be greater than zero'),
+    limitPrice: z
+      .string()
+      .regex(/^\d+(\.\d{1,4})?$/, 'Limit price must be a positive decimal with up to 4 decimal places')
+      .optional()
+      .nullable(),
+    idempotencyKey: z.string().trim().max(64).optional().nullable(),
+  })
+  .refine(
+    (data) => {
+      if (data.orderType === 'LIMIT') {
+        return !!data.limitPrice && parseFloat(data.limitPrice) > 0;
+      }
+      return true;
+    },
+    {
+      message: 'Limit price is required for LIMIT orders',
+      path: ['limitPrice'],
+    }
+  );
+
+export type CreateCompetitionOrderInput = z.infer<typeof createCompetitionOrderSchema>;
+
+export const competitionQuerySchema = z.object({
+  status: competitionStatusSchema.optional(),
+  visibility: competitionVisibilitySchema.optional(),
+  search: z.string().trim().optional(),
+  page: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.max(1, parseInt(String(val), 10) || 1) : 1)),
+  limit: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(String(val), 10) || 20)) : 20)),
+});
+
+export type CompetitionQueryInput = z.infer<typeof competitionQuerySchema>;
+
 
 
 

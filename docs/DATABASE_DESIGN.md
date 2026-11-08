@@ -656,3 +656,108 @@ Chronological audit log recording catalyst lifecycle milestones and effective de
 * `affected_instruments` (TEXT, Nullable) — JSON serialized list of impacted symbols
 * `details` (JSON, Nullable) — Additional scheduler execution details
 * `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
+
+---
+
+## 13. Phase 5D Competitions Subsystem Schema (`009_create_competitions_tables.ts`)
+
+To guarantee strict isolation and eliminate any possibility of virtual wallet pollution or cross-contest contamination, Phase 5D defines 8 dedicated tables:
+
+### 13.1 `competitions` Table
+* `id` (INT, PK, Auto-increment)
+* `name` (VARCHAR(128), Not Null)
+* `description` (TEXT, Nullable)
+* `creator_id` (INT, FK -> `users.id`, Indexed)
+* `visibility` (ENUM: `PUBLIC`, `PRIVATE`, default `PUBLIC`)
+* `join_code` (VARCHAR(32), Nullable, Indexed)
+* `starting_capital` (DECIMAL(19,4), default 100000.0000)
+* `max_participants` (INT, default 100)
+* `min_participants` (INT, default 2)
+* `start_time` (TIMESTAMP, Not Null, Indexed)
+* `end_time` (TIMESTAMP, Not Null, Indexed)
+* `allowed_instruments` (JSON, Nullable)
+* `permitted_order_types` (JSON, Not Null)
+* `status` (ENUM: `DRAFT`, `UPCOMING`, `ACTIVE`, `COMPLETED`, `CANCELLED`, `ARCHIVED`, Indexed)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `updated_at` (TIMESTAMP, default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)
+
+### 13.2 `competition_participants` Table
+* `id` (INT, PK, Auto-increment)
+* `competition_id` (INT, FK -> `competitions.id` ON DELETE CASCADE, Indexed)
+* `user_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `status` (ENUM: `JOINED`, `LEFT`, `DISQUALIFIED`, default `JOINED`)
+* `starting_capital` (DECIMAL(19,4), Not Null)
+* `current_portfolio_value` (DECIMAL(19,4), Not Null)
+* `total_return_percent` (DECIMAL(10,4), default 0.0000)
+* `rank` (INT, Nullable)
+* `trade_count` (INT, default 0)
+* `joined_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `updated_at` (TIMESTAMP, default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)
+* `UNIQUE(competition_id, user_id)`
+
+### 13.3 `competition_accounts` Table (Isolated Virtual Capital)
+* `id` (INT, PK, Auto-increment)
+* `competition_id` (INT, FK -> `competitions.id` ON DELETE CASCADE, Indexed)
+* `user_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `available_cash` (DECIMAL(19,4), Not Null)
+* `reserved_cash` (DECIMAL(19,4), default 0.0000)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `updated_at` (TIMESTAMP, default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)
+* `UNIQUE(competition_id, user_id)`
+
+### 13.4 `competition_positions` Table (Isolated Holdings)
+* `id` (INT, PK, Auto-increment)
+* `competition_id` (INT, FK -> `competitions.id` ON DELETE CASCADE, Indexed)
+* `user_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `instrument_id` (INT, FK -> `instruments.id` ON DELETE CASCADE, Indexed)
+* `quantity` (DECIMAL(18,4), default 0.0000)
+* `reserved_quantity` (DECIMAL(18,4), default 0.0000)
+* `average_entry_price` (DECIMAL(18,4), default 0.0000)
+* `realized_pnl` (DECIMAL(19,4), default 0.0000)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `updated_at` (TIMESTAMP, default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)
+* `UNIQUE(competition_id, user_id, instrument_id)`
+
+### 13.5 `competition_orders` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `competition_id` (INT, FK -> `competitions.id` ON DELETE CASCADE, Indexed)
+* `user_id` (INT, FK -> `users.id` ON DELETE CASCADE, Indexed)
+* `instrument_id` (INT, FK -> `instruments.id`, Indexed)
+* `side` (ENUM: `BUY`, `SELL`, Not Null)
+* `order_type` (ENUM: `LIMIT`, `MARKET`, Not Null)
+* `quantity` (DECIMAL(18,4), Not Null)
+* `remaining_quantity` (DECIMAL(18,4), Not Null)
+* `filled_quantity` (DECIMAL(18,4), default 0.0000)
+* `limit_price` (DECIMAL(18,4), Nullable)
+* `status` (ENUM: `PENDING`, `OPEN`, `PARTIALLY_FILLED`, `FILLED`, `CANCELLED`, `REJECTED`, Indexed)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP)
+* `updated_at` (TIMESTAMP, default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)
+
+### 13.6 `competition_trades` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `trade_reference` (VARCHAR(64), Unique, Not Null)
+* `competition_id` (INT, FK -> `competitions.id` ON DELETE CASCADE, Indexed)
+* `buy_order_id` (BIGINT, Not Null)
+* `sell_order_id` (BIGINT, Not Null)
+* `buyer_id` (INT, FK -> `users.id`, Indexed)
+* `seller_id` (INT, FK -> `users.id`, Indexed)
+* `instrument_id` (INT, FK -> `instruments.id`, Indexed)
+* `price` (DECIMAL(18,4), Not Null)
+* `quantity` (DECIMAL(18,4), Not Null)
+* `amount` (DECIMAL(19,4), Not Null)
+* `executed_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
+
+### 13.7 `competition_leaderboard_snapshots` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `competition_id` (INT, FK -> `competitions.id` ON DELETE CASCADE, Indexed)
+* `snapshot_data` (JSON, Not Null)
+* `is_final` (BOOLEAN, default FALSE, Indexed)
+* `captured_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)
+
+### 13.8 `competition_audit_logs` Table
+* `id` (BIGINT, PK, Auto-increment)
+* `competition_id` (INT, FK -> `competitions.id` ON DELETE CASCADE, Indexed)
+* `event_type` (VARCHAR(64), Not Null, Indexed)
+* `user_id` (INT, Nullable, Indexed)
+* `payload` (JSON, Nullable)
+* `created_at` (TIMESTAMP, default CURRENT_TIMESTAMP, Indexed)

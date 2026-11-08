@@ -12,6 +12,7 @@ import {
   History,
   ShieldCheck,
   TrendingUp,
+  Trophy,
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,6 +31,7 @@ export const Sidebar: React.FC = () => {
     { name: 'Markets', path: '/markets', icon: BarChart3 },
     { name: 'Trading Terminal', path: '/trade', icon: CandlestickChart },
     { name: 'Portfolio', path: '/portfolio', icon: Briefcase },
+    { name: 'Competitions', path: '/competitions', icon: Trophy },
     { name: 'Watchlist', path: '/watchlist', icon: Star },
     { name: 'Simulated News', path: '/news', icon: Newspaper },
     { name: 'History & Ledger', path: '/history', icon: History },

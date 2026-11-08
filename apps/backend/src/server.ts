@@ -7,6 +7,7 @@ import { closeDatabaseConnection } from './database/connection';
 import { orderBookRecoveryService } from './modules/matching/order-book-recovery.service';
 import { botScheduler } from './modules/bots';
 import { newsScheduler } from './modules/news';
+import { competitionScheduler } from './modules/competitions';
 
 let server: http.Server;
 
@@ -46,6 +47,13 @@ async function startServer() {
     } catch (err: any) {
       logger.error(`[BOOTSTRAP] Failed to start news scheduler: ${err.message}`);
     }
+
+    // Phase 5D: Start multiplayer trading competition lifecycle scheduler
+    try {
+      competitionScheduler.start(1000);
+    } catch (err: any) {
+      logger.error(`[BOOTSTRAP] Failed to start competition scheduler: ${err.message}`);
+    }
   });
 }
 
@@ -63,6 +71,12 @@ async function handleShutdown(signal: string) {
     newsScheduler.stop();
   } catch (err: any) {
     logger.error(`[SHUTDOWN] Failed to stop news scheduler: ${err.message}`);
+  }
+
+  try {
+    competitionScheduler.stop();
+  } catch (err: any) {
+    logger.error(`[SHUTDOWN] Failed to stop competition scheduler: ${err.message}`);
   }
 
   if (server) {

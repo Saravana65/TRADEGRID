@@ -5,7 +5,7 @@
 * **Repository:** [https://github.com/Saravana65/TRADEGRID](https://github.com/Saravana65/TRADEGRID)
 * **Default Branch:** `main`
 * **Architecture:** Modular Monolith
-* **Current Status:** **Phase 5C Simulated News Catalyst Engine Complete** (165 Passing Tests, Mathematical Decay Model, Autonomous Bot Skewing & Volatility Widening, Strict Financial Invariants, Admin News Cockpit, Real-Time Socket.IO Streaming, 100-Socket Load Benchmark)
+* **Current Status:** **Phase 5D Multiplayer Trading Competitions & Real-Time Leaderboards Complete** (185 Passing Tests, Isolated Tournament Portfolios & Capital, Server-Authoritative Leaderboard Engine, Deterministic Tie-Breakers, Scoped Price-Time Order Books, Private Join-Code Arenas, Interactive Tournament Terminal, 100-Client WebSocket Load Benchmark)
 
 ---
 
@@ -94,8 +94,18 @@ TRADEGRID/
   * **Admin REST & Socket.IO Streaming:** Public `/api/v1/news` and protected `/api/v1/admin/news` endpoints; public `news` and admin `admin:news` WebSocket channels.
   * **Frontend Admin News Cockpit & Wire:** Interactive admin catalyst management tab, live news page with search/filters, and terminal active catalyst alert banners.
 
+* [x] **Phase 5D — Multiplayer Trading Competitions & Real-Time Leaderboards:**
+  * **Strict Account & Portfolio Isolation:** Migration `009_create_competitions_tables.ts` introducing `competitions`, `competition_participants`, `competition_accounts`, `competition_positions`, `competition_orders`, `competition_trades`, and `competition_leaderboard_snapshots`. Human user virtual wallets (`wallets`) and regular portfolio positions remain strictly isolated and zero-polluted.
+  * **Server-Authoritative Leaderboard Engine:** Real-time portfolio valuation: $\text{Portfolio Value} = \text{Available Cash} + \text{Reserved Cash} + \sum (\text{Qty} \times \text{Price})$, and Total Return %: $\frac{\text{Value} - \text{StartCapital}}{\text{StartCapital}} \times 100$.
+  * **Deterministic Tie-Breakers:** 1. Total Return % (descending), 2. Realized PnL (descending), 3. Trade Count (descending), 4. Joined Timestamp (ascending).
+  * **Scoped Order Book Matching & Settlement:** In-memory order books isolated per `${competitionId}:${instrumentId}` with Price-Time FIFO matching, wash-sale / self-trading prevention, and atomic settlement across competition accounts and positions.
+  * **Competition Lifecycle Automation:** `CompetitionScheduler` automatically managing `DRAFT` -> `UPCOMING` -> `ACTIVE` -> `COMPLETED`, taking frozen snapshots, and auto-cancelling under-enrolled leagues.
+  * **Private Arenas & Access Control:** Public and Private competitions (requiring join codes), capacity constraints, and strict Socket.IO room authorization for private tournament channels (`competition:${id}`).
+  * **Frontend Tournament Arena:** Responsive `CompetitionsPage.tsx` and `CompetitionDetailPage.tsx` featuring real-time podium, isolated order entry terminal, open orders desk, execution tape, and champion award banner.
+  * **High-Concurrency Load Benchmark:** Verified 100 simultaneous connected clients streaming live competition leaderboard updates with zero packet loss.
+
 ### Automated Testing Suite
-* **165 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 11 test suites:
+* **185 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 12 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
   * `tests/wallet.test.ts` (16 tests)
@@ -107,6 +117,7 @@ TRADEGRID/
   * `tests/reliability.test.ts` (13 tests verifying Phase 5A.1 reliability invariants)
   * `tests/bots.test.ts` (19 tests, verifying Phase 5B bot lifecycle, inventory skewing, risk controls, admin APIs, and 100-socket multi-bot load benchmark)
   * `tests/news.test.ts` (21 tests, verifying Phase 5C news schemas, disclaimers, RBAC, lifecycle, decay math, scope weighting, bot integration, financial invariants, real-time events, and 100-client load benchmark)
+  * `tests/competitions.test.ts` (20 tests, verifying Phase 5D competition lifecycle, participant enrollment, private join codes, capacity limits, isolated trading, matching, wash prevention, server-authoritative rankings, tie-breakers, post-completion freeze, WebSocket authorization, and 100-client load benchmark)
 
 ---
 

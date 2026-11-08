@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 5C Simulated News Catalyst Engine Complete ✅
-* **Previous Phase:** Phase 5B Autonomous Market-Making Bots & Simulated Liquidity Generators Complete ✅
-* **Next Target:** Phase 5D (Trading Competitions, Social Leaderboards & Chat Ecosystem)
+* **Current Status:** Phase 5D Multiplayer Trading Competitions & Real-Time Leaderboards Complete ✅
+* **Previous Phase:** Phase 5C Simulated News Catalyst Engine Complete ✅
+* **Next Target:** Phase 5E (Global Trader Chat & Social Ecosystem)
 
 ---
 
@@ -178,11 +178,28 @@
 
 ---
 
-### J. Future Phases Roadmap
+### J. Phase 5D: Multiplayer Trading Competitions & Real-Time Leaderboards (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Multiplayer Competition Lifecycle** | ✅ Completed | Comprehensive lifecycle state transitions: `DRAFT` → `UPCOMING` → `ACTIVE` → `COMPLETED`, plus `CANCELLED` and `ARCHIVED`. Managed automatically by `CompetitionScheduler`. |
+| **Strict Account & Portfolio Isolation** | ✅ Completed | Migration `009_create_competitions_tables.ts` introducing `competitions`, `competition_participants`, `competition_accounts`, `competition_positions`, `competition_orders`, `competition_trades`, and `competition_leaderboard_snapshots`. User virtual wallets (`wallets`) and regular portfolio holdings are strictly untouched and unpolluted. |
+| **Server-Authoritative Ranking Engine** | ✅ Completed | `CompetitionLeaderboardService` calculating real-time portfolio valuation: $\text{Portfolio Value} = \text{Available Cash} + \text{Reserved Cash} + \sum (\text{Qty} \times \text{Price})$, and Total Return %: $\frac{\text{Value} - \text{StartCapital}}{\text{StartCapital}} \times 100$. Deterministic tie-breakers: (1) Total Return %, (2) Realized PnL, (3) Trade Count, (4) Joined Timestamp. |
+| **Scoped Order Book Matching & Settlement** | ✅ Completed | `CompetitionMatchingService` managing scoped in-memory order books (`${competitionId}:${instrumentId}`) implementing Price-Time Priority (FIFO), wash-sale / self-trading prevention, and atomic settlement across competition accounts and positions. Open orders automatically cancelled upon completion. |
+| **Private Competitions & Access Control** | ✅ Completed | Support for `PUBLIC` and `PRIVATE` visibility. Private tournaments require an alphanumeric join code to enroll. Max participant capacities strictly enforced. |
+| **REST API Suite** | ✅ Completed | Full API under `/api/v1/competitions/*`: discovery, details, participants, leaderboards, my tournaments, creation, enrollment, order placement, order cancellation, and portfolio queries. |
+| **Socket.IO Real-Time Channels & Room Security** | ✅ Completed | Channels `competition:${id}` broadcasting `competition:leaderboard_updated`, `competition:participant_joined`, `competition:order_placed`, `competition:trade_executed`, `competition:status_changed`, and `competition:completed`. Private rooms strictly guarded to authorized enrolled participants, creators, and admins. |
+| **Frontend Competitions Arena** | ✅ Completed | Full-featured responsive frontend with `CompetitionsPage.tsx` (cards, tabs, search, visibility filter, Create Competition modal, Join Private modal) and `CompetitionDetailPage.tsx` (real-time live leaderboard podium, trading terminal, open orders desk, execution tape, rules breakdown, and champion banner). Added to primary navigation in `Sidebar.tsx`. |
+| **High-Concurrency Load Benchmark** | ✅ Completed | Verified 100 simultaneous connected WebSocket clients subscribed to competition channels streaming real-time leaderboard updates with 100% packet delivery rate. |
+| **Monorepo Automated Test Suite** | ✅ Completed | **185 Vitest tests passing across all 12 test suites with 100% pass rate** (20 competition tests + 21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### K. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Trading Competitions & Tournaments** | Phase 5D | Planned |
-| **Social Leaderboards & Rankings** | Phase 5D | Planned |
-| **Global & Symbol Trader Chat Ecosystem** | Phase 5D | Planned |
-| **Achievement Badges & Milestones** | Phase 5E | Planned |
+| **Global & Symbol Trader Chat Ecosystem** | Phase 5E | Planned |
+| **Direct Messaging & Social Mentions** | Phase 5E | Planned |
+| **Achievement Badges & Trader Milestones** | Phase 5E | Planned |
+| **AI Trading Insights & Strategy Backtesting** | Phase 6 | Planned |

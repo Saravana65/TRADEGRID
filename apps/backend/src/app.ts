@@ -57,7 +57,11 @@ import {
   createAdminNewsRouter,
   NewsController,
 } from './modules/news';
-import { competitionsRouter } from './modules/competitions';
+import {
+  competitionsRouter as defaultCompetitionsRouter,
+  createCompetitionsRouter,
+  CompetitionController,
+} from './modules/competitions';
 import { chatRouter } from './modules/chat';
 import { adminRouter } from './modules/admin';
 
@@ -72,6 +76,7 @@ export interface AppDependencies {
   portfolioController?: PortfolioController;
   botController?: BotController;
   newsController?: NewsController;
+  competitionController?: CompetitionController;
   customCheckDb?: () => Promise<boolean>;
 }
 
@@ -177,6 +182,10 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     ? createAdminNewsRouter(dependencies.newsController)
     : defaultAdminNewsRouter;
 
+  const activeCompetitionsRouter = dependencies.competitionController
+    ? createCompetitionsRouter(dependencies.competitionController)
+    : defaultCompetitionsRouter;
+
   app.use('/api/v1/auth', activeAuthRouter);
   app.use('/api/v1/users', activeUsersRouter);
   app.use('/api/v1/wallet', activeWalletRouter);
@@ -192,7 +201,7 @@ export function createApp(dependencies: AppDependencies = {}): Application {
   app.use('/api/v1/portfolio', activePortfolioRouter);
   app.use('/api/v1/watchlist', watchlistRouter);
   app.use('/api/v1/news', activeNewsRouter);
-  app.use('/api/v1/competitions', competitionsRouter);
+  app.use('/api/v1/competitions', activeCompetitionsRouter);
   app.use('/api/v1/chat', chatRouter);
   app.use('/api/v1/admin', adminRouter);
 

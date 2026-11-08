@@ -957,6 +957,242 @@ export interface CatalystCompletedEvent {
   timestamp: string;
 }
 
+// ============================================================================
+// PHASE 5D: MULTIPLAYER TRADING COMPETITIONS & LEADERBOARDS
+// ============================================================================
+
+export type CompetitionStatus =
+  | 'DRAFT'
+  | 'UPCOMING'
+  | 'ACTIVE'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'ARCHIVED';
+
+export type CompetitionVisibility = 'PUBLIC' | 'PRIVATE';
+
+export type CompetitionParticipantStatus = 'JOINED' | 'LEFT' | 'DISQUALIFIED';
+
+export interface Competition {
+  id: number;
+  name: string;
+  description: string;
+  creatorId: number;
+  creatorUsername?: string;
+  visibility: CompetitionVisibility;
+  joinCode?: string | null;
+  startingCapital: string;
+  maxParticipants: number;
+  minParticipants: number;
+  participantCount?: number;
+  startTime: string;
+  endTime: string;
+  allowedInstruments?: string[] | null;
+  permittedOrderTypes: ('LIMIT' | 'MARKET')[];
+  status: CompetitionStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompetitionParticipant {
+  id: number;
+  competitionId: number;
+  userId: number;
+  username?: string;
+  status: CompetitionParticipantStatus;
+  startingCapital: string;
+  currentPortfolioValue: string;
+  totalReturnPercent: string;
+  rank?: number | null;
+  tradeCount: number;
+  joinedAt: string;
+  updatedAt: string;
+}
+
+export interface CompetitionAccount {
+  id: number;
+  competitionId: number;
+  userId: number;
+  availableCash: string;
+  reservedCash: string;
+  totalCash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompetitionPosition {
+  id: number;
+  competitionId: number;
+  userId: number;
+  instrumentId: number;
+  symbol: string;
+  quantity: string;
+  reservedQuantity: string;
+  averageEntryPrice: string;
+  currentPrice: string;
+  marketValue: string;
+  unrealizedPnL: string;
+  realizedPnL: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompetitionOrder {
+  id: number;
+  competitionId: number;
+  userId: number;
+  instrumentId: number;
+  symbol?: string;
+  side: 'BUY' | 'SELL';
+  orderType: 'LIMIT' | 'MARKET';
+  quantity: string;
+  filledQuantity: string;
+  remainingQuantity: string;
+  limitPrice: string | null;
+  status: 'PENDING' | 'OPEN' | 'PARTIALLY_FILLED' | 'FILLED' | 'CANCELLED' | 'REJECTED';
+  idempotencyKey?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompetitionTrade {
+  id: number;
+  tradeReference: string;
+  competitionId: number;
+  buyOrderId: number;
+  sellOrderId: number;
+  buyerId: number;
+  sellerId: number;
+  buyerUsername?: string;
+  sellerUsername?: string;
+  instrumentId: number;
+  symbol?: string;
+  price: string;
+  quantity: string;
+  amount: string;
+  executedAt: string;
+}
+
+export interface CompetitionPortfolioSummary {
+  competitionId: number;
+  userId: number;
+  startingCapital: string;
+  availableCash: string;
+  reservedCash: string;
+  holdingsMarketValue: string;
+  totalPortfolioValue: string;
+  totalReturnPercent: string;
+  realizedPnL: string;
+  unrealizedPnL: string;
+  tradeCount: number;
+  rank?: number | null;
+  positions: CompetitionPosition[];
+  openOrders: CompetitionOrder[];
+}
+
+export interface CompetitionLeaderboardEntry {
+  rank: number;
+  participantId: number;
+  userId: number;
+  username: string;
+  portfolioValue: string;
+  totalReturnPercent: string;
+  realizedPnL: string;
+  unrealizedPnL: string;
+  tradeCount: number;
+}
+
+export interface CompetitionStartedEvent {
+  eventId: string;
+  competitionId: number;
+  name: string;
+  startTime: string;
+  endTime: string;
+  participantCount: number;
+  timestamp: string;
+}
+
+export interface CompetitionEndedEvent {
+  eventId: string;
+  competitionId: number;
+  name: string;
+  winnerUserId?: number | null;
+  winnerUsername?: string | null;
+  winnerReturnPercent?: string | null;
+  endedAt: string;
+  timestamp: string;
+}
+
+export interface CompetitionParticipantJoinedEvent {
+  eventId: string;
+  competitionId: number;
+  userId: number;
+  username: string;
+  participantCount: number;
+  timestamp: string;
+}
+
+export interface CompetitionParticipantLeftEvent {
+  eventId: string;
+  competitionId: number;
+  userId: number;
+  username: string;
+  participantCount: number;
+  timestamp: string;
+}
+
+export interface CompetitionOrderPlacedEvent {
+  eventId: string;
+  competitionId: number;
+  orderId: number;
+  userId: number;
+  instrumentId: number;
+  side: 'BUY' | 'SELL';
+  orderType: 'LIMIT' | 'MARKET';
+  price: string | null;
+  quantity: string;
+  timestamp: string;
+}
+
+export interface CompetitionTradeExecutedEvent {
+  eventId: string;
+  competitionId: number;
+  tradeReference: string;
+  instrumentId: number;
+  symbol: string;
+  price: string;
+  quantity: string;
+  buyerId: number;
+  sellerId: number;
+  timestamp: string;
+}
+
+export interface CompetitionLeaderboardUpdatedEvent {
+  eventId: string;
+  competitionId: number;
+  leaderboard: CompetitionLeaderboardEntry[];
+  timestamp: string;
+}
+
+export interface CompetitionPortfolioUpdatedEvent {
+  eventId: string;
+  competitionId: number;
+  userId: number;
+  portfolioValue: string;
+  totalReturnPercent: string;
+  availableCash: string;
+  timestamp: string;
+}
+
+export interface CompetitionCancelledEvent {
+  eventId: string;
+  competitionId: number;
+  name: string;
+  reason?: string;
+  timestamp: string;
+}
+
+
 
 
 

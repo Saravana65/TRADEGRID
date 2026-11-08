@@ -596,8 +596,47 @@ Restricted strictly to authenticated administrator sockets (`role: 'ADMIN'`). Re
 
 ---
 
-## 13. Future Roadmap (Phase 5D & Beyond)
+## 13. Multiplayer Trading Competitions & Real-Time Leaderboards (`/api/v1/competitions`)
 
-- `/api/v1/contests`: Educational trading competitions and tournaments.
+### 13.1 Competition Discovery & Enrollment
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/competitions` | Optional | List competitions with status (`UPCOMING`, `ACTIVE`, `COMPLETED`), visibility, and search filters. |
+| `GET` | `/api/v1/competitions/me` | User | List all competitions the authenticated user is currently participating in or created. |
+| `GET` | `/api/v1/competitions/:id` | Optional | Get detailed competition metadata, timing, rules, and participant counts. |
+| `POST` | `/api/v1/competitions` | User | Create a new tournament competition (specifying capital, timing, visibility, join code, allowed instruments). |
+| `POST` | `/api/v1/competitions/:id/join` | User | Enroll into an upcoming competition with isolated starting virtual capital (requires `joinCode` for private leagues). |
+| `POST` | `/api/v1/competitions/:id/leave` | User | Unenroll from an upcoming competition prior to start (refunds reservation, creator cannot leave). |
+| `POST` | `/api/v1/competitions/:id/cancel` | Creator/Admin | Cancel an upcoming tournament before it starts. |
+
+### 13.2 Isolated Competition Trading & Portfolio
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/competitions/:id/portfolio` | User | Fetch participant's isolated tournament portfolio (available cash, reserved cash, positions, total return %, rank). |
+| `GET` | `/api/v1/competitions/:id/orders` | User | Fetch participant's resting and filled orders placed inside the competition. |
+| `POST` | `/api/v1/competitions/:id/orders` | User | Place a limit or market order inside the competition's scoped order book (Price-Time FIFO matching). |
+| `POST` | `/api/v1/competitions/:id/orders/:orderId/cancel` | User | Cancel a resting open order inside the competition and release reserved buying power / shares. |
+| `GET` | `/api/v1/competitions/:id/trades` | Optional | Fetch recent trade execution tape for the competition. |
+
+### 13.3 Server-Authoritative Leaderboards
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/competitions/:id/leaderboard` | Optional | Retrieve current (or frozen final) server-authoritative leaderboard rankings with deterministic tie-breakers. |
+| `GET` | `/api/v1/competitions/:id/participants` | Optional | List all registered competitors and host designation. |
+
+### 13.4 Real-Time Competition Socket.IO Channels (`competition:{id}`)
+* `competition:leaderboard_updated`: Broadcast real-time ranking adjustments and participant valuations.
+* `competition:participant_joined`: Broadcast when a new trader joins the competition.
+* `competition:participant_left`: Broadcast when a trader leaves prior to start.
+* `competition:started`: Broadcast when the competition transitions to `ACTIVE`.
+* `competition:completed`: Broadcast final immutable rankings when the tournament concludes.
+* `competition:cancelled`: Broadcast if cancelled by creator or automatically due to under-enrollment.
+* `competition:order_placed`: Emitted to participant and competition room on order submission.
+* `competition:trade_executed`: Broadcast on the competition tape when matching occurs.
+
+---
+
+## 14. Future Roadmap (Phase 5E & Beyond)
+
 - `/api/v1/social/chat`: Symbol-specific and global trader chat rooms.
 - `/api/v1/achievements`: Trader milestone badges and achievement tracking.
