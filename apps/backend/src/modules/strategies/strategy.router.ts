@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { authenticate } from '../../middleware/auth.middleware';
 import { StrategyController } from './strategy.controller';
-import { StrategyService } from './strategy.service';
+import { StrategyService, defaultStrategyService } from './strategy.service';
 import { strategyRepository } from './strategy.repository';
 import { StrategyExecutionService, strategyExecutionRepository } from './execution';
 
-export const defaultStrategyService = new StrategyService(strategyRepository);
+export { defaultStrategyService };
 export const defaultStrategyExecutionService = new StrategyExecutionService(
   strategyExecutionRepository,
   defaultStrategyService

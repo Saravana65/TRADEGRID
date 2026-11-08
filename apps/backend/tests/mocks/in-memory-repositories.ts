@@ -549,9 +549,24 @@ export class InMemoryInstrumentRepository implements IInstrumentRepository {
   async findBySymbol(symbol: string, exchange?: string): Promise<Instrument | null> {
     const sym = symbol.toUpperCase();
     const inst = this.instruments.find(
-      (i) => i.symbol === sym && (!exchange || i.exchange.toUpperCase() === exchange.toUpperCase())
+      (i) =>
+        (i.symbol === sym || `${i.exchange}:${i.symbol}` === sym || (sym.includes(':') && sym.split(':')[1] === i.symbol)) &&
+        (!exchange || i.exchange.toUpperCase() === exchange.toUpperCase())
     );
     return inst ? { ...inst } : null;
+  }
+
+  async createInstrument(data: any): Promise<Instrument> {
+    return this.create({
+      symbol: data.symbol,
+      name: data.name,
+      exchange: data.exchange || 'NSE',
+      sector: data.sector || 'General',
+      instrumentType: data.instrument_type || data.instrumentType || 'EQUITY',
+      currency: data.currency || 'USD',
+      marketStatus: data.market_status || data.marketStatus || 'ACTIVE',
+      dataClassification: data.data_classification || data.dataClassification || 'SIMULATED',
+    });
   }
 
   async create(data: CreateInstrumentInput): Promise<Instrument> {
@@ -3048,6 +3063,197 @@ export class InMemoryStrategyExecutionRepository implements IStrategyExecutionRe
     this.nextId = 1;
   }
 }
+
+export class InMemoryAutomatedStrategyJobRepository {
+  public jobs: Map<string, any> = new Map();
+  public orders: any[] = [];
+  private nextId = 1;
+  private nextOrderId = 1;
+
+  async createJob(data: any): Promise<any> {
+    const job = {
+      id: this.nextId++,
+      jobId: data.jobId,
+      userId: data.userId,
+      strategyId: data.strategyId,
+      strategyVersion: data.strategyVersion,
+      instrumentSymbol: data.instrumentSymbol,
+      timeframe: data.timeframe,
+      status: data.status || 'RUNNING',
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      riskLimits: data.riskLimits || {},
+      lastProcessedCandleTime: null,
+      lastSignal: null,
+      lastSignalTime: null,
+      totalSignalsCount: 0,
+      totalOrdersCount: 0,
+      consecutiveFailuresCount: 0,
+      errorDetails: null,
+      startedAt: new Date().toISOString(),
+      stoppedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.jobs.set(data.jobId, job);
+    return { ...job };
+  }
+
+  async findById(id: number): Promise<any | null> {
+    for (const j of this.jobs.values()) {
+      if (j.id === id) return { ...j };
+    }
+    return null;
+  }
+
+  async findByJobId(jobId: string): Promise<any | null> {
+    const j = this.jobs.get(jobId);
+    return j ? { ...j } : null;
+  }
+
+  async findActiveJobs(): Promise<any[]> {
+    const res: any[] = [];
+    for (const j of this.jobs.values()) {
+      if (j.status === 'RUNNING' && j.isActive) {
+        res.push({ ...j });
+      }
+    }
+    return res;
+  }
+
+  async findByUserId(userId: number): Promise<any[]> {
+    const res: any[] = [];
+    for (const j of this.jobs.values()) {
+      if (j.userId === userId) {
+        res.push({ ...j });
+      }
+    }
+    return res.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async findActiveJobByUserAndStrategy(
+    userId: number,
+    strategyId: number,
+    instrumentSymbol: string
+  ): Promise<any | null> {
+    for (const j of this.jobs.values()) {
+      if (
+        j.userId === userId &&
+        j.strategyId === strategyId &&
+        j.instrumentSymbol === instrumentSymbol &&
+        j.isActive &&
+        (j.status === 'RUNNING' || j.status === 'QUEUED')
+      ) {
+        return { ...j };
+      }
+    }
+    return null;
+  }
+
+  async updateJobStatus(
+    jobId: string,
+    status: string,
+    isActive?: boolean,
+    errorDetails?: string
+  ): Promise<any | null> {
+    const j = this.jobs.get(jobId);
+    if (!j) return null;
+
+    j.status = status;
+    if (isActive !== undefined) j.isActive = isActive;
+    if (errorDetails !== undefined) j.errorDetails = errorDetails;
+    if (status === 'RUNNING') j.startedAt = new Date().toISOString();
+    if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'FAILED') {
+      j.stoppedAt = new Date().toISOString();
+    }
+    j.updatedAt = new Date().toISOString();
+    this.jobs.set(jobId, j);
+    return { ...j };
+  }
+
+  async updateJobCheckpoint(
+    jobId: string,
+    candleTime: string,
+    signal?: any,
+    orderSubmitted?: boolean
+  ): Promise<void> {
+    const j = this.jobs.get(jobId);
+    if (!j) return;
+
+    j.lastProcessedCandleTime = candleTime;
+    j.consecutiveFailuresCount = 0;
+    if (signal) {
+      j.lastSignal = signal;
+      j.lastSignalTime = new Date().toISOString();
+      j.totalSignalsCount++;
+    }
+    if (orderSubmitted) {
+      j.totalOrdersCount++;
+    }
+    j.updatedAt = new Date().toISOString();
+    this.jobs.set(jobId, j);
+  }
+
+  async updateConsecutiveFailures(jobId: string, failures: number, errorDetails?: string): Promise<void> {
+    const j = this.jobs.get(jobId);
+    if (!j) return;
+    j.consecutiveFailuresCount = failures;
+    j.errorDetails = errorDetails || null;
+    j.updatedAt = new Date().toISOString();
+    this.jobs.set(jobId, j);
+  }
+
+  async recordStrategyOrder(
+    jobId: string,
+    userId: number,
+    orderId: number,
+    signalType: any,
+    orderPrice: string,
+    orderQuantity: string,
+    idempotencyKey: string
+  ): Promise<any> {
+    const ord = {
+      id: this.nextOrderId++,
+      jobId,
+      userId,
+      orderId,
+      signalType,
+      orderPrice,
+      orderQuantity,
+      idempotencyKey,
+      createdAt: new Date().toISOString(),
+    };
+    this.orders.push(ord);
+    return { ...ord };
+  }
+
+  async findOrdersByJobId(jobId: string, userId: number): Promise<any[]> {
+    return this.orders
+      .filter((o) => o.jobId === jobId && o.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async stopAllUserJobs(userId: number): Promise<number> {
+    let count = 0;
+    for (const j of this.jobs.values()) {
+      if (j.userId === userId && j.isActive) {
+        j.status = 'CANCELLED';
+        j.isActive = false;
+        j.stoppedAt = new Date().toISOString();
+        j.updatedAt = new Date().toISOString();
+        count++;
+      }
+    }
+    return count;
+  }
+
+  clear(): void {
+    this.jobs.clear();
+    this.orders = [];
+    this.nextId = 1;
+    this.nextOrderId = 1;
+  }
+}
+
 
 
 

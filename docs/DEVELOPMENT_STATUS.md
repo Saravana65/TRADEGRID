@@ -1,8 +1,8 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 8 Trader Achievements & Gamification Complete ✅
-* **Previous Phase:** Phase 7 Advanced Technical Charting Complete ✅
-* **Next Target:** Phase 9 Custom User Strategy Scripting / Advanced Analytics
+* **Current Status:** Phase 9C & Phase 9D Complete (Visual Strategy Studio & Automated Virtual Strategy Runner) ✅
+* **Previous Phase:** Phase 9A & Phase 9B Complete (DSL Scripting & Sandboxed Execution Engine) ✅
+* **Scope Boundary:** Virtual trading only — strictly zero live exchange routing or real-money execution.
 
 ---
 
@@ -317,10 +317,26 @@
 
 ---
 
-### R. Future Phases Roadmap
+### R. Phase 9D: Background Strategy Runner & Automated Virtual Trading Subsystem (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Database Migrations (016)** | ✅ Completed | Migration `016_create_automated_strategy_jobs_tables.ts` introducing `automated_strategy_jobs` (`id`, `job_id`, `user_id`, `strategy_id`, `strategy_version`, `instrument_symbol`, `timeframe`, `status`, `is_active`, `risk_limits`, `last_processed_candle_time`, `last_signal_type`, `consecutive_failures_count`, `last_error_message`, indexes) and `automated_strategy_orders` (audit link between strategy runner jobs and OMS virtual orders). |
+| **In-Process Scheduler Architecture** | ✅ Completed | `AutomatedStrategyScheduler` managing autonomous tick evaluation loop across active jobs with per-job in-memory concurrency locks (`runningJobLocks`), deterministic candle deduplication, and startup crash recovery. Zero Redis or paid infrastructure dependencies ($0 budget). |
+| **Virtual Order Placement Pipeline** | ✅ Completed | Actionable strategy signals (`BUY`, `SELL`) route directly into TradeGrid Order Management System via `OrderService.createOrder()`. Strictly virtual capital reservation (`wallets`), double-entry ledger journals (`cash_ledger_entries`), and matching engine settlement. Strictly zero real-money broker execution or live exchange order routing. |
+| **Server-Side Risk Guardrails** | ✅ Completed | Server-authoritative checks enforce `maxOrderNotional`, `maxPositionSize`, and `maxOpenOrders` limits prior to order creation. |
+| **Automatic Circuit Breaker** | ✅ Completed | Failsafe mechanism tracks consecutive execution failures and automatically trips runaway or erroring jobs into `FAILED` state after 3 consecutive failures. |
+| **Emergency Kill Switch** | ✅ Completed | `POST /api/v1/strategies/automated/kill-switch` immediately halts all active runner jobs and cancels open virtual orders for the authenticated user. |
+| **Socket.IO Real-Time Push** | ✅ Completed | User-targeted WebSocket emissions for `strategy:job_started`, `strategy:job_paused`, `strategy:job_resumed`, `strategy:job_stopped`, `strategy:signal_generated`, `strategy:order_submitted`, `strategy:risk_limit_reached`, `strategy:job_failed`, and `strategy:kill_switch_activated`. |
+| **Strict Ownership & Security Isolation** | ✅ Completed | Rigorous authorization verifies job ownership (`403 FORBIDDEN_JOB_ACCESS`). User B cannot pause, resume, stop, or inspect User A's background runner jobs. |
+| **High-Concurrency Load Benchmark** | ✅ Completed | Verified 100 concurrent automated strategy job queries and operations without race conditions, deadlocks, or state corruption. |
+| **Automated Testing Suite** | ✅ Completed | **339 Vitest tests passing across all 20 test suites with 100% pass rate** (13 automated strategy runner tests + 10 strategy studio tests + 19 strategy execution tests + 30 strategy tests + 16 achievement tests + 16 charting tests + 26 backtest/research tests + 24 chat tests + 20 competition tests + 21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### S. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Background Strategy Runner & Automated Virtual Trading** | Phase 9D | In Progress |
 | **Mobile Responsive Progressive Web App (PWA)** | Phase 10 | Planned |
 

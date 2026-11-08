@@ -6,6 +6,7 @@ import {
   DSLValidationResult,
 } from '@tradegrid/shared-types';
 import { IStrategyRepository } from './strategy.types';
+import { strategyRepository } from './strategy.repository';
 import { DSLValidator } from './dsl/dsl.validator';
 import { AppError } from '../../middleware/error.middleware';
 
@@ -211,3 +212,5 @@ export class StrategyService {
     return ver;
   }
 }
+
+export const defaultStrategyService = new StrategyService(strategyRepository);

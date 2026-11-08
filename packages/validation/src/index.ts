@@ -1177,5 +1177,41 @@ export const executeStrategySchema = z.object({
 
 export type ExecuteStrategyInput = z.infer<typeof executeStrategySchema>;
 
+// ============================================================================
+// Phase 9D: Background Strategy Runner & Automated Virtual Trading Schemas
+// ============================================================================
+
+export const activateStrategyJobSchema = z.object({
+  strategyId: z.number().int().positive('Valid strategy ID is required'),
+  instrumentSymbol: z.string().trim().min(1).max(32).optional(),
+  timeframe: z.enum(['1m', '5m', '15m', '1h', '1d']).optional(),
+  riskLimits: z
+    .object({
+      maxPositionSize: z.number().min(0.01).max(1.0).optional(),
+      maxOrderNotional: z.number().positive().optional(),
+      maxDailyLoss: z.number().positive().optional(),
+      maxOpenOrders: z.number().int().min(1).max(50).optional(),
+      stopLossPercent: z.number().positive().max(100).optional(),
+      takeProfitPercent: z.number().positive().max(1000).optional(),
+    })
+    .optional(),
+});
+
+export type ActivateStrategyJobInput = z.infer<typeof activateStrategyJobSchema>;
+
+export const updateStrategyJobRiskSchema = z.object({
+  riskLimits: z.object({
+    maxPositionSize: z.number().min(0.01).max(1.0).optional(),
+    maxOrderNotional: z.number().positive().optional(),
+    maxDailyLoss: z.number().positive().optional(),
+    maxOpenOrders: z.number().int().min(1).max(50).optional(),
+    stopLossPercent: z.number().positive().max(100).optional(),
+    takeProfitPercent: z.number().positive().max(1000).optional(),
+  }),
+});
+
+export type UpdateStrategyJobRiskInput = z.infer<typeof updateStrategyJobRiskSchema>;
+
+
 
 

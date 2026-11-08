@@ -1853,5 +1853,71 @@ export interface StrategyExecutionResult {
   };
 }
 
+// ============================================================================
+// Phase 9D: Background Strategy Runner & Automated Virtual Trading Types
+// ============================================================================
+
+export type AutomatedJobStatus =
+  | 'CREATED'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'PAUSED'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export interface AutomatedJobRiskLimits {
+  maxPositionSize?: number;
+  maxOrderNotional?: number;
+  maxDailyLoss?: number;
+  maxOpenOrders?: number;
+  stopLossPercent?: number;
+  takeProfitPercent?: number;
+}
+
+export interface AutomatedStrategyJob {
+  id: number;
+  jobId: string;
+  userId: number;
+  strategyId: number;
+  strategyVersion: number;
+  instrumentSymbol: string;
+  timeframe: string;
+  status: AutomatedJobStatus;
+  isActive: boolean;
+  riskLimits: AutomatedJobRiskLimits;
+  lastProcessedCandleTime?: string | null;
+  lastSignal?: SignalType | null;
+  lastSignalTime?: string | null;
+  totalSignalsCount: number;
+  totalOrdersCount: number;
+  consecutiveFailuresCount: number;
+  errorDetails?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string | null;
+  stoppedAt?: string | null;
+}
+
+export interface ActivateStrategyJobRequest {
+  strategyId: number;
+  instrumentSymbol?: string;
+  timeframe?: string;
+  riskLimits?: AutomatedJobRiskLimits;
+}
+
+export interface AutomatedStrategyOrder {
+  id: number;
+  jobId: string;
+  userId: number;
+  orderId: number;
+  signalType: SignalType;
+  orderPrice: string;
+  orderQuantity: string;
+  idempotencyKey: string;
+  createdAt: string;
+}
+
+
 
 

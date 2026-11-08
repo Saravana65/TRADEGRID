@@ -97,6 +97,8 @@ export interface IRealtimeService {
   emitChatNotificationNew?(event: ChatNotificationNewEvent): void;
   emitChatTypingUpdate?(event: ChatTypingEvent): void;
   emitChatMessageRead?(event: ChatMessageReadEvent): void;
+  emitAchievementUnlocked?(event: AchievementUnlockedEvent): void;
+  emitToUser(userId: number, event: string, data: any): void;
   getIO(): Server | null;
   setIO(io: Server): void;
 }
@@ -807,6 +809,15 @@ export class RealtimeService implements IRealtimeService {
       logger.info(`[WS] Emitted achievement:unlocked (${event.achievement.code}) to user:${event.userId}`);
     } catch (err: any) {
       logger.error(`[WS] Failed to emit achievement:unlocked: ${err.message}`);
+    }
+  }
+
+  emitToUser(userId: number, event: string, data: any): void {
+    try {
+      if (!this.io) return;
+      this.io.to(`user:${userId}`).emit(event, data);
+    } catch (err: any) {
+      logger.error(`[WS] Failed to emit ${event} to user:${userId}: ${err.message}`);
     }
   }
 }

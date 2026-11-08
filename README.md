@@ -170,8 +170,19 @@ TRADEGRID/
   * **Historical Simulation Runner:** Direct studio execution triggering sandboxed backtest runs with chronological signal tables, performance metrics, and historical run logs.
   * **Navigation Integration:** Mounted at `/strategies` with dedicated sidebar navigation item in `Sidebar.tsx`.
 
+* [x] **Phase 9D — Background Strategy Runner & Automated Virtual Trading:**
+  * **Database Architecture:** Migration `016_create_automated_strategy_jobs_tables.ts` establishing `automated_strategy_jobs` and `automated_strategy_orders` audit tables.
+  * **In-Process Scheduler (`AutomatedStrategyScheduler`):** Autonomous background tick loop evaluating active runner jobs against market candles with per-job in-memory execution locks (`runningJobLocks`), candle timestamp deduplication, and crash recovery. $0 external infrastructure budget (zero mandatory Redis dependency).
+  * **Virtual Order Placement via OMS:** Generated signals (`BUY`, `SELL`) route directly through TradeGrid's `OrderService.createOrder()`. Strictly virtual capital reservation (`wallets`), double-entry ledger transactions (`cash_ledger_entries`), and matching engine settlement. Strictly zero real-money broker execution or live exchange routing.
+  * **Server-Side Risk Guardrails:** Configurable limits enforcing `maxOrderNotional`, `maxPositionSize`, and `maxOpenOrders` prior to virtual order submission.
+  * **Automated Circuit Breaker:** Consecutive failure tracker auto-stopping erroring jobs into `FAILED` status upon reaching 3 consecutive failures.
+  * **Emergency Kill Switch:** `POST /api/v1/strategies/automated/kill-switch` immediately halts all active runner jobs and cancels open virtual orders for the user.
+  * **Socket.IO Real-Time Push:** User-targeted WebSocket emissions for job lifecycle, signal generation, risk alerts, and order submissions.
+  * **Runner REST APIs:** Job activation (`POST /jobs`), listing (`GET /jobs`), details (`GET /jobs/:jobId`), pause (`POST /jobs/:jobId/pause`), resume (`POST /jobs/:jobId/resume`), stop (`POST /jobs/:jobId/stop`), and kill switch (`POST /kill-switch`).
+  * **Strict User Ownership Isolation:** User B cannot inspect, pause, resume, or terminate User A's background runner jobs (`403 FORBIDDEN_JOB_ACCESS`).
+
 ### Automated Testing Suite
-* **326 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 19 test suites:
+* **339 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 20 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
   * `tests/wallet.test.ts` (16 tests)
@@ -191,6 +202,7 @@ TRADEGRID/
   * `tests/strategies.test.ts` (30 tests, verifying Phase 9A DSL lexer, parser, static validator, REST APIs, user ownership isolation, and 100-user load benchmark)
   * `tests/strategy-execution.test.ts` (19 tests, verifying Phase 9B AST evaluator, deterministic signals, anti-lookahead bias, timeout protection, REST APIs, user ownership isolation, and 100 concurrent executions benchmark)
   * `tests/strategy-studio.test.ts` (10 tests, verifying Phase 9C visual builder DSL generation, indicator configuration, Studio CRUD lifecycle, version auto-snapshots, duplication, cascading deletion, and simulation integration)
+  * `tests/automated-strategy-runner.test.ts` (13 tests, verifying Phase 9D background strategy activation, job lifecycle, scheduler ticks, candle idempotency, virtual order submission via OMS, risk limits cap, 3-failure circuit breaker, emergency kill switch, user ownership isolation, and 100 concurrent automated jobs stress benchmark)
 
 ---
 
