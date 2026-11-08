@@ -2,6 +2,7 @@ export * from './market-data-provider.interface';
 export * from './fixture-market-data.provider';
 export * from './providers';
 export * from './provider-registry';
+export * from './candle-engine';
 export * from './instrument.repository';
 export * from './market-data.repository';
 export * from './instrument.service';

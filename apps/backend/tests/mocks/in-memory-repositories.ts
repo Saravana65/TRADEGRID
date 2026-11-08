@@ -852,16 +852,27 @@ export class InMemoryMarketDataRepository implements IMarketDataRepository {
   async insertCandles(candles: Partial<MarketCandleRow>[]): Promise<void> {
     for (const c of candles) {
       if (!c.instrument_id || !c.interval || !c.timestamp) continue;
-      this.candles.push({
+      const ts = c.timestamp instanceof Date ? c.timestamp.toISOString() : String(c.timestamp);
+      const existingIdx = this.candles.findIndex(
+        (x) => x.instrumentId === c.instrument_id && x.interval === c.interval && x.timestamp === ts
+      );
+
+      const item = {
         instrumentId: c.instrument_id,
         interval: c.interval as CandleInterval,
-        timestamp: c.timestamp instanceof Date ? c.timestamp.toISOString() : String(c.timestamp),
+        timestamp: ts,
         open: c.open || '100.0000',
         high: c.high || '100.0000',
         low: c.low || '100.0000',
         close: c.close || '100.0000',
         volume: c.volume || '1000',
-      });
+      };
+
+      if (existingIdx >= 0) {
+        this.candles[existingIdx] = item;
+      } else {
+        this.candles.push(item);
+      }
     }
   }
 
