@@ -284,10 +284,28 @@
 
 ---
 
-### P. Future Phases Roadmap
+### P. Phase 9B: Sandboxed Strategy Execution Engine (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Strategy Executions Schema** | ✅ Completed | Migration `015_create_strategy_executions_tables.ts` introducing `strategy_executions` (`id`, `execution_id`, `user_id`, `strategy_id`, `strategy_version`, `instrument_symbol`, `timeframe`, `status`, `start_date`, `end_date`, `initial_capital`, `total_signals_count`, `buy_signals_count`, `sell_signals_count`, `signals_data`, `diagnostics`, `error_message`, timestamps) with cascading foreign keys and indexes. |
+| **Sandboxed AST Evaluator** | ✅ Completed | Pure AST interpreter running with zero `eval()`, zero `new Function()`, zero dynamic Node.js VM, and zero access to filesystem/network/OS. Safely evaluates arithmetic with zero-division protection, boolean short-circuiting, and crossing operations (`crosses_above`, `crosses_below`) across consecutive bars ($t-1$ and $t$). |
+| **Strategy Interpreter Engine** | ✅ Completed | Deterministic bar-by-bar chronological sequential evaluator. Pre-calculates declared technical indicators (`SMA`, `EMA`, `RSI`, `MACD`, `BollingerBands`, `VWAP`) and evaluates entry conditions -> `BUY` and exit conditions -> `SELL`. Enforces indicator lookback warmup safety (no false signals before indicators initialize). |
+| **Strict Anti-Lookahead Bias Guarantee** | ✅ Completed | Bar $t$ evaluations only read data available up to bar $t$. Truncation prefix verification demonstrates identical signal emission between partial and full histories. |
+| **Resource Bounds & Timeout Protection** | ✅ Completed | Hard bounds against denial-of-service: max bars ceiling (`DEFAULT_MAX_BARS = 10000`) and max execution duration (`DEFAULT_MAX_TIME_MS = 5000`), terminating long-running runs with state `TIMED_OUT`. |
+| **Execution Lifecycle State Machine** | ✅ Completed | Complete lifecycle progression: `QUEUED` $\to$ `VALIDATING` $\to$ `RUNNING` $\to$ `COMPLETED` / `FAILED` / `TIMED_OUT` / `CANCELLED`. |
+| **Server-Authoritative Execution REST APIs** | ✅ Completed | `POST /api/v1/strategies/:id/execute` (queues and executes strategy), `GET /api/v1/strategies/:id/executions` (lists execution history), `GET /api/v1/strategies/executions/:executionId` (fetches signals and diagnostics), `POST /api/v1/strategies/executions/:executionId/cancel` (cancels running execution). |
+| **Strict User Ownership Isolation** | ✅ Completed | User B cannot execute User A's private strategy (`403 FORBIDDEN_STRATEGY_ACCESS`), view executions (`403 FORBIDDEN_STRATEGY_ACCESS`), inspect execution signals (`403 FORBIDDEN_EXECUTION_ACCESS`), or cancel executions (`403 FORBIDDEN_EXECUTION_ACCESS`). |
+| **Strict Financial Isolation Invariant** | ✅ Completed | Strategy execution and signal generation are strictly analytical simulations. Zero mutations to `wallets`, `cash_ledger`, or live order matching queues. Maintain ₹0 additional API budget ($0 budget). |
+| **High-Concurrency Load Benchmark** | ✅ Completed | Verified 100 simultaneous concurrent strategy executions without race conditions, memory corruption, or performance bottlenecks. |
+| **Monorepo Automated Test Suite** | ✅ Completed | **316 Vitest tests passing across all 18 test suites with 100% pass rate** (19 strategy execution tests + 30 strategy tests + 16 achievement tests + 16 charting tests + 26 backtest/research tests + 24 chat tests + 20 competition tests + 21 news tests + 19 bot tests + 13 reliability tests + 15 WebSocket tests + 16 matching tests + 21 OMS tests + 15 instrument tests + 12 market tests + 16 wallet tests + 14 auth tests + 3 health tests). |
+
+---
+
+### Q. Future Phases Roadmap
 
 | Feature | Target Phase | Status |
 |---|---|---|
-| **Sandboxed Strategy Execution Engine** | Phase 9B | In Progress |
+| **Strategy Studio Frontend & Visual Builder** | Phase 9C | Planned |
 | **Mobile Responsive Progressive Web App (PWA)** | Phase 10 | Planned |
 

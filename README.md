@@ -153,8 +153,17 @@ TRADEGRID/
   * **Strict User Ownership Isolation:** User B cannot read, modify, duplicate, or delete User A's private strategies (`403 FORBIDDEN_STRATEGY_ACCESS`).
   * **Financial Isolation Safety Invariant:** DSL validation and strategy definitions are strictly analytical; zero modification to wallets, cash ledger, or live order matching.
 
+* [x] **Phase 9B — Sandboxed Strategy Execution Engine:**
+  * **Strategy Executions Schema:** Migration `015_create_strategy_executions_tables.ts` persisting execution runs, state machine progression, generated signals, and runtime diagnostics.
+  * **Sandboxed AST Interpreter:** Pure AST evaluator with zero `eval()`, zero `new Function()`, zero filesystem/OS access. Safely computes arithmetic (zero-division guarded), boolean short-circuiting, and bar-to-bar crossing operations (`crosses_above`, `crosses_below`).
+  * **Chronological Bar-by-Bar Sequential Engine:** Pre-computes declared indicators (`SMA`, `EMA`, `RSI`, `MACD`, `BollingerBands`, `VWAP`), enforces indicator lookback warmup periods, and generates alternating `BUY`/`SELL` signals.
+  * **Anti-Lookahead Bias Guarantee:** Strictly evaluates bar $t$ using only historical data available at $\le t$. Truncation prefix verification proves identical signal output between partial and full histories.
+  * **Execution Bounds & Timeout Protection:** Hard bounds against denial of service: maximum bar limits (10,000 candles) and strict execution timeout (5000ms), transitioning runaway executions to `TIMED_OUT`.
+  * **Execution REST APIs:** `POST /api/v1/strategies/:id/execute`, `GET /api/v1/strategies/:id/executions`, `GET /api/v1/strategies/executions/:executionId`, and `POST /api/v1/strategies/executions/:executionId/cancel`.
+  * **Strict Financial Invariant:** Purely analytical signals; zero modification to virtual cash, wallets, ledger transactions, or live order books. $0 budget objective maintained.
+
 ### Automated Testing Suite
-* **297 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 17 test suites:
+* **316 automated unit, integration, and load tests** passing in Vitest with **100% pass rate** across 18 test suites:
   * `tests/health.test.ts` (3 tests)
   * `tests/auth.test.ts` (14 tests)
   * `tests/wallet.test.ts` (16 tests)
@@ -168,13 +177,11 @@ TRADEGRID/
   * `tests/news.test.ts` (21 tests, verifying Phase 5C news schemas, disclaimers, RBAC, lifecycle, decay math, scope weighting, bot integration, financial invariants, real-time events, and 100-client load benchmark)
   * `tests/competitions.test.ts` (20 tests, verifying Phase 5D competition lifecycle, participant enrollment, private join codes, capacity limits, isolated trading, matching, wash prevention, server-authoritative rankings, tie-breakers, post-completion freeze, WebSocket authorization, and 100-client load benchmark)
   * `tests/chat.test.ts` (24 tests, verifying Phase 5E chat rooms, symbol validation, DMs, @mentions, notifications, rate limiting, XSS sanitization, blocking, reporting, admin moderation, and 100-client load benchmark)
-  * `tests/backtest.test.ts` (26 tests, verifying Phase 6 indicators, backtest execution, performance metrics, signals, and insights)
-  * `tests/charting.test.ts` (16 tests, verifying Phase 7 indicators, volume profile POC/VAH/VAL, user preferences, and 100-user load benchmark)
-  * `tests/achievements.test.ts` (16 tests, verifying Phase 8 achievements, idempotent unlocking, leveling math, leaderboards, and 100-user load benchmark)
-  * `tests/strategies.test.ts` (30 tests, verifying Phase 9A DSL lexer, parser, static validator, REST APIs, user ownership isolation, and 100-user load benchmark)
   * `tests/backtest.test.ts` (26 tests, verifying Phase 6 indicator mathematics, strategy reproducibility, anti-lookahead bias, slippage/commission, Sharpe/Sortino ratios, drawdown math, signals scanner, portfolio HHI, and AI commentary)
   * `tests/charting.test.ts` (16 tests, verifying Phase 7 VWAP, Stochastic, Bollinger Bands, Volume Profile POC/VAH/VAL, user chart workspace isolation, reset defaults, and 100-user concurrency benchmark)
   * `tests/achievements.test.ts` (16 tests, verifying Phase 8 master definitions, server-authoritative idempotent unlocking, anti-double-credit guarantees, 100 pts/level math, title evolution, user isolation, public showcase privacy, global leaderboard, action triggers, and 100-user concurrency benchmark)
+  * `tests/strategies.test.ts` (30 tests, verifying Phase 9A DSL lexer, parser, static validator, REST APIs, user ownership isolation, and 100-user load benchmark)
+  * `tests/strategy-execution.test.ts` (19 tests, verifying Phase 9B AST evaluator, deterministic signals, anti-lookahead bias, timeout protection, REST APIs, user ownership isolation, and 100 concurrent executions benchmark)
 
 ---
 

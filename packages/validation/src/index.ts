@@ -1165,6 +1165,8 @@ export const createStrategyVersionSchema = z.object({
 export type CreateStrategyVersionInput = z.infer<typeof createStrategyVersionSchema>;
 
 export const executeStrategySchema = z.object({
+  version: z.number().int().positive().optional(),
+  timeframe: z.string().trim().max(8).optional(),
   startDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
   endDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
   initialCapital: z

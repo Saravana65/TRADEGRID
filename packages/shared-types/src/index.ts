@@ -1740,8 +1740,8 @@ export interface IndicatorDeclarationNode {
   name: string;
   indicatorName: string;
   args: any[];
-  line?: number;
-  column?: number;
+  line: number;
+  column: number;
 }
 
 export interface DSLAST {

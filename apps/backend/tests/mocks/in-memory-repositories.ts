@@ -2924,6 +2924,131 @@ export class InMemoryStrategyRepository implements IStrategyRepository {
   }
 }
 
+// ============================================================================
+// Phase 9B: In-Memory Strategy Execution Repository
+// ============================================================================
+
+import {
+  IStrategyExecutionRepository,
+  CreateExecutionData,
+} from '../../src/modules/strategies/execution/execution.types';
+import {
+  StrategyExecution,
+  StrategySignal,
+  ExecutionStatus,
+} from '@tradegrid/shared-types';
+
+export class InMemoryStrategyExecutionRepository implements IStrategyExecutionRepository {
+  private executions: Map<string, StrategyExecution> = new Map();
+  private signalsMap: Map<string, StrategySignal[]> = new Map();
+  private nextId = 1;
+
+  async createExecution(data: CreateExecutionData): Promise<StrategyExecution> {
+    const id = this.nextId++;
+    const now = new Date().toISOString();
+    const exec: StrategyExecution = {
+      id,
+      executionId: data.executionId,
+      userId: data.userId,
+      strategyId: data.strategyId,
+      strategyVersion: data.strategyVersion,
+      instrumentSymbol: data.instrumentSymbol,
+      timeframe: data.timeframe,
+      status: data.status || 'QUEUED',
+      startDate: data.startDate,
+      endDate: data.endDate,
+      initialCapital: data.initialCapital || '100000.0000',
+      totalSignalsCount: 0,
+      buySignalsCount: 0,
+      sellSignalsCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.executions.set(data.executionId, exec);
+    return { ...exec };
+  }
+
+  async findById(id: number): Promise<StrategyExecution | null> {
+    const found = Array.from(this.executions.values()).find((e) => e.id === id);
+    return found ? { ...found } : null;
+  }
+
+  async findByExecutionId(executionId: string): Promise<StrategyExecution | null> {
+    const found = this.executions.get(executionId);
+    return found ? { ...found } : null;
+  }
+
+  async findByStrategyId(strategyId: number, userId: number): Promise<StrategyExecution[]> {
+    return Array.from(this.executions.values())
+      .filter((e) => e.strategyId === strategyId && e.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async findByUserId(userId: number): Promise<StrategyExecution[]> {
+    return Array.from(this.executions.values())
+      .filter((e) => e.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async updateStatus(
+    executionId: string,
+    userId: number,
+    status: ExecutionStatus,
+    errorMessage?: string
+  ): Promise<StrategyExecution | null> {
+    const exec = this.executions.get(executionId);
+    if (!exec || exec.userId !== userId) return null;
+
+    exec.status = status;
+    exec.updatedAt = new Date().toISOString();
+    if (errorMessage) exec.errorMessage = errorMessage;
+    this.executions.set(executionId, exec);
+    return { ...exec };
+  }
+
+  async saveResults(
+    executionId: string,
+    userId: number,
+    data: {
+      status: ExecutionStatus;
+      signals: StrategySignal[];
+      diagnostics: {
+        executionTimeMs: number;
+        barsProcessed: number;
+        memoryUsedKb?: number;
+      };
+      errorMessage?: string;
+    }
+  ): Promise<StrategyExecution | null> {
+    const exec = this.executions.get(executionId);
+    if (!exec || exec.userId !== userId) return null;
+
+    exec.status = data.status;
+    exec.totalSignalsCount = data.signals.length;
+    exec.buySignalsCount = data.signals.filter((s) => s.signalType === 'BUY').length;
+    exec.sellSignalsCount = data.signals.filter((s) => s.signalType === 'SELL').length;
+    exec.executionDurationMs = data.diagnostics.executionTimeMs;
+    exec.updatedAt = new Date().toISOString();
+    if (data.errorMessage) exec.errorMessage = data.errorMessage;
+
+    this.executions.set(executionId, exec);
+    this.signalsMap.set(executionId, data.signals);
+    return { ...exec };
+  }
+
+  async getSignals(executionId: string, userId: number): Promise<StrategySignal[]> {
+    const exec = this.executions.get(executionId);
+    if (!exec || exec.userId !== userId) return [];
+    return this.signalsMap.get(executionId) || [];
+  }
+
+  clear(): void {
+    this.executions.clear();
+    this.signalsMap.clear();
+    this.nextId = 1;
+  }
+}
+
 
 
 
