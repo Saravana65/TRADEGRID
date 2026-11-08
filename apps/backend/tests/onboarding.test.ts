@@ -68,7 +68,7 @@ describe('Phase 12B: User Onboarding and Interactive Documentation', () => {
       const res = await request(app).get('/api/v1/onboarding/guide');
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.version).toBe('1.0.0-beta.1');
+      expect(res.body.data.version).toBe('1.0.0-rc.1');
       expect(res.body.data.disclaimer).toContain('100% VIRTUAL SIMULATOR');
       expect(res.body.data.keyFeatures.length).toBeGreaterThanOrEqual(5);
       expect(res.body.data.checklist).toBeUndefined(); // Unauthenticated call has no personalized checklist

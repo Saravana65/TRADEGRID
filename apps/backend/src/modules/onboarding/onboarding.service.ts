@@ -151,7 +151,7 @@ export class OnboardingService {
 
     return {
       title: 'TRADEGRID Trader Onboarding & User Manual',
-      version: '1.0.0-beta.1',
+      version: '1.0.0-rc.1',
       disclaimer:
         'TRADEGRID IS A 100% VIRTUAL SIMULATOR. ALL QUOTES, CASH BALANCES, EXECUTIONS, AND POSITIONS ARE FICTIONAL AND HAVE ZERO REAL MONETARY VALUE. NO REAL BROKERAGE CONNECTIONS ARE AUTHORIZED.',
       checklist,

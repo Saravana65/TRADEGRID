@@ -35,9 +35,9 @@ export interface BetaStatus {
 export class BetaEnvironmentService {
   private static instance: BetaEnvironmentService;
 
-  public readonly version: string = '1.0.0-beta.1';
+  public readonly version: string = '1.0.0-rc.1';
   public readonly releaseChannel: 'beta' = 'beta';
-  public readonly stage: string = 'Controlled Beta Launch';
+  public readonly stage: string = 'Release Candidate 1';
   public readonly isVirtualTradingOnly: true = true; // Hard immutable invariant
   public readonly disclaimer: string =
     'TRADEGRID IS A 100% VIRTUAL SIMULATOR. ALL QUOTES, CASH BALANCES, EXECUTIONS, AND POSITIONS ARE FICTIONAL AND HAVE ZERO REAL MONETARY VALUE. NO REAL BROKERAGE CONNECTIONS ARE AUTHORIZED.';

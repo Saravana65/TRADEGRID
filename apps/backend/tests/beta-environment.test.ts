@@ -77,9 +77,9 @@ describe('Phase 12A: Controlled Beta Environment & Release Management', () => {
   });
 
   describe('1. Release Metadata & Safety Invariant', () => {
-    it('should report release version v1.0.0-beta.1 on beta channel', () => {
+    it('should report release version v1.0.0-rc.1 on beta channel', () => {
       const status = betaService.getBetaStatus();
-      expect(status.version).toBe('1.0.0-beta.1');
+      expect(status.version).toBe('1.0.0-rc.1');
       expect(status.releaseChannel).toBe('beta');
       expect(status.isVirtualTradingOnly).toBe(true);
       expect(status.disclaimer).toContain('100% VIRTUAL SIMULATOR');
@@ -126,7 +126,7 @@ describe('Phase 12A: Controlled Beta Environment & Release Management', () => {
       const res = await request(app).get('/api/v1/beta/status');
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.version).toBe('1.0.0-beta.1');
+      expect(res.body.data.version).toBe('1.0.0-rc.1');
       expect(res.body.data.isVirtualTradingOnly).toBe(true);
       expect(res.body.data.features.VIRTUAL_TRADING_ONLY).toBe(true);
     });
