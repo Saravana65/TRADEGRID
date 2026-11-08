@@ -148,7 +148,62 @@ export function createApp(dependencies: AppDependencies = {}): Application {
     });
   }
 
-  // 5. Health Check Endpoint
+  // 5. Health Check Endpoints (Liveness, Readiness, Backward Compatible Health)
+  const handleLiveness = (_req: Request, res: Response) => {
+    res.status(200).json({
+      success: true,
+      data: {
+        status: 'alive',
+        service: 'tradegrid-backend',
+        version: '1.0.0',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+      },
+      message: 'Process is alive',
+    });
+  };
+
+  const handleReadiness = async (_req: Request, res: Response) => {
+    const isDbConnected = dependencies.customCheckDb
+      ? await dependencies.customCheckDb()
+      : await checkDatabaseConnection();
+
+    let providerStatus: any = { activeProvider: 'SIMULATED_PROVIDER', isFallbackActive: false };
+    let queueMetrics: any = { isDraining: false };
+
+    try {
+      const { marketDataProviderRegistry } = await import('./modules/market/provider-registry');
+      providerStatus = marketDataProviderRegistry.getRegistryStatus();
+    } catch {}
+
+    try {
+      const { defaultJobQueue } = await import('./infrastructure/queue/job-queue');
+      queueMetrics = defaultJobQueue.getMetrics();
+    } catch {}
+
+    const isReady = isDbConnected && !queueMetrics.isDraining;
+    const statusCode = isReady ? 200 : 503;
+
+    res.status(statusCode).json({
+      success: isReady,
+      data: {
+        status: isReady ? 'ready' : 'not_ready',
+        database: isDbConnected ? 'connected' : 'disconnected',
+        activeMarketProvider: providerStatus.activeProvider,
+        isFallbackActive: providerStatus.isFallbackActive,
+        queue: queueMetrics,
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+      },
+      message: isReady ? 'TRADEGRID services ready to accept traffic' : 'Service dependencies degraded',
+    });
+  };
+
+  app.get('/health/liveness', handleLiveness);
+  app.get('/api/v1/health/liveness', handleLiveness);
+  app.get('/health/readiness', handleReadiness);
+  app.get('/api/v1/health/readiness', handleReadiness);
+
   app.get('/api/v1/health', async (_req: Request, res: Response) => {
     const isDbConnected = dependencies.customCheckDb
       ? await dependencies.customCheckDb()
