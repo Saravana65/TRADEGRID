@@ -31,29 +31,29 @@ export const RegisterPage: React.FC = () => {
   const hasNumber = /[0-9]/.test(password);
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-black relative overflow-hidden select-none transition-colors duration-200">
+    <div className="min-h-screen w-screen flex items-center justify-center p-4 bg-neutral-50 dark:bg-black relative overflow-hidden select-none transition-colors duration-200">
       {/* Top Bar Theme Switcher */}
       <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
 
-      {/* Subtle Grid Pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] dark:bg-[radial-gradient(#262626_1px,transparent_1px)] [background-size:24px_24px] opacity-25 pointer-events-none" />
+      {/* Subtle Neutral Grid Pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(#d4d4d4_1px,transparent_1px)] dark:bg-[radial-gradient(#262626_1px,transparent_1px)] [background-size:24px_24px] opacity-35 pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="w-full max-w-md bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] rounded-3xl shadow-xl dark:shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden relative z-10"
+        className="w-full max-w-md bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-3xl shadow-xl dark:shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden relative z-10"
       >
-        <div className="border-b border-slate-100 dark:border-[#1F1F1F] p-6 text-center bg-slate-50/50 dark:bg-[#0D0D0D]">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-slate-100 dark:bg-[#171717] text-slate-900 dark:text-white border border-slate-200 dark:border-[#262626] mb-3 shadow-sm">
+        <div className="border-b border-neutral-100 dark:border-[#1F1F1F] p-6 text-center bg-neutral-50/50 dark:bg-[#0D0D0D]">
+          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-neutral-100 dark:bg-[#171717] text-neutral-900 dark:text-white border border-neutral-200 dark:border-[#262626] mb-3 shadow-sm">
             <TrendingUp className="w-7 h-7" />
           </div>
-          <h1 className="text-2xl font-bold font-sans tracking-tight text-slate-900 dark:text-white">
-            JOIN TRADE<span className="text-slate-500 dark:text-neutral-400 font-semibold">GRID</span>
+          <h1 className="text-2xl font-bold font-sans tracking-tight text-neutral-900 dark:text-white">
+            JOIN TRADE<span className="text-neutral-500 dark:text-neutral-400 font-semibold">GRID</span>
           </h1>
-          <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 font-sans">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
             Create Virtual Account • Receive $100,000 Starting Cash
           </p>
         </div>
