@@ -13,7 +13,7 @@ export async function up(knex: Knex): Promise<void> {
       ])
       .notNullable();
     table
-      .bigInteger('owner_user_id')
+      .integer('owner_user_id')
       .unsigned()
       .nullable()
       .references('id')
@@ -35,7 +35,7 @@ export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable('wallets', (table) => {
     table.bigIncrements('id').unsigned().primary();
     table
-      .bigInteger('user_id')
+      .integer('user_id')
       .unsigned()
       .notNullable()
       .unique()
@@ -68,7 +68,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string('description', 255).notNullable();
     table.string('idempotency_key', 128).nullable().unique();
     table
-      .bigInteger('created_by')
+      .integer('created_by')
       .unsigned()
       .nullable()
       .references('id')

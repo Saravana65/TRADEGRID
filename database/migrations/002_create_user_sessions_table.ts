@@ -2,9 +2,9 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable('user_sessions', (table) => {
-    table.bigIncrements('id').unsigned().primary();
+    table.increments('id').primary();
     table
-      .bigInteger('user_id')
+      .integer('user_id')
       .unsigned()
       .notNullable()
       .references('id')

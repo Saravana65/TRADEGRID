@@ -132,7 +132,7 @@ export async function up(knex: Knex): Promise<void> {
     table.decimal('realized_pnl', 19, 4).notNullable().defaultTo(0.0000);
     table.timestamps(true, true);
 
-    table.unique(['competition_id', 'user_id', 'instrument_id']);
+    table.unique(['competition_id', 'user_id', 'instrument_id'], 'uniq_comp_pos_comp_user_inst');
   });
 
   // 5. Competition Orders
@@ -246,7 +246,7 @@ export async function up(knex: Knex): Promise<void> {
     table.json('snapshot_data').notNullable();
     table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
 
-    table.index(['competition_id', 'is_final', 'created_at']);
+    table.index(['competition_id', 'is_final', 'created_at'], 'idx_cls_comp_final_created');
   });
 
   // 8. Competition Audit Logs
