@@ -8,6 +8,7 @@ import { orderBookRecoveryService } from './modules/matching/order-book-recovery
 import { botScheduler } from './modules/bots';
 import { newsScheduler } from './modules/news';
 import { competitionScheduler } from './modules/competitions';
+import { simulatedMarketFeedService } from './modules/market/simulated-feed.service';
 
 let server: http.Server;
 
@@ -54,12 +55,25 @@ async function startServer() {
     } catch (err: any) {
       logger.error(`[BOOTSTRAP] Failed to start competition scheduler: ${err.message}`);
     }
+
+    // Phase 10: Start continuous simulated market data generator for real-time charting
+    try {
+      simulatedMarketFeedService.start(1500);
+    } catch (err: any) {
+      logger.error(`[BOOTSTRAP] Failed to start simulated market feed: ${err.message}`);
+    }
   });
 }
 
 // Graceful Shutdown Handling
 async function handleShutdown(signal: string) {
   logger.info(`Received ${signal}. Initiating graceful shutdown...`);
+
+  try {
+    simulatedMarketFeedService.stop();
+  } catch (err: any) {
+    logger.error(`[SHUTDOWN] Failed to stop simulated market feed: ${err.message}`);
+  }
 
   try {
     await botScheduler.stop();

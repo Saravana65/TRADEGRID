@@ -221,7 +221,7 @@ export const CompetitionsPage: React.FC = () => {
             <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/30">
               <Trophy className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white font-mono">
+            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight  text-slate-900 dark:text-white  font-mono">
               Trading Competitions
             </h1>
           </div>
@@ -234,7 +234,7 @@ export const CompetitionsPage: React.FC = () => {
         <div className="flex items-center gap-3 relative z-10">
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm transition-all shadow-lg shadow-cyan-500/20 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-black hover:bg-black dark:hover:bg-neutral-200 font-semibold text-sm transition-all shadow-sm active:translate-y-0.5"
           >
             <Plus className="w-4 h-4" />
             Create Competition

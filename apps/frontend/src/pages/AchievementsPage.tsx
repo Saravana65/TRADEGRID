@@ -185,7 +185,7 @@ export const AchievementsPage: React.FC = () => {
 
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-bold text-white tracking-tight">
+                <h1 className="text-2xl font-bold  text-slate-900 dark:text-white  tracking-tight">
                   {user?.username}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/40">
@@ -254,13 +254,13 @@ export const AchievementsPage: React.FC = () => {
       {/* Tabs & Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {/* Main View Tab Selector */}
-        <div className="flex items-center bg-slate-900/80 border border-card-border p-1 rounded-xl">
+        <div className="flex items-center bg-slate-100 dark:bg-[#141414] border border-slate-200 dark:border-[#222222] p-1 rounded-xl">
           <button
             onClick={() => setActiveTab('catalog')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'catalog'
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-black shadow-sm'
+                : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Award className="w-4 h-4" />
@@ -270,8 +270,8 @@ export const AchievementsPage: React.FC = () => {
             onClick={() => setActiveTab('leaderboard')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'leaderboard'
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-black shadow-sm'
+                : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Users className="w-4 h-4" />

@@ -56,31 +56,31 @@ export const AdvancedChartingPage: React.FC = () => {
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto p-2 sm:p-4">
       {/* Top Bar: Active Instrument Ticker & Controls */}
-      <div className="bg-[#0B0F19] border border-card-border rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+      <div className="bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4">
           {/* Quick Symbol Switcher Popover */}
           <div className="relative">
             <button
               onClick={() => setIsSymbolSelectorOpen(!isSymbolSelectorOpen)}
-              className="flex items-center gap-2 bg-[#131B2E] hover:bg-slate-800 text-white px-3.5 py-2 rounded-lg border border-card-border font-bold text-lg tracking-wide transition-colors"
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-[#141414] dark:hover:bg-[#1A1A1A] text-slate-900 dark:text-white px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#262626] font-bold text-lg tracking-wide transition-colors"
             >
               <span>{symbol}</span>
-              <span className="text-xs bg-blue-600/30 text-blue-400 px-1.5 py-0.5 rounded font-normal">
+              <span className="text-xs bg-slate-200 dark:bg-[#262626] text-slate-700 dark:text-neutral-300 px-1.5 py-0.5 rounded font-mono font-normal">
                 {selectedInstrument?.exchange || 'NSE'}
               </span>
               <Search className="w-3.5 h-3.5 text-slate-400 ml-1" />
             </button>
 
             {isSymbolSelectorOpen && (
-              <div className="absolute top-full left-0 mt-2 w-72 bg-[#0F172A] border border-card-border rounded-xl shadow-2xl p-3 z-40">
+              <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#0D0D0D] border border-slate-200 dark:border-[#262626] rounded-2xl shadow-2xl p-3 z-40">
                 <div className="relative mb-2">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 dark:text-neutral-500" />
                   <input
                     type="text"
                     placeholder="Search instrument..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-[#1E293B] border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-[#262626] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none"
                     autoFocus
                   />
                 </div>
@@ -89,10 +89,10 @@ export const AdvancedChartingPage: React.FC = () => {
                     <button
                       key={inst.symbol}
                       onClick={() => handleSelectSymbol(inst.symbol)}
-                      className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${
+                      className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors ${
                         inst.symbol === symbol
-                          ? 'bg-blue-600 text-white font-semibold'
-                          : 'text-slate-300 hover:bg-slate-800/80'
+                          ? 'bg-slate-900 dark:bg-white text-white dark:text-black font-semibold'
+                          : 'text-slate-700 dark:text-neutral-300 hover:bg-slate-100 dark:hover:bg-[#171717]'
                       }`}
                     >
                       <div className="text-left">
@@ -101,7 +101,7 @@ export const AdvancedChartingPage: React.FC = () => {
                           {inst.name}
                         </span>
                       </div>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-slate-400 font-mono">
                         {inst.exchange}
                       </span>
                     </button>
@@ -113,7 +113,7 @@ export const AdvancedChartingPage: React.FC = () => {
 
           {/* Current Live Price & Daily Change */}
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black font-mono text-white tracking-tight">
+            <span className="text-2xl font-black font-mono text-slate-900 dark:text-white tracking-tight">
               {formatCurrency(price)}
             </span>
             <span
@@ -178,7 +178,7 @@ export const AdvancedChartingPage: React.FC = () => {
       <AdvancedTradingChart symbol={symbol} height={620} showToolbar={true} />
 
       {/* Feature & Transparency Badge */}
-      <div className="bg-[#0B0F19] border border-card-border rounded-xl p-3 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
+      <div className="bg-[#0D0D0D] border border-card-border rounded-xl p-3 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
         <div className="flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 text-blue-400" />
           <span>

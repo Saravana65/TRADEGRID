@@ -178,7 +178,7 @@ export const WatchlistPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white">Custom Watchlists</h1>
+          <h1 className="text-xl font-bold  text-slate-900 dark:text-white ">Custom Watchlists</h1>
           <p className="text-xs text-slate-400 mt-1">
             Pin and track your favorite simulated equities for rapid execution.
           </p>

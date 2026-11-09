@@ -9,7 +9,7 @@ export const NotFoundPage: React.FC = () => {
       <div className="p-4 rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
         <AlertCircle className="w-12 h-12" />
       </div>
-      <h1 className="text-3xl font-bold font-mono text-white">404 — PAGE NOT FOUND</h1>
+      <h1 className="text-3xl font-bold font-mono  text-slate-900 dark:text-white ">404 — PAGE NOT FOUND</h1>
       <p className="text-xs text-slate-400 max-w-sm">
         The trading desk or endpoint you requested does not exist on the TRADEGRID platform.
       </p>

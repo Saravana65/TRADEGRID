@@ -1,37 +1,35 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useMarketStore } from '../store/marketStore';
 import { useWalletStore } from '../store/walletStore';
 import { useOrderStore } from '../store/orderStore';
-import { useAuthStore } from '../store/authStore';
 import { tradeApiService } from '../services/trade.service';
-import { newsApiService } from '../services/news.service';
+import { portfolioApiService } from '../services/portfolio.service';
 import { socketService } from '../services/socket.service';
 import { formatCurrency, formatNumber, formatDate } from '../utils/formatters';
-import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { Input } from '../components/common/Input';
-import { Badge } from '../components/common/Badge';
 import { AdvancedTradingChart } from '../components/charting/AdvancedTradingChart';
-import { OrderSide, OrderType, OrderBook, Trade, ActiveCatalystSummary } from '@tradegrid/shared-types';
+import {
+  OrderSide,
+  OrderType,
+  OrderBook,
+  Trade,
+  PortfolioPosition,
+} from '@tradegrid/shared-types';
 import {
   ArrowUpRight,
   ArrowDownRight,
+  Search,
+  ChevronLeft,
+  ChevronRight,
   AlertCircle,
   CheckCircle,
-  XCircle,
-  Clock,
-  RefreshCw,
-  Search,
   ExternalLink,
-  Ban,
-  Activity,
-  Radio,
 } from 'lucide-react';
 
 export const TradingTerminalPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const symbol = searchParams.get('symbol') || 'TGRID';
+  const symbol = (searchParams.get('symbol') || 'TGRID').toUpperCase();
 
   // Stores
   const {
@@ -40,14 +38,13 @@ export const TradingTerminalPage: React.FC = () => {
     selectedQuote,
     fetchInstruments,
     fetchInstrumentDetail,
-    isLoadingDetail,
+    quotes,
   } = useMarketStore();
 
   const { balance: availableCash, fetchWalletSummary } = useWalletStore();
   const {
     orders,
-    isLoading: isLoadingOrders,
-    isSubmitting,
+    isLoading: isSubmitting,
     cancellingOrderId,
     error: orderError,
     successMessage,
@@ -58,1012 +55,743 @@ export const TradingTerminalPage: React.FC = () => {
     clearSuccess,
   } = useOrderStore();
 
-  // Local Form State
+  // Panels visibility state
+  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+  const [leftTab, setLeftTab] = useState<'ALL' | 'SIMULATED' | 'REAL'>('ALL');
+  const [symbolSearch, setSymbolSearch] = useState('');
+
+  // Order Form State
   const [orderSide, setOrderSide] = useState<OrderSide>('BUY');
   const [orderType, setOrderType] = useState<OrderType>('LIMIT');
-  const [quantity, setQuantity] = useState('10.0000');
-  const [limitPrice, setLimitPrice] = useState('250.0000');
-  const [activeTab, setActiveTab] = useState<'open' | 'history'>('open');
-  const [symbolSearch, setSymbolSearch] = useState('');
-  const [showSymbolPicker, setShowSymbolPicker] = useState(false);
+  const [quantity, setQuantity] = useState('10');
+  const [limitPrice, setLimitPrice] = useState('142.50');
 
-  const { user } = useAuthStore();
-  const lastBookSeq = useRef<number>(0);
+  // Bottom dock active tab
+  const [bottomTab, setBottomTab] = useState<'open' | 'positions' | 'history' | 'trades'>('open');
 
-  // Live Order Book & Trade Tape State
+  // Market Depth & Tape
   const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
-  const [isLoadingBook, setIsLoadingBook] = useState(false);
-  const [activeCatalyst, setActiveCatalyst] = useState<ActiveCatalystSummary | null>(null);
+  const [portfolioPositions, setPortfolioPositions] = useState<PortfolioPosition[]>([]);
 
-  // Active Catalyst Impact for Current Symbol / Sector
-  const checkActiveCatalysts = useCallback(async () => {
-    try {
-      const catalysts = await newsApiService.getActiveCatalysts();
-      const sym = (selectedInstrument?.symbol || symbol).toUpperCase();
-      const sec = selectedInstrument?.sector;
-      const matching = catalysts.find(
-        (c) =>
-          (c.targetScope === 'INSTRUMENT' && c.targetSymbol?.toUpperCase() === sym) ||
-          (c.targetScope === 'SECTOR' &&
-            c.targetSector &&
-            sec &&
-            c.targetSector.toLowerCase() === sec.toLowerCase()) ||
-          c.targetScope === 'MARKET'
-      );
-      setActiveCatalyst(matching || null);
-    } catch {
-      // Silently catch catalyst lookup
-    }
-  }, [selectedInstrument, symbol]);
-
-  // Fetch Order Book & Market Tape Initial Baseline
-  const fetchMarketDepth = useCallback(async () => {
-    const sym = selectedInstrument?.symbol || symbol;
-    if (!sym) return;
-    setIsLoadingBook(true);
-    try {
-      const [bookData, tradesData] = await Promise.all([
-        tradeApiService.getOrderBook(sym, 12),
-        tradeApiService.getRecentMarketTrades(sym, 20),
-      ]);
-      setOrderBook(bookData);
-      setRecentTrades(tradesData);
-      lastBookSeq.current = (bookData as any).sequenceNumber || 0;
-    } catch {
-      // Fallback
-    } finally {
-      setIsLoadingBook(false);
-    }
-  }, [selectedInstrument, symbol]);
-
-  // Initial Boot & Route Param Listeners
+  // Initial load
   useEffect(() => {
-    fetchInstruments();
-    fetchOrders();
     fetchWalletSummary();
-  }, [fetchInstruments, fetchOrders, fetchWalletSummary]);
+    fetchOrders();
+    fetchInstruments();
+    portfolioApiService.getPortfolioSummary().then((res) => {
+      setPortfolioPositions(res.positions || []);
+    }).catch(() => {});
+  }, [fetchWalletSummary, fetchOrders, fetchInstruments]);
 
+  // Load symbol detail & market depth
   useEffect(() => {
-    if (symbol) {
-      fetchInstrumentDetail(symbol);
-    }
-  }, [symbol, fetchInstrumentDetail]);
+    fetchInstrumentDetail(symbol);
 
-  useEffect(() => {
-    fetchMarketDepth();
-    checkActiveCatalysts();
-  }, [fetchMarketDepth, checkActiveCatalysts]);
+    tradeApiService.getOrderBook(symbol, 10).then(setOrderBook).catch(() => {});
+    tradeApiService.getRecentMarketTrades(symbol, 20).then(setRecentTrades).catch(() => {});
 
-  // Real-time WebSocket Channel Bindings
-  useEffect(() => {
-    const activeSym = symbol.toUpperCase();
-    const obChannel = `orderbook:${activeSym}`;
-    const tradesChannel = `trades:${activeSym}`;
-    const marketChannel = `market:${activeSym}`;
-    const userChannel = user?.id ? `user:${user.id}` : null;
-
-    socketService.subscribe(obChannel);
+    // Subscribe to symbol channels
+    const bookChannel = `orderbook:${symbol}`;
+    const tradesChannel = `trades:${symbol}`;
+    socketService.subscribe(bookChannel);
     socketService.subscribe(tradesChannel);
-    socketService.subscribe(marketChannel);
-    socketService.subscribe('news');
-    if (userChannel) {
-      socketService.subscribe(userChannel);
-    }
 
-    const handleSnapshot = (snapshot: OrderBook) => {
-      if (snapshot.symbol.toUpperCase() === activeSym) {
-        setOrderBook(snapshot);
-        lastBookSeq.current = (snapshot as any).sequenceNumber || 0;
+    const handleDepth = (depthEvent: any) => {
+      if (depthEvent?.symbol?.toUpperCase() === symbol) {
+        setOrderBook((prev) => ({
+          symbol,
+          instrumentId: prev?.instrumentId || selectedInstrument?.id || 1,
+          bids: depthEvent.depth?.bids || prev?.bids || [],
+          asks: depthEvent.depth?.asks || prev?.asks || [],
+          timestamp: depthEvent.timestamp || new Date().toISOString(),
+        }));
       }
     };
 
-    const handleDepthUpdate = (delta: { symbol: string; sequenceNumber: number; orderBook: OrderBook }) => {
-      if (delta.symbol.toUpperCase() === activeSym) {
-        setOrderBook(delta.orderBook);
-        lastBookSeq.current = delta.sequenceNumber || 0;
+    const handleTradeTape = (tradeEvent: any) => {
+      if (tradeEvent?.symbol?.toUpperCase() === symbol && tradeEvent?.trade) {
+        setRecentTrades((prev) => [tradeEvent.trade, ...prev.slice(0, 24)]);
       }
     };
 
-    const handleTapeUpdate = (newTrades: Trade[]) => {
-      setRecentTrades((prev) => {
-        const filtered = newTrades.filter(
-          (t) => t.symbol?.toUpperCase() === activeSym || !t.symbol
-        );
-        const combined = [...filtered, ...prev];
-        const unique = Array.from(new Map(combined.map((t) => [t.id, t])).values());
-        return unique.slice(0, 30);
-      });
-    };
-
-    const handleOrderEvent = () => {
-      fetchOrders();
-    };
-
-    const handlePortfolioEvent = () => {
-      fetchWalletSummary();
-    };
-
-    socketService.on('orderbook:snapshot', handleSnapshot);
-    socketService.on('orderbook:depth_update', handleDepthUpdate);
-    socketService.on('trade:tape_update', handleTapeUpdate);
-    socketService.on('order:accepted', handleOrderEvent);
-    socketService.on('order:partially_filled', handleOrderEvent);
-    socketService.on('order:filled', handleOrderEvent);
-    socketService.on('order:cancelled', handleOrderEvent);
-    socketService.on('portfolio:updated', handlePortfolioEvent);
-
-    const handleNewsChange = () => {
-      checkActiveCatalysts();
-    };
-
-    socketService.on('news:published', handleNewsChange);
-    socketService.on('news:updated', handleNewsChange);
-    socketService.on('news:expired', handleNewsChange);
-    socketService.on('news:catalyst:started', handleNewsChange);
-    socketService.on('news:catalyst:completed', handleNewsChange);
+    socketService.on('orderbook:depth_update', handleDepth);
+    socketService.on('trade:tape_update', handleTradeTape);
 
     return () => {
-      socketService.unsubscribe(obChannel);
+      socketService.unsubscribe(bookChannel);
       socketService.unsubscribe(tradesChannel);
-      socketService.unsubscribe(marketChannel);
-      socketService.unsubscribe('news');
-      if (userChannel) {
-        socketService.unsubscribe(userChannel);
-      }
-      socketService.off('orderbook:snapshot', handleSnapshot);
-      socketService.off('orderbook:depth_update', handleDepthUpdate);
-      socketService.off('trade:tape_update', handleTapeUpdate);
-      socketService.off('order:accepted', handleOrderEvent);
-      socketService.off('order:partially_filled', handleOrderEvent);
-      socketService.off('order:filled', handleOrderEvent);
-      socketService.off('order:cancelled', handleOrderEvent);
-      socketService.off('portfolio:updated', handlePortfolioEvent);
-      socketService.off('news:published', handleNewsChange);
-      socketService.off('news:updated', handleNewsChange);
-      socketService.off('news:expired', handleNewsChange);
-      socketService.off('news:catalyst:started', handleNewsChange);
-      socketService.off('news:catalyst:completed', handleNewsChange);
+      socketService.off('orderbook:depth_update', handleDepth);
+      socketService.off('trade:tape_update', handleTradeTape);
     };
-  }, [symbol, user?.id, fetchOrders, fetchWalletSummary, checkActiveCatalysts]);
+  }, [symbol, fetchInstrumentDetail]);
 
-  // Update limit price default when quote loads
+  // Pre-fill limit price with current quote price when symbol changes
   useEffect(() => {
-    if (selectedQuote && parseFloat(selectedQuote.lastPrice) > 0) {
-      setLimitPrice(parseFloat(selectedQuote.lastPrice).toFixed(4));
+    if (selectedQuote?.lastPrice) {
+      setLimitPrice(parseFloat(selectedQuote.lastPrice).toFixed(2));
     }
-  }, [selectedQuote]);
+  }, [selectedQuote?.lastPrice, symbol]);
 
-  // Calculations
-  const parsedQty = parseFloat(quantity) || 0;
-  const effectivePrice =
-    orderType === 'LIMIT'
-      ? parseFloat(limitPrice) || 0
-      : parseFloat(selectedQuote?.lastPrice || '0') || 0;
-  const estimatedTotal = (parsedQty * effectivePrice).toFixed(4);
-  const parsedCash = parseFloat(availableCash || '0');
-  const hasInsufficientFunds = orderSide === 'BUY' && parseFloat(estimatedTotal) > parsedCash;
+  // Filter instruments on LEFT panel
+  const filteredInstruments = useMemo(() => {
+    return instruments.filter((inst) => {
+      const matchesSearch =
+        inst.symbol.toLowerCase().includes(symbolSearch.toLowerCase()) ||
+        inst.name.toLowerCase().includes(symbolSearch.toLowerCase());
+      if (!matchesSearch) return false;
+      if (leftTab === 'ALL') return true;
+      return inst.dataClassification === leftTab;
+    });
+  }, [instruments, symbolSearch, leftTab]);
 
-  // Percentage preset calculation
-  const handleQuickPercent = (pct: number) => {
-    if (orderSide === 'BUY') {
-      if (effectivePrice <= 0) return;
-      const budget = parsedCash * pct;
-      const calculatedShares = Math.floor((budget / effectivePrice) * 100) / 100;
-      setQuantity(calculatedShares.toFixed(4));
-    } else {
-      setQuantity((10 * pct * 2).toFixed(4));
-    }
-  };
-
-  // Order Submission Handler
-  const handlePlaceOrder = async (e: React.FormEvent) => {
+  // Order execution handler
+  const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
     clearSuccess();
 
-    if (!selectedInstrument) return;
+    const targetInstrument = selectedInstrument || instruments.find((i) => i.symbol === symbol);
+    if (!targetInstrument) return;
+
+    const parsedQty = parseFloat(quantity);
+    const parsedPrice = orderType === 'MARKET' ? undefined : parseFloat(limitPrice);
+
+    if (isNaN(parsedQty) || parsedQty <= 0) return;
 
     try {
       await createOrder({
-        instrumentId: selectedInstrument.id,
+        instrumentId: targetInstrument.id,
         side: orderSide,
-        orderType,
+        orderType: orderType,
         quantity: parsedQty.toFixed(4),
-        limitPrice: orderType === 'LIMIT' ? (parseFloat(limitPrice) || 0).toFixed(4) : null,
+        limitPrice: parsedPrice ? parsedPrice.toFixed(4) : null,
       });
-
-      // Refresh orders, wallet, and order book
-      fetchOrders();
+      // Refresh wallet & orders
       fetchWalletSummary();
-      fetchMarketDepth();
-    } catch {
-      // Handled by store
-    }
-  };
-
-  // Order Cancellation Handler
-  const handleCancelOrder = async (orderId: number) => {
-    try {
-      await cancelOrder(orderId);
       fetchOrders();
-      fetchMarketDepth();
     } catch {
-      // Handled by store
+      // Handled by orderStore
     }
   };
 
-  // Filter Orders
-  const openOrders = orders.filter(
-    (o) => o.status === 'OPEN' || o.status === 'PARTIALLY_FILLED' || o.status === 'PENDING'
-  );
-  const orderHistory = orders.filter(
-    (o) => o.status !== 'OPEN' && o.status !== 'PARTIALLY_FILLED' && o.status !== 'PENDING'
-  );
+  // Quick allocation helper
+  const handleSetAllocation = (percent: number) => {
+    const price = parseFloat(limitPrice) || 100;
+    const cash = typeof availableCash === 'number' ? availableCash : parseFloat(availableCash || '0') || 100000;
+    const maxAffordable = (cash * (percent / 100)) / price;
+    setQuantity(Math.max(1, Math.floor(maxAffordable)).toString());
+  };
 
-  const filteredInstruments = instruments.filter(
-    (inst) =>
-      inst.symbol.toLowerCase().includes(symbolSearch.toLowerCase()) ||
-      inst.name.toLowerCase().includes(symbolSearch.toLowerCase())
-  );
+  const estimatedTotal = (parseFloat(quantity) || 0) * (parseFloat(limitPrice) || 0);
 
-  const maxAskQty = Math.max(
-    ...(orderBook?.asks.map((a) => parseFloat(a.quantity)) || [1]),
-    1
-  );
-  const maxBidQty = Math.max(
-    ...(orderBook?.bids.map((b) => parseFloat(b.quantity)) || [1]),
-    1
-  );
+  // Filtered orders
+  const openOrders = orders.filter((o) => o.status === 'OPEN' || o.status === 'PENDING');
+  const pastOrders = orders.filter((o) => o.status !== 'OPEN' && o.status !== 'PENDING');
+
+  const isRealEquity = selectedInstrument?.dataClassification === 'REAL';
+  const ltp = selectedQuote ? parseFloat(selectedQuote.lastPrice) : 142.50;
+  const changeAmt = selectedQuote ? parseFloat(selectedQuote.changeAmount) : 0.0;
+  const changePct = selectedQuote ? parseFloat(selectedQuote.changePercent) : 0.0;
+  const isPos = changePct >= 0;
 
   return (
-    <div className="space-y-4">
-      {/* Symbol Desk Header Bar */}
-      <div className="bg-card border border-card-border p-4 rounded-xl flex flex-wrap items-center justify-between gap-4 shadow-lg">
+    <div className="space-y-4 select-none font-sans">
+      {/* 1. Symbol Header Bar */}
+      <div className="bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4 flex-wrap">
-          <div className="relative">
-            <button
-              onClick={() => setShowSymbolPicker(!showSymbolPicker)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border hover:border-cyan-500/50 transition-colors shadow-sm"
+          {/* Symbol & Classification Badge */}
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold font-sans text-slate-900 dark:text-white tracking-tight">
+              {symbol}
+            </h1>
+            <span className="text-xs text-slate-500 dark:text-neutral-400 font-medium hidden sm:inline">
+              {selectedInstrument?.name}
+            </span>
+            <span
+              className={`text-[9px] px-2 py-0.5 rounded font-mono font-bold uppercase ${
+                isRealEquity
+                  ? 'bg-slate-100 dark:bg-[#1A1A1A] text-slate-800 dark:text-neutral-200 border border-slate-200 dark:border-[#2E2E2E]'
+                  : 'bg-slate-100 dark:bg-[#141414] text-slate-700 dark:text-neutral-300 border border-slate-200 dark:border-[#262626]'
+              }`}
             >
-              <span className="font-sans text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                {selectedInstrument?.symbol || symbol}
-              </span>
-              <Badge
-                variant={
-                  selectedInstrument?.dataClassification === 'REAL' ? 'cyan' : 'simulated'
-                }
-              >
-                {selectedInstrument?.dataClassification || 'SIMULATED'}
-              </Badge>
-              <Search className="w-3.5 h-3.5 text-slate-400 ml-1" />
-            </button>
-
-            {/* Quick Symbol Picker Dropdown */}
-            {showSymbolPicker && (
-              <div className="absolute top-full left-0 mt-2 w-80 max-h-80 bg-white dark:bg-card border border-slate-200 dark:border-card-border rounded-2xl shadow-2xl p-2 z-50 overflow-y-auto">
-                <input
-                  type="text"
-                  placeholder="Search NSE / Simulated symbols..."
-                  value={symbolSearch}
-                  onChange={(e) => setSymbolSearch(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border rounded-xl text-xs font-sans text-slate-900 dark:text-white mb-2 focus:outline-none focus:border-cyan-500"
-                  autoFocus
-                />
-                <div className="space-y-1">
-                  {filteredInstruments.slice(0, 10).map((inst) => (
-                    <button
-                      key={inst.id}
-                      onClick={() => {
-                        setSearchParams({ symbol: inst.symbol });
-                        setShowSymbolPicker(false);
-                      }}
-                      className="w-full text-left p-2 rounded-lg hover:bg-slate-800 flex items-center justify-between text-xs font-mono transition-colors"
-                    >
-                      <div>
-                        <span className="font-bold text-white mr-2">{inst.symbol}</span>
-                        <span className="text-[10px] text-slate-400 truncate block max-w-[150px]">
-                          {inst.name}
-                        </span>
-                      </div>
-                      <Badge variant={inst.dataClassification === 'REAL' ? 'cyan' : 'simulated'}>
-                        {inst.dataClassification}
-                      </Badge>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="border-l border-card-border pl-4">
-            <span className="text-[10px] text-slate-400 uppercase font-mono block">Last Price</span>
-            <span className="font-mono text-lg font-bold text-slate-100 tabular-nums">
-              {selectedQuote ? formatCurrency(selectedQuote.lastPrice) : '---'}
+              {selectedInstrument?.dataClassification || 'SIMULATED'}
             </span>
           </div>
 
-          <div className="border-l border-card-border pl-4">
-            <span className="text-[10px] text-slate-400 uppercase font-mono block">24h Change</span>
-            {selectedQuote ? (
-              <span
-                className={`font-mono text-sm font-semibold flex items-center gap-0.5 tabular-nums ${
-                  parseFloat(selectedQuote.changePercent) >= 0
-                    ? 'text-emerald-400'
-                    : 'text-rose-400'
-                }`}
-              >
-                {parseFloat(selectedQuote.changePercent) >= 0 ? (
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                ) : (
-                  <ArrowDownRight className="w-3.5 h-3.5" />
-                )}
-                {formatCurrency(selectedQuote.changeAmount)} (
-                {selectedQuote.changePercent}%)
-              </span>
-            ) : (
-              <span className="font-mono text-sm text-slate-400">---</span>
-            )}
+          <div className="h-6 w-px bg-slate-200 dark:bg-[#1F1F1F] hidden md:block" />
+
+          {/* LTP & 24h Change */}
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-bold font-mono text-slate-900 dark:text-white tabular-nums">
+              {formatCurrency(ltp)}
+            </span>
+            <span
+              className={`inline-flex items-center text-xs font-bold font-mono tabular-nums ${
+                isPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              {isPos ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}
+              {isPos ? '+' : ''}
+              {changeAmt.toFixed(2)} ({isPos ? '+' : ''}
+              {changePct.toFixed(2)}%)
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
-          <div>
-            <span className="text-slate-500 block text-[10px]">24H HIGH</span>
-            <span className="text-emerald-400 font-semibold">
-              {selectedQuote ? formatCurrency(selectedQuote.highPrice) : '---'}
+        {/* 24h High/Low/Volume + Technical Studio Link */}
+        <div className="flex items-center gap-4 text-xs font-mono tabular-nums">
+          <div className="hidden sm:block">
+            <span className="text-[10px] text-slate-400 dark:text-neutral-500 uppercase block font-sans">
+              24h High
+            </span>
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              {selectedQuote?.highPrice ? formatCurrency(parseFloat(selectedQuote.highPrice)) : '---'}
+            </span>
+          </div>
+          <div className="hidden sm:block">
+            <span className="text-[10px] text-slate-400 dark:text-neutral-500 uppercase block font-sans">
+              24h Low
+            </span>
+            <span className="font-semibold text-rose-600 dark:text-rose-400">
+              {selectedQuote?.lowPrice ? formatCurrency(parseFloat(selectedQuote.lowPrice)) : '---'}
             </span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[10px]">24H LOW</span>
-            <span className="text-rose-400 font-semibold">
-              {selectedQuote ? formatCurrency(selectedQuote.lowPrice) : '---'}
+            <span className="text-[10px] text-slate-400 dark:text-neutral-500 uppercase block font-sans">
+              Volume
             </span>
-          </div>
-          <div>
-            <span className="text-slate-500 block text-[10px]">VOLUME</span>
-            <span className="text-cyan-400 font-semibold">
-              {selectedQuote ? formatNumber(selectedQuote.volume) : '---'}
+            <span className="font-semibold text-slate-800 dark:text-neutral-200">
+              {selectedQuote?.volume ? formatNumber(selectedQuote.volume) : '---'}
             </span>
           </div>
           <Link
-            to={`/chart?symbol=${selectedInstrument?.symbol || symbol}`}
-            className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-xs border border-cyan-500/30 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors font-mono font-semibold"
+            to={`/chart?symbol=${symbol}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#141414] hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black text-slate-800 dark:text-neutral-200 border border-slate-200 dark:border-[#262626] text-xs font-sans font-semibold transition-colors"
           >
-            Technical Studio <ExternalLink className="w-3 h-3" />
+            Technical Studio
+            <ExternalLink className="w-3 h-3" />
           </Link>
         </div>
       </div>
 
-      {/* Active News Catalyst Banner for Current Symbol */}
-      {activeCatalyst && (
-        <div className="bg-purple-950/40 border border-purple-800/50 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono shadow-md">
-          <div className="flex items-center gap-2.5 text-purple-200">
-            <Radio className="w-4 h-4 text-purple-400 animate-pulse flex-shrink-0" />
-            <div>
-              <span className="font-bold text-purple-300 mr-2">
-                ACTIVE NEWS CATALYST ({activeCatalyst.targetScope === 'INSTRUMENT' ? `$${activeCatalyst.targetSymbol}` : activeCatalyst.targetScope}):
+      {/* 2. Main 3-Column Work Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* LEFT PANEL: Watchlist & Search (Collapsible, 3 cols) */}
+        {!isLeftPanelCollapsed ? (
+          <div className="lg:col-span-3 bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] rounded-2xl p-3.5 shadow-sm flex flex-col h-[540px]">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-[#1F1F1F]">
+              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Watchlist
               </span>
-              <span>{activeCatalyst.headline}</span>
-              <span className="text-purple-400 ml-2 font-semibold">
-                (Vol: {activeCatalyst.volatilityFactor}x • Decay: {activeCatalyst.decayRemainingPercent}% remaining)
-              </span>
+              <button
+                onClick={() => setIsLeftPanelCollapsed(true)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#171717] transition-colors"
+                title="Collapse Watchlist"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Category Filter Chips */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#141414] p-0.5 rounded-xl mb-2.5 border border-slate-200 dark:border-[#222222]">
+              {(['ALL', 'SIMULATED', 'REAL'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setLeftTab(t)}
+                  className={`flex-1 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                    leftTab === t
+                      ? 'bg-white dark:bg-[#262626] text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {t === 'ALL' ? 'All' : t === 'SIMULATED' ? 'Simulated' : 'NSE'}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative mb-2">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 dark:text-neutral-500" />
+              <input
+                type="text"
+                placeholder="Search symbol..."
+                value={symbolSearch}
+                onChange={(e) => setSymbolSearch(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-[#262626] rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Instruments Scroll List */}
+            <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+              {filteredInstruments.map((inst) => {
+                const q = quotes[inst.symbol];
+                const price = q?.lastPrice ? parseFloat(q.lastPrice) : 100.0;
+                const pct = q?.changePercent ? parseFloat(q.changePercent) : 0.0;
+                const isItemPos = pct >= 0;
+                const isSelected = inst.symbol === symbol;
+
+                return (
+                  <button
+                    key={inst.id}
+                    onClick={() => setSearchParams({ symbol: inst.symbol })}
+                    className={`w-full text-left p-2 rounded-xl transition-all flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-slate-100 dark:bg-[#171717] border border-slate-300 dark:border-[#2E2E2E]'
+                        : 'hover:bg-slate-50 dark:hover:bg-[#121212] border border-transparent'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">
+                          {inst.symbol}
+                        </span>
+                        <span className="text-[9px] px-1 py-0.2 rounded font-mono text-slate-500 dark:text-neutral-400">
+                          {inst.exchange}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 dark:text-neutral-400 truncate block max-w-[110px]">
+                        {inst.name}
+                      </span>
+                    </div>
+
+                    <div className="text-right font-mono tabular-nums text-xs">
+                      <span className="font-bold text-slate-900 dark:text-white block">
+                        {formatCurrency(price)}
+                      </span>
+                      <span
+                        className={`text-[10px] font-semibold ${
+                          isItemPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
+                        {isItemPos ? '+' : ''}
+                        {pct.toFixed(2)}%
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <Badge variant="simulated">PARTICIPATION SHIFT</Badge>
-        </div>
-      )}
-
-      {/* Main Terminal Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left 2 Cols: Central Trading Chart + Order Book + Recent Trades */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* PRIMARY LIVE TRADING CHART */}
-          <AdvancedTradingChart
-            symbol={selectedInstrument?.symbol || symbol}
-            height={440}
-            showToolbar={true}
-            dataClassification={
-              selectedInstrument?.dataClassification === 'REAL' ? 'REAL' : 'SIMULATED'
-            }
-          />
-
-          {/* Live Order Book & Trade Tape Deck */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Live Order Book */}
-            <Card
-              title="Order Book (Depth)"
-              subtitle="Live bids & asks depth ladder (FIFO)"
-              action={
-                <button
-                  onClick={fetchMarketDepth}
-                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-[#070A12] border border-slate-200 dark:border-card-border text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors shadow-sm"
-                  title="Refresh Depth"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBook ? 'animate-spin' : ''}`} />
-                </button>
-              }
+        ) : (
+          <div className="lg:col-span-1 flex flex-col items-center py-4 bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] rounded-2xl h-[540px]">
+            <button
+              onClick={() => setIsLeftPanelCollapsed(false)}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#171717] transition-colors"
+              title="Expand Watchlist"
             >
-              <div className="p-3.5 bg-slate-50 dark:bg-[#070A12] rounded-2xl border border-slate-200 dark:border-card-border font-sans text-xs space-y-2">
-                <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-slate-200 dark:border-card-border/60 pb-1.5 font-bold">
-                  <span>Price ({selectedInstrument?.currency || 'INR'})</span>
-                  <span className="text-right">Size</span>
-                  <span className="text-right">Total</span>
-                </div>
-
-                {/* Asks (Sell Orders) */}
-                <div className="space-y-1">
-                  {!orderBook || orderBook.asks.length === 0 ? (
-                    <div className="py-3 text-center text-slate-500 text-[11px]">
-                      No resting asks on the book
-                    </div>
-                  ) : (
-                    [...orderBook.asks].reverse().slice(0, 6).map((ask, idx) => {
-                      const depthPct = Math.min(
-                        100,
-                        Math.round((parseFloat(ask.quantity) / maxAskQty) * 100)
-                      );
-                      return (
-                        <div
-                          key={`ask-${idx}`}
-                          className="relative grid grid-cols-3 py-0.5 px-1 rounded hover:bg-rose-950/20 tabular-nums overflow-hidden"
-                        >
-                          <div
-                            className="absolute top-0 right-0 bottom-0 bg-rose-500/10 pointer-events-none"
-                            style={{ width: `${depthPct}%` }}
-                          />
-                          <span className="text-rose-400 font-semibold relative z-10">
-                            {formatCurrency(ask.price)}
-                          </span>
-                          <span className="text-right text-slate-300 relative z-10">
-                            {parseFloat(ask.quantity).toFixed(2)}
-                          </span>
-                          <span className="text-right text-slate-400 relative z-10">
-                            {parseFloat(ask.total).toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Spread & Mid-Price Bar */}
-                <div className="py-1.5 px-2 bg-card rounded border border-card-border/80 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400">
-                    Spread:{' '}
-                    <strong className="text-slate-200">
-                      {orderBook?.spread ? formatCurrency(orderBook.spread) : '---'}
-                    </strong>
-                  </span>
-                  <span className="text-cyan-400 font-bold">
-                    Mid: {orderBook?.midPrice ? formatCurrency(orderBook.midPrice) : '---'}
-                  </span>
-                </div>
-
-                {/* Bids (Buy Orders) */}
-                <div className="space-y-1">
-                  {!orderBook || orderBook.bids.length === 0 ? (
-                    <div className="py-3 text-center text-slate-500 text-[11px]">
-                      No resting bids on the book
-                    </div>
-                  ) : (
-                    orderBook.bids.slice(0, 6).map((bid, idx) => {
-                      const depthPct = Math.min(
-                        100,
-                        Math.round((parseFloat(bid.quantity) / maxBidQty) * 100)
-                      );
-                      return (
-                        <div
-                          key={`bid-${idx}`}
-                          className="relative grid grid-cols-3 py-0.5 px-1 rounded hover:bg-emerald-950/20 tabular-nums overflow-hidden"
-                        >
-                          <div
-                            className="absolute top-0 right-0 bottom-0 bg-emerald-500/10 pointer-events-none"
-                            style={{ width: `${depthPct}%` }}
-                          />
-                          <span className="text-emerald-400 font-semibold relative z-10">
-                            {formatCurrency(bid.price)}
-                          </span>
-                          <span className="text-right text-slate-300 relative z-10">
-                            {parseFloat(bid.quantity).toFixed(2)}
-                          </span>
-                          <span className="text-right text-slate-400 relative z-10">
-                            {parseFloat(bid.total).toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </Card>
-
-            {/* Recent Executed Trades Tape */}
-            <Card
-              title="Recent Executions"
-              subtitle="Live exchange trade tape"
-              action={
-                <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-400">
-                  <Activity className="w-3.5 h-3.5 animate-pulse" /> Live
-                </div>
-              }
-            >
-              <div className="p-3.5 bg-slate-50 dark:bg-[#070A12] rounded-2xl border border-slate-200 dark:border-card-border font-sans text-xs space-y-2">
-                <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-slate-200 dark:border-card-border/60 pb-1.5 font-bold">
-                  <span>Price</span>
-                  <span className="text-right">Qty</span>
-                  <span className="text-right">Time</span>
-                </div>
-
-                <div className="space-y-1 max-h-[250px] overflow-y-auto pr-1">
-                  {recentTrades.length === 0 ? (
-                    <div className="py-12 text-center text-slate-500 text-[11px]">
-                      No recent trade executions yet
-                    </div>
-                  ) : (
-                    recentTrades.slice(0, 10).map((trd) => {
-                      const dateObj = new Date(trd.createdAt);
-                      const timeStr = dateObj.toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      });
-                      return (
-                        <div
-                          key={trd.id}
-                          className="grid grid-cols-3 py-1 px-1 rounded hover:bg-slate-800/40 tabular-nums items-center text-[11px]"
-                        >
-                          <span className="font-semibold text-emerald-400 flex items-center gap-1">
-                            {formatCurrency(trd.price)}
-                            {(trd as any).isBot && (
-                              <span className="px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                                BOT
-                              </span>
-                            )}
-                          </span>
-                          <span className="text-right text-slate-200">
-                            {parseFloat(trd.quantity).toFixed(2)}
-                          </span>
-                          <span className="text-right text-slate-500 text-[10px]">
-                            {timeStr}
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </Card>
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <span className="text-[10px] text-slate-400 [writing-mode:vertical-rl] mt-6 font-bold tracking-wider uppercase">
+              Watchlist
+            </span>
           </div>
+        )}
+
+        {/* CENTER PANEL: Large Candlestick Chart (6 to 8 cols) */}
+        <div className={isLeftPanelCollapsed ? 'lg:col-span-8' : 'lg:col-span-6'}>
+          <AdvancedTradingChart
+            symbol={symbol}
+            height={540}
+            showToolbar={true}
+            dataClassification={selectedInstrument?.dataClassification || 'SIMULATED'}
+          />
         </div>
 
-        {/* Right 1 Col: Live Order Entry Desk */}
-        <div className="lg:col-span-1 space-y-4">
-          <Card title="Order Entry Ticket" subtitle="Place virtual market & limit orders">
-            {/* Feedback Notifications */}
-            {successMessage && (
-              <div className="p-3 mb-4 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2">
-                <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <span>{successMessage}</span>
-                  <button
-                    onClick={clearSuccess}
-                    className="block text-[10px] underline text-emerald-400 mt-1"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            )}
+        {/* RIGHT PANEL: Order Execution & Order Book (3 cols) */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Order Placement Box */}
+          <div className="bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] rounded-2xl p-4 shadow-sm space-y-3.5">
+            {/* BUY / SELL Action Tabs */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-[#141414] rounded-xl border border-slate-200 dark:border-[#222222]">
+              <button
+                type="button"
+                onClick={() => setOrderSide('BUY')}
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  orderSide === 'BUY'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                BUY
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderSide('SELL')}
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  orderSide === 'SELL'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                SELL
+              </button>
+            </div>
 
+            {/* Error / Success Feedback */}
             {orderError && (
-              <div className="p-3 mb-4 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
-                <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <span>{orderError}</span>
-                  <button
-                    onClick={clearError}
-                    className="block text-[10px] underline text-rose-400 mt-1"
-                  >
-                    Dismiss
-                  </button>
-                </div>
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400 text-xs flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{orderError}</span>
+              </div>
+            )}
+            {successMessage && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{successMessage}</span>
               </div>
             )}
 
-            <form onSubmit={handlePlaceOrder} className="space-y-4">
-              {/* Buy / Sell Tabs */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-[#070A12] rounded-xl border border-slate-200 dark:border-card-border">
-                <button
-                  type="button"
-                  onClick={() => setOrderSide('BUY')}
-                  className={`py-2 text-xs font-sans font-bold rounded-lg transition-colors ${
-                    orderSide === 'BUY'
-                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  BUY
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderSide('SELL')}
-                  className={`py-2 text-xs font-sans font-bold rounded-lg transition-colors ${
-                    orderSide === 'SELL'
-                      ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  SELL
-                </button>
-              </div>
-
-              {/* Order Type Tabs */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOrderType('LIMIT')}
-                  className={`py-1.5 text-xs font-mono rounded-lg border transition-colors ${
-                    orderType === 'LIMIT'
-                      ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
-                      : 'bg-card border-card-border text-slate-400 hover:text-white'
-                  }`}
-                >
-                  LIMIT
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderType('MARKET')}
-                  className={`py-1.5 text-xs font-mono rounded-lg border transition-colors ${
-                    orderType === 'MARKET'
-                      ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
-                      : 'bg-card border-card-border text-slate-400 hover:text-white'
-                  }`}
-                >
-                  MARKET
-                </button>
-              </div>
-
-              {/* Limit Price Input */}
-              {orderType === 'LIMIT' && (
-                <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1.5">
-                    Limit Price ({selectedInstrument?.currency || 'INR'})
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.0001"
-                    min="0.0001"
-                    value={limitPrice}
-                    onChange={(e) => setLimitPrice(e.target.value)}
-                    placeholder="Enter limit price"
-                    required
-                  />
-                  <div className="flex justify-between items-center mt-1 text-[11px] text-slate-500 font-mono">
-                    <span>LTP:</span>
-                    <span>
-                      {selectedQuote ? formatCurrency(selectedQuote.lastPrice) : '---'}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Quantity Input with Percentage Presets */}
-              <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1.5">
-                  Quantity (Shares)
-                </label>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  min="0.0001"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="Enter share count"
-                  required
-                />
-                <div className="grid grid-cols-4 gap-1.5 mt-1.5">
-                  {[
-                    { label: '25%', val: 0.25 },
-                    { label: '50%', val: 0.5 },
-                    { label: '75%', val: 0.75 },
-                    { label: '100%', val: 1.0 },
-                  ].map((p) => (
+            <form onSubmit={handleOrderSubmit} className="space-y-3">
+              {/* Order Type Chips */}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 dark:text-neutral-400 font-semibold text-[11px]">Type</span>
+                <div className="flex items-center gap-1">
+                  {(['LIMIT', 'MARKET'] as OrderType[]).map((t) => (
                     <button
-                      key={p.label}
+                      key={t}
                       type="button"
-                      onClick={() => handleQuickPercent(p.val)}
-                      className="py-1 text-xs font-mono font-medium bg-slate-100 dark:bg-[#070A12] border border-slate-200 dark:border-card-border rounded-lg hover:border-cyan-500 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                      onClick={() => setOrderType(t)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        orderType === t
+                          ? 'bg-slate-900 dark:bg-white text-white dark:text-black'
+                          : 'text-slate-500 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-[#1A1A1A]'
+                      }`}
                     >
-                      {p.label}
+                      {t}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Estimated Total Calculation */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border text-xs space-y-2 font-sans">
-                <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                  <span>Available Virtual Cash:</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono tabular-nums">
-                    {formatCurrency(availableCash)}
-                  </span>
+              {/* Quantity */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <label className="text-slate-600 dark:text-neutral-400 font-semibold">Quantity</label>
+                  <span className="text-slate-400 dark:text-neutral-500 font-mono">Shares</span>
                 </div>
-                <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                  <span>Order Consideration:</span>
-                  <span
-                    className={`font-bold font-mono tabular-nums ${
-                      hasInsufficientFunds ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-slate-100'
-                    }`}
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-[#262626] rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-slate-400"
+                  required
+                />
+              </div>
+
+              {/* Quick % Chips */}
+              <div className="grid grid-cols-4 gap-1">
+                {[25, 50, 75, 100].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => handleSetAllocation(pct)}
+                    className="py-1 rounded-lg bg-slate-100 dark:bg-[#141414] hover:bg-slate-200 dark:hover:bg-[#1F1F1F] text-[10px] font-mono text-slate-700 dark:text-neutral-300 transition-colors"
                   >
-                    ${estimatedTotal}
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+
+              {/* Limit Price */}
+              {orderType === 'LIMIT' && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <label className="text-slate-600 dark:text-neutral-400 font-semibold">Price (INR)</label>
+                    <span className="text-slate-400 dark:text-neutral-500 font-mono">Limit</span>
+                  </div>
+                  <input
+                    type="number"
+                    step="0.05"
+                    value={limitPrice}
+                    onChange={(e) => setLimitPrice(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-[#262626] rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-slate-400"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Order Preview Summary */}
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#222222] text-xs font-mono space-y-1 text-slate-600 dark:text-neutral-400">
+                <div className="flex items-center justify-between">
+                  <span>Est. Total</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {formatCurrency(estimatedTotal)}
                   </span>
                 </div>
-                {hasInsufficientFunds && (
-                  <div className="p-2 rounded bg-rose-950/40 border border-rose-800/40 text-rose-300 text-[11px] flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>Insufficient virtual cash for this order</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-slate-500 text-[10px]">
-                  <span>Execution Fee:</span>
-                  <span>$0.00 (Zero Commissions)</span>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span>Brokerage</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">₹0.00 (Free)</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] pt-1 border-t border-slate-200 dark:border-[#262626]">
+                  <span>Avail. Cash</span>
+                  <span className="text-slate-800 dark:text-white">{formatCurrency(availableCash)}</span>
                 </div>
               </div>
 
+              {/* Submit Button */}
               <Button
                 type="submit"
                 variant={orderSide === 'BUY' ? 'success' : 'danger'}
-                className="w-full font-mono text-sm uppercase font-bold py-2.5 shadow-lg"
-                disabled={
-                  isSubmitting ||
-                  hasInsufficientFunds ||
-                  parsedQty <= 0 ||
-                  isLoadingDetail ||
-                  selectedInstrument?.marketStatus !== 'ACTIVE'
-                }
+                className="w-full py-2 font-bold text-xs"
+                isLoading={isSubmitting}
               >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin" /> Submitting...
-                  </span>
-                ) : (
-                  `Execute ${orderSide} Order`
-                )}
+                Place {orderSide} Order
               </Button>
             </form>
-          </Card>
+          </div>
 
-          {/* Instrument Metadata Details Card */}
-          <div className="p-4 bg-card rounded-xl border border-card-border text-xs font-mono space-y-2.5">
-            <div className="flex justify-between text-slate-400">
-              <span>Exchange / Sector</span>
-              <span className="text-slate-200 font-bold">
-                {selectedInstrument?.exchange || 'NSE'} • {selectedInstrument?.sector || 'General'}
+          {/* Level 2 Order Book */}
+          <div className="bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] rounded-2xl p-3.5 shadow-sm space-y-2">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-[#1F1F1F] text-xs">
+              <span className="font-bold text-slate-900 dark:text-white text-[11px] uppercase tracking-wider">
+                Order Book
               </span>
+              <span className="text-[10px] text-slate-400 font-mono">L2 Depth</span>
             </div>
-            <div className="flex justify-between text-slate-400">
-              <span>Instrument Type</span>
-              <span className="text-slate-200 font-bold">
-                {selectedInstrument?.instrumentType || 'EQUITY'}
-              </span>
-            </div>
-            <div className="flex justify-between text-slate-400">
-              <span>Trading Session</span>
-              <span className="text-emerald-400 font-bold">Continuous 24/7 Virtual</span>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px] font-mono tabular-nums">
+              {/* Bids */}
+              <div>
+                <span className="text-[10px] text-emerald-600 font-bold block mb-1">BIDS</span>
+                <div className="space-y-0.5">
+                  {(orderBook?.bids || []).slice(0, 5).map((b, i) => (
+                    <div key={i} className="flex justify-between text-slate-700 dark:text-neutral-300">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{b.price}</span>
+                      <span className="text-slate-500">{b.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Asks */}
+              <div>
+                <span className="text-[10px] text-rose-600 font-bold block mb-1 text-right">ASKS</span>
+                <div className="space-y-0.5">
+                  {(orderBook?.asks || []).slice(0, 5).map((a, i) => (
+                    <div key={i} className="flex justify-between text-slate-700 dark:text-neutral-300">
+                      <span className="text-slate-500">{a.quantity}</span>
+                      <span className="text-rose-600 dark:text-rose-400 font-semibold">{a.price}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Full-Width Orders Management Deck */}
-      <Card
-        title="Order Management Center"
-        subtitle="Manage resting open orders and review historical executions"
-        action={
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#070A12] p-1 rounded-xl border border-slate-200 dark:border-card-border">
+      {/* 3. BOTTOM PANEL: Open Orders, Positions, Order History, Trades */}
+      <div className="bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] rounded-2xl p-4 shadow-sm space-y-3">
+        {/* Navigation Tabs */}
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#1F1F1F]">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#141414] p-1 rounded-xl border border-slate-200 dark:border-[#222222]">
+            {(
+              [
+                { id: 'open', label: `Open Orders (${openOrders.length})` },
+                { id: 'positions', label: `Positions (${portfolioPositions.length})` },
+                { id: 'history', label: `Order History (${pastOrders.length})` },
+                { id: 'trades', label: `Market Trades (${recentTrades.length})` },
+              ] as const
+            ).map((t) => (
               <button
-                onClick={() => setActiveTab('open')}
-                className={`px-3 py-1.5 text-xs font-sans rounded-lg transition-colors ${
-                  activeTab === 'open'
-                    ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                key={t.id}
+                onClick={() => setBottomTab(t.id)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  bottomTab === t.id
+                    ? 'bg-white dark:bg-[#262626] text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                Active Orders ({openOrders.length})
+                {t.label}
               </button>
-              <button
-                onClick={() => setActiveTab('history')}
-                className={`px-3 py-1.5 text-xs font-sans rounded-lg transition-colors ${
-                  activeTab === 'history'
-                    ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                Order History ({orderHistory.length})
-              </button>
-            </div>
-            <button
-              onClick={() => fetchOrders()}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-[#070A12] border border-slate-200 dark:border-card-border text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors shadow-sm"
-              title="Refresh Orders"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoadingOrders ? 'animate-spin' : ''}`} />
-            </button>
+            ))}
           </div>
-        }
-      >
-        {activeTab === 'open' ? (
-          openOrders.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 font-mono text-xs">
-              <Clock className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-              <span>No open orders resting on the book. Submit an order above to begin trading.</span>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-mono text-xs">
+        </div>
+
+        {/* Tab 1: Open Orders */}
+        {bottomTab === 'open' && (
+          <div className="overflow-x-auto">
+            {openOrders.length === 0 ? (
+              <div className="py-6 text-center text-slate-400 dark:text-neutral-500 text-xs">
+                No active open orders in this session.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs font-sans">
                 <thead>
-                  <tr className="border-b border-card-border text-slate-400 text-[11px] uppercase">
-                    <th className="py-2.5 px-3">Order ID</th>
-                    <th className="py-2.5 px-3">Symbol</th>
-                    <th className="py-2.5 px-3">Side</th>
-                    <th className="py-2.5 px-3">Type</th>
-                    <th className="py-2.5 px-3 text-right">Quantity</th>
-                    <th className="py-2.5 px-3 text-right">Remaining</th>
-                    <th className="py-2.5 px-3 text-right">Price</th>
-                    <th className="py-2.5 px-3">Status</th>
-                    <th className="py-2.5 px-3">Submitted</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
+                  <tr className="border-b border-slate-100 dark:border-[#1F1F1F] text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                    <th className="py-2 px-3">Order ID</th>
+                    <th className="py-2 px-3">Symbol</th>
+                    <th className="py-2 px-3">Side</th>
+                    <th className="py-2 px-3 text-right">Qty</th>
+                    <th className="py-2 px-3 text-right">Price</th>
+                    <th className="py-2 px-3 text-center">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-card-border/60">
+                <tbody className="divide-y divide-slate-100 dark:divide-[#171717]">
                   {openOrders.map((ord) => (
-                    <tr key={ord.id} className="hover:bg-slate-800/20 transition-colors">
-                      <td className="py-2.5 px-3 text-slate-400">#{ord.id}</td>
-                      <td className="py-2.5 px-3 font-bold text-white">
-                        <div className="flex items-center gap-1.5">
-                          <span>{ord.symbol || '---'}</span>
-                          {(ord as any).isBot && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                              BOT
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                    <tr key={ord.id} className="hover:bg-slate-50 dark:hover:bg-[#121212]">
+                      <td className="py-2.5 px-3 font-mono text-slate-500">#{ord.id}</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{ord.symbol}</td>
                       <td className="py-2.5 px-3">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
                             ord.side === 'BUY'
-                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                              : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                              : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
                           }`}
                         >
                           {ord.side}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-slate-300">{ord.orderType}</td>
-                      <td className="py-2.5 px-3 text-right text-slate-200">
-                        {parseFloat(ord.quantity).toFixed(2)}
+                      <td className="py-2.5 px-3 text-right font-mono tabular-nums">{ord.quantity}</td>
+                      <td className="py-2.5 px-3 text-right font-mono tabular-nums font-semibold">
+                        {ord.limitPrice ? formatCurrency(parseFloat(ord.limitPrice)) : 'MARKET'}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-bold text-cyan-300">
-                        {parseFloat(ord.remainingQuantity).toFixed(2)}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-bold text-white">
-                        {ord.limitPrice ? formatCurrency(ord.limitPrice) : 'MARKET'}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        {ord.status === 'PARTIALLY_FILLED' ? (
-                          <Badge variant="amber">
-                            PARTIAL ({parseFloat(ord.remainingQuantity).toFixed(2)} left)
-                          </Badge>
-                        ) : (
-                          <Badge variant="cyan">{ord.status}</Badge>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-400 text-[11px]">
-                        {formatDate(ord.createdAt)}
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => handleCancelOrder(ord.id)}
+                      <td className="py-2.5 px-3 text-center">
+                        <button
+                          onClick={() => cancelOrder(ord.id)}
                           disabled={cancellingOrderId === ord.id}
-                          className="px-2.5 py-1 text-[11px]"
+                          className="px-2.5 py-1 rounded bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-600 hover:text-white text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-[11px] font-semibold transition-colors"
                         >
-                          {cancellingOrderId === ord.id ? (
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <span className="flex items-center gap-1">
-                              <Ban className="w-3 h-3" /> Cancel
-                            </span>
-                          )}
-                        </Button>
+                          Cancel
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          )
-        ) : orderHistory.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 font-mono text-xs">
-            <CheckCircle className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-            <span>No historical executions or cancellations recorded yet.</span>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left font-mono text-xs">
-              <thead>
-                <tr className="border-b border-card-border text-slate-400 text-[11px] uppercase">
-                  <th className="py-2.5 px-3">Order ID</th>
-                  <th className="py-2.5 px-3">Symbol</th>
-                  <th className="py-2.5 px-3">Side</th>
-                  <th className="py-2.5 px-3">Type</th>
-                  <th className="py-2.5 px-3 text-right">Quantity</th>
-                  <th className="py-2.5 px-3 text-right">Price</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-card-border/60">
-                {orderHistory.map((ord) => (
-                  <tr key={ord.id} className="hover:bg-slate-800/20 transition-colors">
-                    <td className="py-2.5 px-3 text-slate-400">#{ord.id}</td>
-                    <td className="py-2.5 px-3 font-bold text-white">
-                      <div className="flex items-center gap-1.5">
-                        <span>{ord.symbol || '---'}</span>
-                        {(ord as any).isBot && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                            BOT
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          ord.side === 'BUY'
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-rose-500/15 text-rose-400'
-                        }`}
-                      >
-                        {ord.side}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-300">{ord.orderType}</td>
-                    <td className="py-2.5 px-3 text-right text-slate-200">
-                      {parseFloat(ord.quantity).toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-bold text-white">
-                      {ord.limitPrice ? formatCurrency(ord.limitPrice) : 'MARKET'}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <Badge
-                        variant={
-                          ord.status === 'FILLED'
-                            ? 'gain'
-                            : ord.status === 'PARTIALLY_FILLED'
-                            ? 'amber'
-                            : ord.status === 'CANCELLED'
-                            ? 'neutral'
-                            : 'loss'
-                        }
-                      >
-                        {ord.status}
-                      </Badge>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-400 text-[11px]">
-                      {formatDate(ord.updatedAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            )}
           </div>
         )}
-      </Card>
+
+        {/* Tab 2: Positions / Holdings */}
+        {bottomTab === 'positions' && (
+          <div className="overflow-x-auto">
+            {portfolioPositions.length === 0 ? (
+              <div className="py-6 text-center text-slate-400 dark:text-neutral-500 text-xs">
+                No active stock holdings in your portfolio.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs font-sans">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-[#1F1F1F] text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                    <th className="py-2 px-3">Symbol</th>
+                    <th className="py-2 px-3 text-right">Shares</th>
+                    <th className="py-2 px-3 text-right">Avg Cost</th>
+                    <th className="py-2 px-3 text-right">Current LTP</th>
+                    <th className="py-2 px-3 text-right">Unrealized P&L</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#171717]">
+                  {portfolioPositions.map((h) => {
+                    const pnlNum = parseFloat(h.unrealizedPnL || '0');
+                    const isProfit = pnlNum >= 0;
+                    return (
+                      <tr key={h.symbol} className="hover:bg-slate-50 dark:hover:bg-[#121212]">
+                        <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{h.symbol}</td>
+                        <td className="py-2.5 px-3 text-right font-mono tabular-nums">{h.quantity}</td>
+                        <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                          {formatCurrency(parseFloat(h.averageBuyPrice || '0'))}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono tabular-nums font-semibold">
+                          {formatCurrency(parseFloat(h.currentPrice || '0'))}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono tabular-nums font-bold">
+                          <span className={isProfit ? 'text-emerald-600' : 'text-rose-600'}>
+                            {isProfit ? '+' : ''}
+                            {formatCurrency(pnlNum)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Tab 3: Order History */}
+        {bottomTab === 'history' && (
+          <div className="overflow-x-auto">
+            {pastOrders.length === 0 ? (
+              <div className="py-6 text-center text-slate-400 dark:text-neutral-500 text-xs">
+                No past executions recorded yet.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs font-sans">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-[#1F1F1F] text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                    <th className="py-2 px-3">Order ID</th>
+                    <th className="py-2 px-3">Symbol</th>
+                    <th className="py-2 px-3">Side</th>
+                    <th className="py-2 px-3 text-right">Quantity</th>
+                    <th className="py-2 px-3 text-center">Status</th>
+                    <th className="py-2 px-3 text-right">Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#171717]">
+                  {pastOrders.slice(0, 10).map((ord) => (
+                    <tr key={ord.id} className="hover:bg-slate-50 dark:hover:bg-[#121212]">
+                      <td className="py-2.5 px-3 font-mono text-slate-500">#{ord.id}</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{ord.symbol}</td>
+                      <td className="py-2.5 px-3 font-bold text-[10px]">{ord.side}</td>
+                      <td className="py-2.5 px-3 text-right font-mono tabular-nums">{ord.quantity}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-[#1C1C1C] text-slate-700 dark:text-neutral-300">
+                          {ord.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-slate-500 text-[11px] font-mono">
+                        {formatDate(ord.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Tab 4: Market Trades */}
+        {bottomTab === 'trades' && (
+          <div className="overflow-x-auto">
+            {recentTrades.length === 0 ? (
+              <div className="py-6 text-center text-slate-400 dark:text-neutral-500 text-xs">
+                Waiting for trade prints...
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs font-mono tabular-nums">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-[#1F1F1F] text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                    <th className="py-2 px-3">Execution Price</th>
+                    <th className="py-2 px-3 text-right">Quantity</th>
+                    <th className="py-2 px-3 text-right">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#171717]">
+                  {recentTrades.slice(0, 15).map((t, idx) => (
+                    <tr key={t.id || idx} className="hover:bg-slate-50 dark:hover:bg-[#121212]">
+                      <td className="py-2 px-3 font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(parseFloat(t.price))}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-slate-800 dark:text-neutral-200">
+                        {t.quantity}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-slate-400 text-[11px]">
+                        {new Date(t.createdAt).toLocaleTimeString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

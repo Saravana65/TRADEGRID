@@ -173,18 +173,18 @@ export const ResearchPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-slate-100 p-6 space-y-6">
+    <div className="min-h-screen bg-[#000000] text-slate-100 p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#141414] text-slate-900 dark:text-white border border-slate-200 dark:border-[#262626]">
               <Cpu className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                 Quantitative Research & Strategy Backtester
-                <span className="text-xs font-mono uppercase bg-cyan-500/20 text-cyan-400 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
+                <span className="text-xs font-mono uppercase bg-slate-100 dark:bg-[#1C1C1C] text-slate-800 dark:text-neutral-300 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-[#2E2E2E]">
                   Phase 6
                 </span>
               </h1>

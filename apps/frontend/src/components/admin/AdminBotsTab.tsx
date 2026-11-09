@@ -401,37 +401,37 @@ export const AdminBotsTab: React.FC = () => {
 
       {/* Aggregate Metrics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="p-4 rounded-xl bg-[#090D16] border border-card-border">
+        <div className="p-4 rounded-xl bg-[#0A0A0A] border border-card-border">
           <span className="text-[11px] font-mono text-slate-400 uppercase">Total Bots</span>
           <div className="font-mono text-xl font-bold text-white mt-1">
             {metrics?.totalBots ?? bots.length}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-[#090D16] border border-card-border">
+        <div className="p-4 rounded-xl bg-[#0A0A0A] border border-card-border">
           <span className="text-[11px] font-mono text-slate-400 uppercase">Active Bots</span>
           <div className="font-mono text-xl font-bold text-emerald-400 mt-1">
             {metrics?.activeBots ?? bots.filter((b) => b.status === 'ACTIVE').length}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-[#090D16] border border-card-border">
+        <div className="p-4 rounded-xl bg-[#0A0A0A] border border-card-border">
           <span className="text-[11px] font-mono text-slate-400 uppercase">Allocated Capital</span>
           <div className="font-mono text-sm font-bold text-cyan-400 mt-1 truncate">
             {metrics?.totalAllocatedCapital ? formatCurrency(metrics.totalAllocatedCapital) : '$0.00'}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-[#090D16] border border-card-border">
+        <div className="p-4 rounded-xl bg-[#0A0A0A] border border-card-border">
           <span className="text-[11px] font-mono text-slate-400 uppercase">Active Working Capital</span>
           <div className="font-mono text-sm font-bold text-white mt-1 truncate">
             {metrics?.totalActiveCapital ? formatCurrency(metrics.totalActiveCapital) : '$0.00'}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-[#090D16] border border-card-border">
+        <div className="p-4 rounded-xl bg-[#0A0A0A] border border-card-border">
           <span className="text-[11px] font-mono text-slate-400 uppercase">Open Orders</span>
           <div className="font-mono text-xl font-bold text-amber-400 mt-1">
             {metrics?.totalOpenBotOrders ?? 0}
           </div>
         </div>
-        <div className="p-4 rounded-xl bg-[#090D16] border border-card-border">
+        <div className="p-4 rounded-xl bg-[#0A0A0A] border border-card-border">
           <span className="text-[11px] font-mono text-slate-400 uppercase">Realized P&L</span>
           <div className="font-mono text-sm font-bold text-emerald-400 mt-1 truncate">
             {metrics?.totalRealizedPnL ? formatCurrency(metrics.totalRealizedPnL) : '$0.00'}
@@ -516,7 +516,7 @@ export const AdminBotsTab: React.FC = () => {
                         strategyType: e.target.value as BotStrategyType,
                       })
                     }
-                    className="w-full bg-[#090D16] border border-card-border rounded-xl text-xs text-slate-200 p-2.5 focus:outline-none focus:border-cyan-500 font-mono"
+                    className="w-full bg-[#0A0A0A] border border-card-border rounded-xl text-xs text-slate-200 p-2.5 focus:outline-none focus:border-cyan-500 font-mono"
                   >
                     <option value="CONSERVATIVE_MM">CONSERVATIVE_MM (Wide Spread, Safe)</option>
                     <option value="BALANCED_MM">BALANCED_MM (Medium Spread, Balanced)</option>
@@ -553,7 +553,7 @@ export const AdminBotsTab: React.FC = () => {
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Assigned Instruments
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto p-2 bg-[#090D16] rounded-xl border border-card-border">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto p-2 bg-[#0A0A0A] rounded-xl border border-card-border">
                   {instruments.map((inst) => {
                     const isSelected = createForm.instrumentIds.includes(inst.id);
                     return (
@@ -581,7 +581,7 @@ export const AdminBotsTab: React.FC = () => {
               </div>
 
               {/* Risk & Execution Configuration */}
-              <div className="p-3 bg-[#090D16] rounded-xl border border-card-border space-y-3">
+              <div className="p-3 bg-[#0A0A0A] rounded-xl border border-card-border space-y-3">
                 <span className="text-xs font-mono font-bold text-slate-300 uppercase block">
                   Risk & Execution Parameters
                 </span>
@@ -779,7 +779,7 @@ export const AdminBotsTab: React.FC = () => {
                   className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors ${
                     logFilterAction === act
                       ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50'
-                      : 'bg-[#090D16] text-slate-400 border border-card-border hover:text-white'
+                      : 'bg-[#0A0A0A] text-slate-400 border border-card-border hover:text-white'
                   }`}
                 >
                   {act}
@@ -788,7 +788,7 @@ export const AdminBotsTab: React.FC = () => {
             </div>
 
             {/* Logs Table / List */}
-            <div className="flex-1 overflow-y-auto min-h-[300px] border border-card-border rounded-xl bg-[#090D16] p-2">
+            <div className="flex-1 overflow-y-auto min-h-[300px] border border-card-border rounded-xl bg-[#0A0A0A] p-2">
               {isLoadingLogs ? (
                 <div className="py-12 text-center text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
                   <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" /> Loading logs...

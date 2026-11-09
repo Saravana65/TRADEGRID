@@ -4,63 +4,61 @@
 
 @layer base {
   :root {
-    /* Light Theme (Default if browser preference is light) */
-    --bg-app: #F8FAFC;
+    /* Pure White Light Theme */
+    --bg-app: #FFFFFF;
     --bg-card: #FFFFFF;
     --bg-surface: #FFFFFF;
-    --bg-surface-hover: #F1F5F9;
+    --bg-surface-hover: #F8FAFC;
     --bg-surface-card: #FFFFFF;
-    --bg-surface-elevated: #FFFFFF;
+    --bg-surface-elevated: #F8FAFC;
     --bg-surface-input: #FFFFFF;
-    --border-card: #E2E8F0;
-    --border-subtle: #E2E8F0;
-    --border-divider: #F1F5F9;
+    --border-card: #E5E7EB;
+    --border-subtle: #E5E7EB;
+    --border-divider: #F3F4F6;
 
-    --text-primary: #0F172A;
-    --text-secondary: #475569;
-    --text-muted: #94A3B8;
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #9CA3AF;
 
-    --brand-cyan: #0284C7;
-    --brand-cyan-glow: #0369A1;
-    --brand-blue: #2563EB;
+    --brand-accent: #111827;
+    --brand-accent-contrast: #FFFFFF;
 
-    --trade-gain: #059669;
-    --trade-gain-bg: rgba(5, 150, 105, 0.08);
-    --trade-loss: #E11D48;
-    --trade-loss-bg: rgba(225, 29, 72, 0.08);
+    --trade-gain: #16A34A;
+    --trade-gain-bg: rgba(22, 163, 74, 0.08);
+    --trade-loss: #DC2626;
+    --trade-loss-bg: rgba(220, 38, 38, 0.08);
 
-    --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
-    --card-shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+    --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+    --card-shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
   }
 
   .dark {
-    /* Dark Theme (Default if browser preference is dark) */
-    --bg-app: #080C15;
-    --bg-card: #0F1626;
-    --bg-surface: #0F1626;
-    --bg-surface-hover: #162035;
-    --bg-surface-card: #0F1626;
-    --bg-surface-elevated: #162035;
-    --bg-surface-input: #090E1A;
-    --border-card: #1E2B45;
-    --border-subtle: #1E2B45;
-    --border-divider: #162035;
+    /* Pure Pitch-Black Dark Theme (Zero Navy / Blue Tints) */
+    --bg-app: #000000;
+    --bg-card: #0A0A0A;
+    --bg-surface: #0A0A0A;
+    --bg-surface-hover: #141414;
+    --bg-surface-card: #0A0A0A;
+    --bg-surface-elevated: #141414;
+    --bg-surface-input: #0A0A0A;
+    --border-card: #1F1F1F;
+    --border-subtle: #1F1F1F;
+    --border-divider: #141414;
 
-    --text-primary: #F8FAFC;
-    --text-secondary: #94A3B8;
-    --text-muted: #64748B;
+    --text-primary: #FFFFFF;
+    --text-secondary: #A3A3A3;
+    --text-muted: #737373;
 
-    --brand-cyan: #06B6D4;
-    --brand-cyan-glow: #0891B2;
-    --brand-blue: #3B82F6;
+    --brand-accent: #FFFFFF;
+    --brand-accent-contrast: #000000;
 
     --trade-gain: #10B981;
     --trade-gain-bg: rgba(16, 185, 129, 0.12);
     --trade-loss: #F43F5E;
     --trade-loss-bg: rgba(244, 63, 94, 0.12);
 
-    --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
-    --card-shadow-hover: 0 8px 28px -4px rgba(0, 0, 0, 0.55);
+    --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.85);
+    --card-shadow-hover: 0 8px 30px -4px rgba(0, 0, 0, 0.95);
   }
 
   body {
@@ -89,7 +87,7 @@
   }
 
   .dark ::-webkit-scrollbar-thumb {
-    background: #1E2B45;
+    background: #262626;
   }
 
   ::-webkit-scrollbar-thumb:hover {
@@ -97,7 +95,7 @@
   }
 
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: #2D3E63;
+    background: #404040;
   }
 }
 
@@ -114,10 +112,10 @@
 }
 
 .dark .glass-panel {
-  background: rgba(15, 22, 38, 0.85);
+  background: rgba(10, 10, 10, 0.9);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(30, 43, 69, 0.7);
+  border: 1px solid rgba(38, 38, 38, 0.8);
 }
 
 /* Subtle Glowing Indicators */

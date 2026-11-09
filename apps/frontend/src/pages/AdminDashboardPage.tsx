@@ -266,7 +266,7 @@ export const AdminDashboardPage: React.FC = () => {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-xl font-bold  text-slate-900 dark:text-white  flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-amber-400" />
             Exchange Operations & Market Controls
           </h1>
@@ -291,7 +291,7 @@ export const AdminDashboardPage: React.FC = () => {
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
             activeTab === 'BOTS'
               ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-lg shadow-cyan-500/10'
-              : 'text-slate-400 hover:text-white bg-[#090D16] border border-card-border'
+              : 'text-slate-400 hover:text-white bg-[#0A0A0A] border border-card-border'
           }`}
         >
           <BotIcon className="w-4 h-4 text-cyan-400" />
@@ -302,7 +302,7 @@ export const AdminDashboardPage: React.FC = () => {
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
             activeTab === 'NEWS'
               ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-lg shadow-purple-500/10'
-              : 'text-slate-400 hover:text-white bg-[#090D16] border border-card-border'
+              : 'text-slate-400 hover:text-white bg-[#0A0A0A] border border-card-border'
           }`}
         >
           <Newspaper className="w-4 h-4 text-purple-400" />
@@ -313,7 +313,7 @@ export const AdminDashboardPage: React.FC = () => {
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
             activeTab === 'OPERATIONS'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-lg shadow-amber-500/10'
-              : 'text-slate-400 hover:text-white bg-[#090D16] border border-card-border'
+              : 'text-slate-400 hover:text-white bg-[#0A0A0A] border border-card-border'
           }`}
         >
           <Sliders className="w-4 h-4 text-amber-400" />
@@ -334,7 +334,7 @@ export const AdminDashboardPage: React.FC = () => {
           subtitle="Global execution matching switch"
           className="md:col-span-2"
         >
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-[#090D16] border border-card-border">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-[#0A0A0A] border border-card-border">
             <div className="flex items-center gap-3">
               <div
                 className={`p-3 rounded-xl border ${
@@ -484,7 +484,7 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleExecuteAdjustment} className="space-y-4">
-              <div className="p-3 bg-[#090D16] rounded-xl border border-card-border text-xs space-y-1">
+              <div className="p-3 bg-[#0A0A0A] rounded-xl border border-card-border text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Target Trader:</span>
                   <span className="text-white font-mono font-bold">
@@ -509,7 +509,7 @@ export const AdminDashboardPage: React.FC = () => {
                     className={`p-2.5 rounded-xl border text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                       adjustmentType === 'CREDIT'
                         ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
-                        : 'bg-[#090D16] text-slate-400 border-card-border hover:text-slate-200'
+                        : 'bg-[#0A0A0A] text-slate-400 border-card-border hover:text-slate-200'
                     }`}
                   >
                     <ArrowDownLeft className="w-4 h-4" />
@@ -521,7 +521,7 @@ export const AdminDashboardPage: React.FC = () => {
                     className={`p-2.5 rounded-xl border text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                       adjustmentType === 'DEBIT'
                         ? 'bg-amber-500/20 text-amber-400 border-amber-500/50'
-                        : 'bg-[#090D16] text-slate-400 border-card-border hover:text-slate-200'
+                        : 'bg-[#0A0A0A] text-slate-400 border-card-border hover:text-slate-200'
                     }`}
                   >
                     <ArrowUpRight className="w-4 h-4" />
@@ -551,7 +551,7 @@ export const AdminDashboardPage: React.FC = () => {
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="State the regulatory or operational reason for this adjustment..."
                   rows={2}
-                  className="w-full bg-[#090D16] border border-card-border rounded-xl text-xs text-slate-200 p-2.5 focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-[#0A0A0A] border border-card-border rounded-xl text-xs text-slate-200 p-2.5 focus:outline-none focus:border-cyan-500"
                   required
                 />
               </div>

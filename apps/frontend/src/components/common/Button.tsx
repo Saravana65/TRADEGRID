@@ -34,15 +34,15 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variantStyles: Record<ButtonVariant, string> = {
     primary:
-      'bg-cyan-600 hover:bg-cyan-500 text-white focus:ring-cyan-500 shadow-cyan-600/25 active:translate-y-0.5',
+      'bg-slate-900 dark:bg-white hover:bg-black dark:hover:bg-neutral-200 text-white dark:text-black focus:ring-2 focus:ring-slate-400 dark:focus:ring-white active:translate-y-0.5 shadow-sm',
     secondary:
-      'bg-white dark:bg-card hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-card-border focus:ring-slate-400',
+      'bg-white dark:bg-[#0A0A0A] hover:bg-slate-100 dark:hover:bg-[#141414] text-slate-900 dark:text-white border border-slate-200 dark:border-[#262626] focus:ring-2 focus:ring-slate-400 active:translate-y-0.5',
     success:
-      'bg-emerald-600 hover:bg-emerald-500 text-white focus:ring-emerald-500 shadow-emerald-600/25 active:translate-y-0.5',
+      'bg-emerald-600 hover:bg-emerald-500 text-white focus:ring-2 focus:ring-emerald-500 active:translate-y-0.5',
     danger:
-      'bg-rose-600 hover:bg-rose-500 text-white focus:ring-rose-500 shadow-rose-600/25 active:translate-y-0.5',
+      'bg-rose-600 hover:bg-rose-500 text-white focus:ring-2 focus:ring-rose-500 active:translate-y-0.5',
     ghost:
-      'bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 shadow-none focus:ring-slate-400',
+      'bg-transparent hover:bg-slate-100 dark:hover:bg-[#141414] text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white shadow-none focus:ring-2 focus:ring-slate-400',
   };
 
   return (

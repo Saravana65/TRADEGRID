@@ -32,7 +32,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           {title}
         </span>
         {icon && (
-          <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-cyan-600 dark:text-cyan-400">
+          <div className="p-2 rounded-xl bg-slate-100 dark:bg-[#141414] text-slate-900 dark:text-white border border-slate-200 dark:border-[#262626]">
             {icon}
           </div>
         )}

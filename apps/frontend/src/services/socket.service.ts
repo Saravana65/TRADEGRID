@@ -14,7 +14,9 @@ class SocketService {
     }
 
     const token = localStorage.getItem('tg_access_token') || localStorage.getItem('access_token');
-    const wsUrl = import.meta.env.VITE_WS_URL || window.location.origin.replace(/^http/, 'ws');
+    const wsUrl =
+      import.meta.env.VITE_WS_URL ||
+      (window.location.port === '5173' ? 'http://localhost:5000' : window.location.origin);
 
     this.socket = io(wsUrl, {
       path: '/socket.io',

@@ -245,8 +245,8 @@ export const TransactionHistoryPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <History className="w-5 h-5 text-cyan-400" />
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <History className="w-5 h-5 text-slate-900 dark:text-white" />
             Transaction History & Cash Ledger
           </h1>
           <p className="text-xs text-slate-400 mt-1">
@@ -353,7 +353,7 @@ export const TransactionHistoryPage: React.FC = () => {
               <select
                 value={selectedType}
                 onChange={(e) => handleTypeChange(e.target.value)}
-                className="bg-[#090D16] border border-card-border rounded-lg text-xs font-mono text-slate-300 px-2.5 py-1 focus:outline-none focus:border-cyan-500"
+                className="bg-[#0A0A0A] border border-card-border rounded-lg text-xs font-mono text-slate-300 px-2.5 py-1 focus:outline-none focus:border-cyan-500"
               >
                 {transactionTypes.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -440,7 +440,7 @@ export const TransactionHistoryPage: React.FC = () => {
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2 p-3 bg-[#090D16] rounded-xl border border-card-border">
+              <div className="grid grid-cols-2 gap-2 p-3 bg-[#0A0A0A] rounded-xl border border-card-border">
                 <div>
                   <span className="text-slate-400 uppercase text-[10px] font-mono">Tx Reference</span>
                   <p className="font-mono text-cyan-400 font-semibold mt-0.5">
@@ -479,7 +479,7 @@ export const TransactionHistoryPage: React.FC = () => {
 
                 <div className="border border-card-border rounded-xl overflow-hidden">
                   <table className="w-full text-left font-mono text-xs">
-                    <thead className="bg-[#090D16] text-slate-400 border-b border-card-border">
+                    <thead className="bg-[#0A0A0A] text-slate-400 border-b border-card-border">
                       <tr>
                         <th className="p-2.5">Entry ID</th>
                         <th className="p-2.5">Account ID</th>

@@ -99,7 +99,7 @@ export const MarketsPage: React.FC = () => {
       key: 'exchange',
       header: 'Exchange',
       render: (row) => (
-        <span className="font-mono text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#090D16] px-2 py-0.5 rounded border border-slate-200 dark:border-card-border">
+        <span className="font-mono text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#0A0A0A] px-2 py-0.5 rounded border border-slate-200 dark:border-card-border">
           {row.exchange}
         </span>
       ),
@@ -172,13 +172,13 @@ export const MarketsPage: React.FC = () => {
         <div className="flex items-center justify-end gap-1.5">
           <Link
             to={`/markets/${row.symbol}`}
-            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono font-medium transition-colors"
+            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-[#141414] dark:hover:bg-[#1F1F1F] text-slate-800 dark:text-neutral-200 border border-slate-200 dark:border-[#262626] rounded-lg text-xs font-mono font-medium transition-colors"
           >
             Chart
           </Link>
           <Link
             to={`/trade?symbol=${row.symbol}`}
-            className="px-2.5 py-1 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/40 rounded text-xs font-mono font-medium transition-colors"
+            className="px-2.5 py-1 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-black rounded-lg text-xs font-mono font-semibold transition-colors shadow-sm"
           >
             Trade
           </Link>
@@ -192,7 +192,7 @@ export const MarketsPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-xl font-bold  text-slate-900 dark:text-white  flex items-center gap-2">
             <Layers className="w-5 h-5 text-cyan-400" />
             Market Instrument Master & Quotes
           </h1>
@@ -267,7 +267,7 @@ export const MarketsPage: React.FC = () => {
               <Link
                 key={g.symbol}
                 to={`/markets/${g.symbol}`}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090D16] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#0A0A0A] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
               >
                 <div className="flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
@@ -296,7 +296,7 @@ export const MarketsPage: React.FC = () => {
               <Link
                 key={l.symbol}
                 to={`/markets/${l.symbol}`}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090D16] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#0A0A0A] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
               >
                 <div className="flex items-center gap-1.5">
                   <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
@@ -325,7 +325,7 @@ export const MarketsPage: React.FC = () => {
               <Link
                 key={m.symbol}
                 to={`/markets/${m.symbol}`}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090D16] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#0A0A0A] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
               >
                 <div className="flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-cyan-500" />
@@ -362,7 +362,7 @@ export const MarketsPage: React.FC = () => {
             </div>
 
             {/* Classification Toggle */}
-            <div className="flex items-center bg-slate-100 dark:bg-[#090D16] border border-slate-200 dark:border-card-border rounded-xl p-0.5 shadow-sm">
+            <div className="flex items-center bg-slate-100 dark:bg-[#0A0A0A] border border-slate-200 dark:border-card-border rounded-xl p-0.5 shadow-sm">
               <button
                 onClick={() => setSelectedClassification('')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition-colors ${
@@ -393,7 +393,7 @@ export const MarketsPage: React.FC = () => {
             <select
               value={selectedExchange}
               onChange={(e) => setSelectedExchange(e.target.value)}
-              className="bg-white dark:bg-[#090D16] border border-slate-200 dark:border-card-border rounded-xl text-xs font-sans text-slate-800 dark:text-slate-300 px-3 py-2 focus:outline-none focus:border-cyan-500 shadow-sm"
+              className="bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-card-border rounded-xl text-xs font-sans text-slate-800 dark:text-slate-300 px-3 py-2 focus:outline-none focus:border-cyan-500 shadow-sm"
             >
               <option value="">All Exchanges</option>
               {exchanges.map((ex) => (
@@ -407,7 +407,7 @@ export const MarketsPage: React.FC = () => {
             <select
               value={selectedSector}
               onChange={(e) => setSelectedSector(e.target.value)}
-              className="bg-white dark:bg-[#090D16] border border-slate-200 dark:border-card-border rounded-xl text-xs font-sans text-slate-800 dark:text-slate-300 px-3 py-2 focus:outline-none focus:border-cyan-500 shadow-sm"
+              className="bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-card-border rounded-xl text-xs font-sans text-slate-800 dark:text-slate-300 px-3 py-2 focus:outline-none focus:border-cyan-500 shadow-sm"
             >
               <option value="">All Sectors</option>
               {sectors.map((s) => (

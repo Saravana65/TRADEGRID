@@ -390,9 +390,9 @@ export const ChatPage: React.FC = () => {
   );
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-[#070A12] text-slate-100 overflow-hidden">
+    <div className="flex h-[calc(100vh-4rem)] bg-[#000000] text-slate-100 overflow-hidden">
       {/* 1. Left Navigation & Room Selector Panel */}
-      <div className="w-80 flex-shrink-0 bg-[#0B0F19] border-r border-slate-800/80 flex flex-col">
+      <div className="w-80 flex-shrink-0 bg-[#0D0D0D] border-r border-slate-800/80 flex flex-col">
         {/* Top Header Tabs */}
         <div className="p-3 border-b border-slate-800/80">
           <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-lg border border-slate-800">
@@ -659,7 +659,7 @@ export const ChatPage: React.FC = () => {
       </div>
 
       {/* 2. Main Chat Feed Arena */}
-      <div className="flex-1 flex flex-col bg-[#070A12] relative">
+      <div className="flex-1 flex flex-col bg-[#000000] relative">
         {/* Chat Room / DM Header */}
         <div className="h-16 border-b border-slate-800/80 px-6 flex items-center justify-between bg-[#0A0E1A]/80 backdrop-blur">
           <div className="flex items-center gap-3">
@@ -787,10 +787,10 @@ export const ChatPage: React.FC = () => {
                     <div
                       className={`p-3 rounded-2xl text-xs leading-relaxed ${
                         isMine
-                          ? 'bg-cyan-600 text-white rounded-tr-none'
+                          ? 'bg-slate-900 dark:bg-white text-white dark:text-black rounded-tr-none shadow-sm'
                           : msg.isDeleted
-                          ? 'bg-slate-900/40 text-slate-500 italic border border-slate-800'
-                          : 'bg-slate-800/80 text-slate-200 rounded-tl-none border border-slate-700/50'
+                          ? 'bg-slate-100 dark:bg-[#121212] text-slate-400 dark:text-neutral-500 italic border border-slate-200 dark:border-[#222222]'
+                          : 'bg-slate-100 dark:bg-[#171717] text-slate-900 dark:text-neutral-200 rounded-tl-none border border-slate-200 dark:border-[#262626]'
                       }`}
                     >
                       {msg.content}
@@ -854,7 +854,7 @@ export const ChatPage: React.FC = () => {
       {/* MODAL 1: New Direct Message User Search */}
       {isNewDmOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+          <div className="bg-[#0D0D0D] border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-cyan-400" />
@@ -910,7 +910,7 @@ export const ChatPage: React.FC = () => {
       {/* MODAL 2: Report Message / User */}
       {isReportingOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+          <div className="bg-[#0D0D0D] border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
                 <Flag className="w-4 h-4 text-amber-400" />

@@ -297,7 +297,7 @@ export const CompetitionDetailPage: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-white font-mono tracking-tight">
+              <h1 className="text-2xl font-bold  text-slate-900 dark:text-white  font-mono tracking-tight">
                 {competition.name}
               </h1>
               <span

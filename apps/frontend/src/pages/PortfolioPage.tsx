@@ -167,7 +167,7 @@ export const PortfolioPage: React.FC = () => {
         </div>
         <button
           onClick={() => fetchPortfolioSummary()}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-card-border text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 text-xs font-sans font-medium shadow-sm"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#141414] dark:hover:bg-[#1F1F1F] text-slate-900 dark:text-white border border-slate-200 dark:border-[#262626] text-xs font-sans font-medium shadow-sm transition-colors"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
         </button>
@@ -188,7 +188,7 @@ export const PortfolioPage: React.FC = () => {
           change="Real-time"
           changeType="positive"
           subtitle="Cash + Positions"
-          icon={<PieChart className="w-5 h-5 text-cyan-400" />}
+          icon={<PieChart className="w-5 h-5 text-slate-900 dark:text-white" />}
         />
         <StatCard
           title="Virtual Available Cash"
@@ -232,8 +232,8 @@ export const PortfolioPage: React.FC = () => {
       </Card>
 
       {/* Educational Architecture Note */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-card-border flex items-start gap-3 shadow-sm">
-        <ShieldAlert className="w-5 h-5 text-cyan-600 dark:text-cyan-400 flex-shrink-0 mt-0.5" />
+      <div className="p-4 rounded-2xl bg-white dark:bg-[#0A0A0A] border border-slate-200 dark:border-[#1F1F1F] flex items-start gap-3 shadow-sm">
+        <ShieldAlert className="w-5 h-5 text-slate-700 dark:text-neutral-300 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1 font-sans">
           <span className="font-semibold text-slate-900 dark:text-slate-200">
             Phase 4B Atomic Settlement Principle:

@@ -423,38 +423,38 @@ export const StrategyStudioPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-slate-200 pb-16">
+    <div className="min-h-screen bg-[#000000] text-slate-200 pb-16">
       {/* Top Banner Header */}
       <div className="border-b border-card-border bg-[#0A0E1A]/80 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
+              <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#141414] text-slate-900 dark:text-white border border-slate-200 dark:border-[#262626]">
                 <Sliders className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight text-white font-mono">
-                    STRATEGY <span className="text-cyan-400">STUDIO</span>
+                  <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
+                    STRATEGY <span className="text-slate-500 dark:text-neutral-400">STUDIO</span>
                   </h1>
-                  <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                  <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-slate-100 dark:bg-[#1C1C1C] text-slate-800 dark:text-neutral-300 border border-slate-200 dark:border-[#2E2E2E]">
                     PHASE 9C
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
                   Visual rule-based strategy builder & sandboxed algorithmic simulation engine
                 </p>
               </div>
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex items-center gap-2 bg-slate-900/80 p-1 rounded-xl border border-card-border">
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-[#141414] p-1 rounded-xl border border-slate-200 dark:border-[#222222]">
               <button
                 onClick={() => setActiveTab('DASHBOARD')}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   activeTab === 'DASHBOARD'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white dark:bg-[#262626] text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Layers className="w-4 h-4" />
