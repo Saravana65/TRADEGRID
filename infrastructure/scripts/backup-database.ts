@@ -28,6 +28,15 @@ export interface BackupResult {
   error?: string;
 }
 
+export interface RestoreResult {
+  success: boolean;
+  archivePath: string;
+  targetDatabase: string;
+  timestamp: string;
+  verificationPassed: boolean;
+  error?: string;
+}
+
 /**
  * Automated Database Backup Manager
  *
@@ -73,6 +82,14 @@ export class DatabaseBackupManager {
    */
   buildDumpCommand(outputPath: string): string {
     return `mysqldump --host=${this.host} --port=${this.port} --user=${this.user} --password=${this.password} --single-transaction --quick --routines --triggers ${this.database} | gzip > "${outputPath}"`;
+  }
+
+  /**
+   * Generates the command to restore an archive into MySQL.
+   */
+  buildRestoreCommand(archivePath: string, targetDatabase?: string): string {
+    const db = targetDatabase || this.database;
+    return `gunzip < "${archivePath}" | mysql --host=${this.host} --port=${this.port} --user=${this.user} --password=${this.password} ${db}`;
   }
 
   /**
@@ -162,6 +179,53 @@ export class DatabaseBackupManager {
         sizeBytes: 0,
         timestamp: new Date().toISOString(),
         prunedFilesCount: 0,
+        verificationPassed: false,
+        error: err.message,
+      };
+    }
+  }
+
+  async executeRestore(archivePath: string, targetDatabase?: string, dryRun: boolean = false): Promise<RestoreResult> {
+    const targetDb = targetDatabase || this.database;
+    if (dryRun) {
+      return {
+        success: true,
+        archivePath,
+        targetDatabase: targetDb,
+        timestamp: new Date().toISOString(),
+        verificationPassed: true,
+      };
+    }
+
+    try {
+      const isValid = await this.verifyBackupArchive(archivePath);
+      if (!isValid) {
+        return {
+          success: false,
+          archivePath,
+          targetDatabase: targetDb,
+          timestamp: new Date().toISOString(),
+          verificationPassed: false,
+          error: 'Archive file is missing, empty, or not a valid gzip file',
+        };
+      }
+
+      const cmd = this.buildRestoreCommand(archivePath, targetDb);
+      await execAsync(cmd);
+
+      return {
+        success: true,
+        archivePath,
+        targetDatabase: targetDb,
+        timestamp: new Date().toISOString(),
+        verificationPassed: true,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        archivePath,
+        targetDatabase: targetDb,
+        timestamp: new Date().toISOString(),
         verificationPassed: false,
         error: err.message,
       };

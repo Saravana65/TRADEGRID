@@ -125,6 +125,29 @@ describe('Phase 11E: 100 Concurrent Users Load & Performance Verification ($0 In
 
     expect(userIds.length).toBe(100);
 
+    // Warm up V8 JIT compiler before latency tracking to eliminate cold-start interpretation artifacts
+    const warmupUser = await userRepo.create({
+      email: 'warmup@tradegrid.internal',
+      username: 'warmup_trader',
+      password_hash: 'mock_hash',
+      role: 'TRADER',
+      status: 'ACTIVE',
+    });
+    await walletService.createWalletForUser(warmupUser.id, initialBalance, 'USD');
+    for (let w = 0; w < 5; w++) {
+      await orderService.createOrder(warmupUser.id, {
+        instrumentId: 10,
+        side: 'BUY',
+        orderType: 'LIMIT',
+        quantity: '1.0000',
+        limitPrice: '140.0000',
+      });
+      matchingEngine.getOrCreateBook(10, 'TGRID').getDepth(5);
+      await marketDataRepo.getQuoteBySymbol('TGRID');
+      const wTokens = new DSLLexer('strategy "W"\ntimeframe "15m"\nentry:\n  close > open\nexit:\n  close < open').tokenize();
+      new DSLParser(wTokens).parse();
+    }
+
     // Initial memory usage
     const initialMemory = process.memoryUsage().heapUsed;
 

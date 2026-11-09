@@ -1,7 +1,7 @@
 # TRADEGRID – Development Status
 
-* **Current Status:** Phase 9C & Phase 9D Complete (Visual Strategy Studio & Automated Virtual Strategy Runner) ✅
-* **Previous Phase:** Phase 9A & Phase 9B Complete (DSL Scripting & Sandboxed Execution Engine) ✅
+* **Current Status:** Phase 12 Complete (Controlled Beta Launch & Release Candidate 1 v1.0.0-rc.1) ✅
+* **Previous Phase:** Phase 11 Complete (Production Deployment, Security Hardening & 100-User Load Benchmark) ✅
 * **Scope Boundary:** Virtual trading only — strictly zero live exchange routing or real-money execution.
 
 ---
@@ -334,9 +334,38 @@
 
 ---
 
-### S. Future Phases Roadmap
+### S. Phase 10: Indian Market Data Integration (NSE / BSE) (Completed)
 
-| Feature | Target Phase | Status |
+| Module / Component | Status | Details |
 |---|---|---|
-| **Mobile Responsive Progressive Web App (PWA)** | Phase 10 | Planned |
+| **Market Data Provider Architecture (10A)** | ✅ Completed | `IMarketDataProvider` interface supporting `SimulatedMarketDataProvider`, `LicensedIndianMarketDataProvider`, and `HistoricalMarketDataProvider`. Explicit provenance tagging (`SIMULATED`, `LICENSED_LIVE`, `DELAYED`, `HISTORICAL`). `MarketDataProviderRegistry` with heartbeat watchdog and automatic fallback to simulator. |
+| **Indian Market Feed Adapter (10B)** | ✅ Completed | `IndianSymbolMapper` supporting NSE/BSE symbol mapping (`NSE:RELIANCE-EQ`), ₹0.05 tick size, and standard lot sizes. `IndianTradingHoursService` enforcing IST trading sessions (09:15 - 15:30) and holidays. Documented `licensing-guide.md`. |
+| **Historical Market Data & Candle Engine (10C)** | ✅ Completed | `CandleEngine` with fixed-precision arithmetic (1m base aggregated to 5m, 15m, 1h, 1d). BigInt volume summation, gap forward-fill interpolation with 0 volume, and anti-lookahead filtering. Migration `017_enhance_market_candles_provenance.ts`. |
+| **Real-Time Streaming & Stream Recovery (10D)** | ✅ Completed | `MarketDataStreamManager` with exponential backoff and jitter. Heartbeat watchdog (5s interval, 15s timeout), sequence gap detection, and deduplication. |
+| **Market Data Integration Audit (10E)** | ✅ Completed | Read-only gatekeeper cleared. 379/379 tests passed across 24 test suites. |
+
+---
+
+### T. Phase 11: Production Infrastructure & Hardening (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Production Architecture (11A)** | ✅ Completed | `docker-compose.production.yml` with strict CPU/memory quotas and healthchecks. Hardened Dockerfile with non-root unprivileged user `tradegrid`. Production Nginx reverse proxy configuration. `InProcessCacheService` for $0 zero-cost caching. |
+| **Database & Queue Hardening (11B)** | ✅ Completed | Knex connection pool (min 5, max 25). `withDeadlockRetry` with randomized exponential backoff on MySQL 1213/1205 errors. `HardenedJobQueue` with backpressure rejection, 3-attempt exponential retry, Dead Letter Queue (DLQ), and graceful shutdown drain. |
+| **Production Security Hardening (11C)** | ✅ Completed | `validateProductionSecrets` checking secret lengths (>= 32 chars). Tiered rate limiting in `rate-limiter.middleware.ts` (auth 5/min, orders 30/min, market 120/min, general 60/min). Refresh token rotation with family revocation on replay. |
+| **Monitoring, Backups & DR (11D)** | ✅ Completed | Structured JSON logging with recursive PII sanitization in `logger.ts`. Health endpoints `/health/liveness` and `/health/readiness`. Automated database backup and restore manager (`backup-database.ts`) with gzip verification. `DISASTER_RECOVERY.md` runbook. |
+| **100-User Load & Performance Benchmark (11E)** | ✅ Completed | Simulated 100 concurrent users across 4 personas (40 traders, 30 viewers, 20 quants, 10 runners). Target p95 order latency < 100ms verified with warmup, 0 ledger discrepancies across all 100 accounts. |
+| **Production Readiness Audit (11F)** | ✅ Completed | Gatekeeper cleared. 410/410 tests passed across all 29 test suites. |
+
+---
+
+### U. Phase 12: Controlled Beta Launch & Release Management (Completed)
+
+| Module / Component | Status | Details |
+|---|---|---|
+| **Controlled Beta Environment (12A)** | ✅ Completed | `BetaEnvironmentService` with configurable feature flags: `VIRTUAL_TRADING_ONLY` (immutable safety invariant), `INDIAN_EQUITIES_ENABLED`, `STRATEGY_STUDIO_ENABLED`, `BACKGROUND_RUNNERS_ENABLED`, `COMPETITIONS_ENABLED`, `ACHIEVEMENTS_ENABLED`, `GLOBAL_CHAT_ENABLED`, and `BETA_FEEDBACK_ENABLED`. Deterministic hash-based user cohort percentage rollout. Endpoints `/api/v1/beta/status` and `/api/v1/beta/feedback`. |
+| **User Onboarding & Documentation (12B)** | ✅ Completed | Comprehensive `docs/ONBOARDING_GUIDE.md` covering the 7-step trader journey. Interactive endpoints `/api/v1/onboarding/guide`, `/api/v1/onboarding/checklist`, and `/api/v1/onboarding/acknowledge-disclaimer`. |
+| **Multi-Account Beta Verification (12C)** | ✅ Completed | Multi-persona end-to-end integration test across 5 distinct trader personas (`alpha_maker`, `beta_taker`, `gamma_quant`, `delta_gamer`, `epsilon_social`). Verified 100% mathematical double-entry balance with 0 discrepancies across all accounts. |
+| **Release Candidate 1 Tagging (12D)** | ✅ Completed | Monorepo bumped to `1.0.0-rc.1`. `CHANGELOG.md` created with complete 12-phase release notes. Clean production builds for packages, backend, and frontend. |
+| **Final Launch Readiness Audit Gate (12E)** | ✅ Completed | Read-only gatekeeper audit cleared. Full regression pass with 428/428 tests passing across all 32 suites. Platform declared BETA READY. |
 

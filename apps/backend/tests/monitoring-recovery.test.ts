@@ -126,5 +126,26 @@ describe('Phase 11D: Monitoring, Backups and Disaster Recovery', () => {
       expect(res.verificationPassed).toBe(true);
       expect(res.backupFile).toBeDefined();
     });
+
+    it('should construct consistent gunzip restore command line', () => {
+      const cmd = backupManager.buildRestoreCommand('/tmp/backup.sql.gz', 'tradegrid_restored');
+      expect(cmd).toContain('gunzip < "/tmp/backup.sql.gz"');
+      expect(cmd).toContain('mysql');
+      expect(cmd).toContain('tradegrid_restored');
+    });
+
+    it('should perform dry-run restore execution cleanly', async () => {
+      const res = await backupManager.executeRestore('/tmp/backup.sql.gz', 'tradegrid_restored', true);
+      expect(res.success).toBe(true);
+      expect(res.verificationPassed).toBe(true);
+      expect(res.targetDatabase).toBe('tradegrid_restored');
+    });
+
+    it('should reject restoring invalid or missing archive files', async () => {
+      const res = await backupManager.executeRestore('/nonexistent/path/backup.sql.gz', 'tradegrid_restored', false);
+      expect(res.success).toBe(false);
+      expect(res.verificationPassed).toBe(false);
+      expect(res.error).toBeDefined();
+    });
   });
 });
