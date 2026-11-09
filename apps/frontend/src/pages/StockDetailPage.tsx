@@ -112,14 +112,14 @@ export const StockDetailPage: React.FC = () => {
             <h1 className="text-2xl font-bold font-mono text-white tracking-tight">
               {selectedInstrument?.symbol || activeSymbol}
             </h1>
-            <span className="text-xs uppercase font-mono px-2 py-0.5 rounded bg-[#090D16] border border-card-border text-slate-400">
+            <span className="text-xs uppercase font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-[#090D16] border border-slate-200 dark:border-card-border text-slate-600 dark:text-slate-400">
               {selectedInstrument?.exchange || 'NSE'}
             </span>
-            <span className="text-xs font-medium text-slate-400">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               {selectedInstrument?.sector || 'Equities'}
             </span>
           </div>
-          <p className="text-sm text-slate-300 font-medium">
+          <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
             {selectedInstrument?.name || 'Loading Enterprise...'}
           </p>
         </div>
@@ -128,19 +128,19 @@ export const StockDetailPage: React.FC = () => {
         {selectedQuote && (
           <div className="flex items-baseline gap-4">
             <div className="text-right">
-              <span className="text-xs font-mono uppercase text-slate-400 block leading-none mb-1">
+              <span className="text-xs font-sans uppercase text-slate-500 dark:text-slate-400 block leading-none mb-1 font-semibold">
                 Last Price ({selectedInstrument?.currency || 'INR'})
               </span>
-              <div className="text-3xl font-bold font-mono text-white tabular-nums tracking-tight">
+              <div className="text-3xl font-bold font-mono text-slate-900 dark:text-white tabular-nums tracking-tight">
                 {formatCurrency(selectedQuote.lastPrice)}
               </div>
             </div>
 
             <div
-              className={`p-2 rounded-xl border text-right font-mono ${
+              className={`p-2.5 rounded-2xl border text-right font-mono tabular-nums ${
                 isPos
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400'
               }`}
             >
               <div className="text-xs font-bold flex items-center gap-1 justify-end">
@@ -159,13 +159,13 @@ export const StockDetailPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <Link
             to={`/trade?symbol=${selectedInstrument?.symbol || activeSymbol}`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-colors shadow-lg shadow-cyan-600/20"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-sans font-bold tracking-wider uppercase transition-colors shadow-md shadow-cyan-600/20"
           >
             <Sparkles className="w-4 h-4" /> Open In Terminal
           </Link>
           <Link
             to={`/chart?symbol=${selectedInstrument?.symbol || activeSymbol}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-[#0A0F1D] hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-mono border border-card-border hover:border-cyan-500/40 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-white dark:bg-[#0A0F1D] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-sans font-medium border border-slate-200 dark:border-card-border hover:border-cyan-500/40 transition-colors shadow-sm"
           >
             <ExternalLink className="w-4 h-4" /> Studio
           </Link>
@@ -175,7 +175,7 @@ export const StockDetailPage: React.FC = () => {
       {/* Live Market Chart Embed */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-200 font-mono">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-200 font-sans">
             Live Interactive Technical Chart
           </h2>
           <span className="text-[11px] text-slate-500 font-mono">

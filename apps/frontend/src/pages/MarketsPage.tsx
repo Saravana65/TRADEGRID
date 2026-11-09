@@ -99,7 +99,7 @@ export const MarketsPage: React.FC = () => {
       key: 'exchange',
       header: 'Exchange',
       render: (row) => (
-        <span className="font-mono text-xs text-slate-300 bg-[#090D16] px-2 py-0.5 rounded border border-card-border">
+        <span className="font-mono text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#090D16] px-2 py-0.5 rounded border border-slate-200 dark:border-card-border">
           {row.exchange}
         </span>
       ),
@@ -112,7 +112,7 @@ export const MarketsPage: React.FC = () => {
         const quote = quotes[row.symbol.toUpperCase()];
         const price = quote ? quote.lastPrice : '0.0000';
         return (
-          <span className="font-mono font-bold text-white tabular-nums">
+          <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
             {formatCurrency(price)}
           </span>
         );
@@ -267,18 +267,18 @@ export const MarketsPage: React.FC = () => {
               <Link
                 key={g.symbol}
                 to={`/markets/${g.symbol}`}
-                className="flex items-center justify-between p-2 rounded-lg bg-[#090D16] hover:bg-slate-800/60 border border-card-border transition-colors text-xs font-mono"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090D16] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
               >
                 <div className="flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="font-bold text-white">{g.symbol}</span>
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="font-bold text-slate-900 dark:text-white font-sans">{g.symbol}</span>
                   <Badge variant={g.dataClassification === 'REAL' ? 'cyan' : 'simulated'}>
                     {g.dataClassification === 'REAL' ? 'NSE' : 'SIM'}
                   </Badge>
                 </div>
-                <div className="text-right">
-                  <span className="text-white font-semibold mr-2">{formatCurrency(g.lastPrice)}</span>
-                  <span className="text-emerald-400 font-bold">+{formatPercent(g.changePercent)}</span>
+                <div className="text-right font-mono tabular-nums">
+                  <span className="text-slate-800 dark:text-white font-semibold mr-2">{formatCurrency(g.lastPrice)}</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{formatPercent(g.changePercent)}</span>
                 </div>
               </Link>
             ))}
@@ -296,18 +296,18 @@ export const MarketsPage: React.FC = () => {
               <Link
                 key={l.symbol}
                 to={`/markets/${l.symbol}`}
-                className="flex items-center justify-between p-2 rounded-lg bg-[#090D16] hover:bg-slate-800/60 border border-card-border transition-colors text-xs font-mono"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090D16] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
               >
                 <div className="flex items-center gap-1.5">
-                  <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
-                  <span className="font-bold text-white">{l.symbol}</span>
+                  <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
+                  <span className="font-bold text-slate-900 dark:text-white font-sans">{l.symbol}</span>
                   <Badge variant={l.dataClassification === 'REAL' ? 'cyan' : 'simulated'}>
                     {l.dataClassification === 'REAL' ? 'NSE' : 'SIM'}
                   </Badge>
                 </div>
-                <div className="text-right">
-                  <span className="text-white font-semibold mr-2">{formatCurrency(l.lastPrice)}</span>
-                  <span className="text-rose-400 font-bold">{formatPercent(l.changePercent)}</span>
+                <div className="text-right font-mono tabular-nums">
+                  <span className="text-slate-800 dark:text-white font-semibold mr-2">{formatCurrency(l.lastPrice)}</span>
+                  <span className="text-rose-600 dark:text-rose-400 font-bold">{formatPercent(l.changePercent)}</span>
                 </div>
               </Link>
             ))}
@@ -325,11 +325,11 @@ export const MarketsPage: React.FC = () => {
               <Link
                 key={m.symbol}
                 to={`/markets/${m.symbol}`}
-                className="flex items-center justify-between p-2 rounded-lg bg-[#090D16] hover:bg-slate-800/60 border border-card-border transition-colors text-xs font-mono"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090D16] hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-card-border transition-colors text-xs font-sans shadow-sm"
               >
                 <div className="flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="font-bold text-white">{m.symbol}</span>
+                  <Activity className="w-3.5 h-3.5 text-cyan-500" />
+                  <span className="font-bold text-slate-900 dark:text-white font-sans">{m.symbol}</span>
                   <Badge variant={m.dataClassification === 'REAL' ? 'cyan' : 'simulated'}>
                     {m.dataClassification === 'REAL' ? 'NSE' : 'SIM'}
                   </Badge>
@@ -362,27 +362,27 @@ export const MarketsPage: React.FC = () => {
             </div>
 
             {/* Classification Toggle */}
-            <div className="flex items-center bg-[#090D16] border border-card-border rounded-xl p-0.5">
+            <div className="flex items-center bg-slate-100 dark:bg-[#090D16] border border-slate-200 dark:border-card-border rounded-xl p-0.5 shadow-sm">
               <button
                 onClick={() => setSelectedClassification('')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors ${
-                  selectedClassification === '' ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400'
+                className={`px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition-colors ${
+                  selectedClassification === '' ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 All
               </button>
               <button
                 onClick={() => setSelectedClassification('REAL')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors ${
-                  selectedClassification === 'REAL' ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400'
+                className={`px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition-colors ${
+                  selectedClassification === 'REAL' ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 Real NSE
               </button>
               <button
                 onClick={() => setSelectedClassification('SIMULATED')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors ${
-                  selectedClassification === 'SIMULATED' ? 'bg-purple-500/20 text-purple-300' : 'text-slate-400'
+                className={`px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition-colors ${
+                  selectedClassification === 'SIMULATED' ? 'bg-purple-50 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 Simulated
@@ -393,7 +393,7 @@ export const MarketsPage: React.FC = () => {
             <select
               value={selectedExchange}
               onChange={(e) => setSelectedExchange(e.target.value)}
-              className="bg-[#090D16] border border-card-border rounded-xl text-xs font-mono text-slate-300 px-3 py-2 focus:outline-none focus:border-cyan-500"
+              className="bg-white dark:bg-[#090D16] border border-slate-200 dark:border-card-border rounded-xl text-xs font-sans text-slate-800 dark:text-slate-300 px-3 py-2 focus:outline-none focus:border-cyan-500 shadow-sm"
             >
               <option value="">All Exchanges</option>
               {exchanges.map((ex) => (
@@ -407,7 +407,7 @@ export const MarketsPage: React.FC = () => {
             <select
               value={selectedSector}
               onChange={(e) => setSelectedSector(e.target.value)}
-              className="bg-[#090D16] border border-card-border rounded-xl text-xs font-mono text-slate-300 px-3 py-2 focus:outline-none focus:border-cyan-500"
+              className="bg-white dark:bg-[#090D16] border border-slate-200 dark:border-card-border rounded-xl text-xs font-sans text-slate-800 dark:text-slate-300 px-3 py-2 focus:outline-none focus:border-cyan-500 shadow-sm"
             >
               <option value="">All Sectors</option>
               {sectors.map((s) => (

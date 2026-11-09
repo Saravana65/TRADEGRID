@@ -19,6 +19,7 @@ import { chartingApiService } from '../../services/charting.service';
 import { marketApiService } from '../../services/market.service';
 import { socketService } from '../../services/socket.service';
 import { formatCurrency, formatNumber } from '../../utils/formatters';
+import { useUIStore } from '../../store/uiStore';
 import {
   RotateCcw,
   RefreshCw,
@@ -67,6 +68,9 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
   showToolbar = true,
   dataClassification = 'SIMULATED',
 }) => {
+  const { effectiveTheme } = useUIStore();
+  const isDark = effectiveTheme === 'dark';
+
   // Container refs
   const containerWrapperRef = useRef<HTMLDivElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -293,13 +297,13 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
       width: initialWidth,
       height: effectiveHeight,
       layout: {
-        background: { type: ColorType.Solid, color: '#090D16' },
-        textColor: '#94A3B8',
+        background: { type: ColorType.Solid, color: isDark ? '#090D16' : '#FFFFFF' },
+        textColor: isDark ? '#94A3B8' : '#475569',
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: 'rgba(30, 41, 59, 0.45)' },
-        horzLines: { color: 'rgba(30, 41, 59, 0.45)' },
+        vertLines: { color: isDark ? 'rgba(30, 41, 59, 0.45)' : 'rgba(226, 232, 240, 0.8)' },
+        horzLines: { color: isDark ? 'rgba(30, 41, 59, 0.45)' : 'rgba(226, 232, 240, 0.8)' },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -307,22 +311,22 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
           color: '#06B6D4',
           width: 1,
           style: 3,
-          labelBackgroundColor: '#0E1726',
+          labelBackgroundColor: isDark ? '#0E1726' : '#334155',
         },
         horzLine: {
           color: '#06B6D4',
           width: 1,
           style: 3,
-          labelBackgroundColor: '#0E1726',
+          labelBackgroundColor: isDark ? '#0E1726' : '#334155',
         },
       },
       timeScale: {
-        borderColor: '#1E293B',
+        borderColor: isDark ? '#1E293B' : '#E2E8F0',
         timeVisible: true,
         secondsVisible: false,
       },
       rightPriceScale: {
-        borderColor: '#1E293B',
+        borderColor: isDark ? '#1E293B' : '#E2E8F0',
         scaleMargins: {
           top: 0.1,
           bottom: 0.22,
@@ -583,23 +587,23 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
       width: container.clientWidth || 800,
       height: 140,
       layout: {
-        background: { type: ColorType.Solid, color: '#070A12' },
-        textColor: '#94A3B8',
+        background: { type: ColorType.Solid, color: isDark ? '#070A12' : '#F8FAFC' },
+        textColor: isDark ? '#94A3B8' : '#475569',
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: 'rgba(30, 41, 59, 0.3)' },
-        horzLines: { color: 'rgba(30, 41, 59, 0.3)' },
+        vertLines: { color: isDark ? 'rgba(30, 41, 59, 0.3)' : 'rgba(226, 232, 240, 0.6)' },
+        horzLines: { color: isDark ? 'rgba(30, 41, 59, 0.3)' : 'rgba(226, 232, 240, 0.6)' },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
       },
       timeScale: {
-        borderColor: '#1E293B',
+        borderColor: isDark ? '#1E293B' : '#E2E8F0',
         timeVisible: true,
       },
       rightPriceScale: {
-        borderColor: '#1E293B',
+        borderColor: isDark ? '#1E293B' : '#E2E8F0',
         scaleMargins: { top: 0.1, bottom: 0.1 },
       },
     });
@@ -675,6 +679,51 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
       }
     };
   }, [isRsiEnabled, symbol, interval, candles.length, indicators]);
+
+  // Synchronize dynamic chart theme colors when user or browser switches theme
+  useEffect(() => {
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.applyOptions({
+        layout: {
+          background: { type: ColorType.Solid, color: isDark ? '#090D16' : '#FFFFFF' },
+          textColor: isDark ? '#94A3B8' : '#475569',
+        },
+        grid: {
+          vertLines: { color: isDark ? 'rgba(30, 41, 59, 0.45)' : 'rgba(226, 232, 240, 0.8)' },
+          horzLines: { color: isDark ? 'rgba(30, 41, 59, 0.45)' : 'rgba(226, 232, 240, 0.8)' },
+        },
+        crosshair: {
+          vertLine: { labelBackgroundColor: isDark ? '#0E1726' : '#334155' },
+          horzLine: { labelBackgroundColor: isDark ? '#0E1726' : '#334155' },
+        },
+        timeScale: {
+          borderColor: isDark ? '#1E293B' : '#E2E8F0',
+        },
+        rightPriceScale: {
+          borderColor: isDark ? '#1E293B' : '#E2E8F0',
+        },
+      });
+    }
+
+    if (rsiChartRef.current) {
+      rsiChartRef.current.applyOptions({
+        layout: {
+          background: { type: ColorType.Solid, color: isDark ? '#070A12' : '#F8FAFC' },
+          textColor: isDark ? '#94A3B8' : '#475569',
+        },
+        grid: {
+          vertLines: { color: isDark ? 'rgba(30, 41, 59, 0.3)' : 'rgba(226, 232, 240, 0.6)' },
+          horzLines: { color: isDark ? 'rgba(30, 41, 59, 0.3)' : 'rgba(226, 232, 240, 0.6)' },
+        },
+        timeScale: {
+          borderColor: isDark ? '#1E293B' : '#E2E8F0',
+        },
+        rightPriceScale: {
+          borderColor: isDark ? '#1E293B' : '#E2E8F0',
+        },
+      });
+    }
+  }, [isDark]);
 
   // Real-time Market Ticks Streaming & Bucket Aggregation
   useEffect(() => {
@@ -822,40 +871,40 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
   return (
     <div
       ref={containerWrapperRef}
-      className="bg-[#090D16] border border-card-border rounded-xl overflow-hidden shadow-2xl flex flex-col relative select-none"
+      className="bg-white dark:bg-[#090D16] border border-slate-200 dark:border-card-border rounded-2xl overflow-hidden shadow-card-default flex flex-col relative select-none transition-colors duration-200"
     >
       {/* Top Chart Toolbar */}
       {showToolbar && (
-        <div className="px-3 py-2 border-b border-card-border bg-[#0B0F19] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+        <div className="px-3.5 py-2.5 border-b border-slate-200 dark:border-card-border bg-slate-50 dark:bg-[#0B0F19] flex flex-wrap items-center justify-between gap-2 text-xs font-sans">
           {/* Left: Timeframe Switcher & Chart Type */}
           <div className="flex items-center gap-1">
-            <span className="text-[10px] text-slate-500 uppercase font-semibold mr-1">Timeframe</span>
+            <span className="text-[10px] text-slate-500 uppercase font-bold mr-1">Timeframe</span>
             {(['1m', '5m', '15m', '1h', '1d'] as CandleInterval[]).map((tf) => (
               <button
                 key={tf}
                 onClick={() => setIntervalState(tf)}
-                className={`px-2 py-1 rounded text-xs font-semibold uppercase transition-colors ${
+                className={`px-2 py-1 rounded-lg text-xs font-semibold uppercase transition-colors font-mono ${
                   interval === tf
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/40 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                 }`}
               >
                 {tf}
               </button>
             ))}
 
-            <div className="h-4 w-px bg-card-border mx-1.5" />
+            <div className="h-4 w-px bg-slate-200 dark:bg-card-border mx-1.5" />
 
             {/* Chart Type Selector */}
-            <div className="flex items-center gap-0.5 bg-slate-900/80 p-0.5 rounded-lg border border-card-border">
+            <div className="flex items-center gap-0.5 bg-slate-200/60 dark:bg-slate-900/80 p-0.5 rounded-xl border border-slate-200 dark:border-card-border">
               {(['CANDLESTICK', 'LINE', 'AREA'] as ChartType[]).map((type) => (
                 <button
                   key={type}
                   onClick={() => setChartType(type)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                     chartType === type
-                      ? 'bg-cyan-600 text-white font-bold'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-cyan-600 text-white font-bold shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
                   {type === 'CANDLESTICK' ? 'Candles' : type === 'LINE' ? 'Line' : 'Area'}
@@ -888,10 +937,10 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
                 <button
                   key={ind.id}
                   onClick={() => toggleIndicator(ind.id)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                     ind.enabled
-                      ? 'bg-slate-800 text-cyan-300 border-cyan-500/50 shadow-sm'
-                      : 'bg-transparent text-slate-400 border-transparent hover:border-slate-700 hover:text-slate-300'
+                      ? 'bg-cyan-50 dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-500/50 shadow-sm'
+                      : 'bg-transparent text-slate-500 dark:text-slate-400 border-transparent hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-900 dark:hover:text-slate-300'
                   }`}
                 >
                   {label}
@@ -899,12 +948,12 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
               );
             })}
 
-            <div className="h-4 w-px bg-card-border mx-1 hidden sm:block" />
+            <div className="h-4 w-px bg-slate-200 dark:bg-card-border mx-1 hidden sm:block" />
 
             <button
               onClick={handleResetZoom}
               title="Reset Zoom / Fit Content"
-              className="p-1 rounded text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -913,15 +962,15 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
       )}
 
       {/* Floating Real-Time Crosshair HUD Bar */}
-      <div className="px-3 py-1.5 bg-[#090D16]/95 border-b border-card-border/60 flex items-center justify-between text-xs font-mono tabular-nums overflow-x-auto min-h-[30px]">
+      <div className="px-3.5 py-1.5 bg-white/95 dark:bg-[#090D16]/95 border-b border-slate-100 dark:border-card-border/60 flex items-center justify-between text-xs font-mono tabular-nums overflow-x-auto min-h-[32px]">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 font-bold text-slate-200">
+          <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200 font-sans">
             <span>{symbol}</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded border uppercase font-mono ${
+              className={`text-[10px] px-1.5 py-0.5 rounded-md border uppercase font-mono font-semibold ${
                 dataClassification === 'REAL'
-                  ? 'bg-emerald-950/60 border-emerald-700/60 text-emerald-400'
-                  : 'bg-purple-950/60 border-purple-700/60 text-purple-300'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-700/60 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-700/60 text-purple-700 dark:text-purple-300'
               }`}
             >
               {dataClassification}
@@ -931,12 +980,12 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
           {/* Current Live Tick Price Flash */}
           {lastTickPrice !== null && (
             <div
-              className={`flex items-center gap-1 font-bold text-sm px-1.5 py-0.5 rounded transition-all duration-300 ${
+              className={`flex items-center gap-1 font-bold text-sm px-2 py-0.5 rounded-lg transition-all duration-300 ${
                 priceFlash === 'up'
-                  ? 'bg-emerald-500/20 text-emerald-300'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
                   : priceFlash === 'down'
-                  ? 'bg-rose-500/20 text-rose-300'
-                  : 'text-slate-100'
+                  ? 'bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                  : 'text-slate-900 dark:text-slate-100'
               }`}
             >
               <span>{formatCurrency(lastTickPrice)}</span>
@@ -945,29 +994,29 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
         </div>
 
         {/* Crosshair Values or Latest Bar Summary */}
-        <div className="flex items-center gap-2 sm:gap-3 text-[11px] text-slate-400">
+        <div className="flex items-center gap-2 sm:gap-3 text-[11px] text-slate-500 dark:text-slate-400">
           {crosshairInfo ? (
             <>
-              <span className="text-slate-500 hidden md:inline">{crosshairInfo.timeStr}</span>
+              <span className="text-slate-400 hidden md:inline">{crosshairInfo.timeStr}</span>
               <div>
-                <span className="text-slate-500 mr-1">O:</span>
-                <span className="text-slate-200 font-semibold">{crosshairInfo.open.toFixed(2)}</span>
+                <span className="text-slate-400 mr-1">O:</span>
+                <span className="text-slate-800 dark:text-slate-200 font-semibold">{crosshairInfo.open.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-500 mr-1">H:</span>
-                <span className="text-emerald-400 font-semibold">{crosshairInfo.high.toFixed(2)}</span>
+                <span className="text-slate-400 mr-1">H:</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{crosshairInfo.high.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-500 mr-1">L:</span>
-                <span className="text-rose-400 font-semibold">{crosshairInfo.low.toFixed(2)}</span>
+                <span className="text-slate-400 mr-1">L:</span>
+                <span className="text-rose-600 dark:text-rose-400 font-semibold">{crosshairInfo.low.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-500 mr-1">C:</span>
-                <span className="text-slate-200 font-semibold">{crosshairInfo.close.toFixed(2)}</span>
+                <span className="text-slate-400 mr-1">C:</span>
+                <span className="text-slate-800 dark:text-slate-200 font-semibold">{crosshairInfo.close.toFixed(2)}</span>
               </div>
               <div
                 className={`font-semibold ${
-                  crosshairInfo.change >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  crosshairInfo.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                 }`}
               >
                 <span>
@@ -977,38 +1026,38 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
               </div>
               {crosshairInfo.volume > 0 && (
                 <div className="hidden lg:block text-slate-400">
-                  <span className="text-slate-500 mr-1">Vol:</span>
-                  <span className="text-cyan-400">{formatNumber(crosshairInfo.volume)}</span>
+                  <span className="text-slate-400 mr-1">Vol:</span>
+                  <span className="text-cyan-600 dark:text-cyan-400">{formatNumber(crosshairInfo.volume)}</span>
                 </div>
               )}
             </>
           ) : activeBarRef.current ? (
             <>
               <div>
-                <span className="text-slate-500 mr-1">O:</span>
-                <span className="text-slate-200">{activeBarRef.current.open.toFixed(2)}</span>
+                <span className="text-slate-400 mr-1">O:</span>
+                <span className="text-slate-800 dark:text-slate-200 font-semibold">{activeBarRef.current.open.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-500 mr-1">H:</span>
-                <span className="text-emerald-400">{activeBarRef.current.high.toFixed(2)}</span>
+                <span className="text-slate-400 mr-1">H:</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{activeBarRef.current.high.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-500 mr-1">L:</span>
-                <span className="text-rose-400">{activeBarRef.current.low.toFixed(2)}</span>
+                <span className="text-slate-400 mr-1">L:</span>
+                <span className="text-rose-600 dark:text-rose-400 font-semibold">{activeBarRef.current.low.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-slate-500 mr-1">C:</span>
-                <span className="text-slate-200 font-semibold">{activeBarRef.current.close.toFixed(2)}</span>
+                <span className="text-slate-400 mr-1">C:</span>
+                <span className="text-slate-800 dark:text-slate-200 font-semibold">{activeBarRef.current.close.toFixed(2)}</span>
               </div>
               {activeBarRef.current.volume > 0 && (
                 <div className="hidden sm:block">
-                  <span className="text-slate-500 mr-1">Vol:</span>
-                  <span className="text-cyan-400">{formatNumber(activeBarRef.current.volume)}</span>
+                  <span className="text-slate-400 mr-1">Vol:</span>
+                  <span className="text-cyan-600 dark:text-cyan-400">{formatNumber(activeBarRef.current.volume)}</span>
                 </div>
               )}
             </>
           ) : (
-            <span className="text-slate-500">Streaming live market ticks...</span>
+            <span className="text-slate-400">Streaming live market ticks...</span>
           )}
         </div>
       </div>
@@ -1016,8 +1065,8 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
       {/* Main Chart Canvas Container */}
       <div className="relative w-full flex-1 min-h-[300px]">
         {isLoading && (
-          <div className="absolute inset-0 bg-[#090D16]/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center gap-2 text-cyan-400 font-mono text-xs">
-            <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
+          <div className="absolute inset-0 bg-white/80 dark:bg-[#090D16]/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center gap-2 text-cyan-600 dark:text-cyan-400 font-sans text-xs">
+            <RefreshCw className="w-5 h-5 animate-spin text-cyan-600 dark:text-cyan-400" />
             <span>Loading {symbol} historical candles...</span>
           </div>
         )}
@@ -1027,10 +1076,10 @@ export const AdvancedTradingChart: React.FC<AdvancedTradingChartProps> = ({
 
       {/* RSI Sub-Panel Canvas */}
       {isRsiEnabled && (
-        <div className="border-t border-card-border bg-[#070A12] flex flex-col">
-          <div className="px-3 py-1 flex items-center justify-between text-[10px] font-mono text-pink-400 font-semibold border-b border-card-border/40">
+        <div className="border-t border-slate-200 dark:border-card-border bg-slate-50 dark:bg-[#070A12] flex flex-col">
+          <div className="px-3 py-1 flex items-center justify-between text-[10px] font-sans text-pink-600 dark:text-pink-400 font-semibold border-b border-slate-100 dark:border-card-border/40">
             <span>RSI (14) OSCILLATOR</span>
-            <span className="text-slate-500">OB: 70 • OS: 30</span>
+            <span className="text-slate-400">OB: 70 • OS: 30</span>
           </div>
           <div ref={rsiContainerRef} className="w-full h-[140px]" />
         </div>

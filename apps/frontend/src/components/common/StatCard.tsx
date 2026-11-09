@@ -25,17 +25,21 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   return (
     <div
-      className={`bg-card rounded-xl border border-card-border p-5 relative overflow-hidden transition-all duration-200 hover:border-slate-700 ${className}`}
+      className={`bg-card rounded-2xl border border-card-border p-5 relative overflow-hidden transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-700 shadow-card-default ${className}`}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-sans">
           {title}
         </span>
-        {icon && <div className="p-2 rounded-lg bg-slate-800/80 text-cyan-400">{icon}</div>}
+        {icon && (
+          <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-cyan-600 dark:text-cyan-400">
+            {icon}
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex items-baseline gap-2">
-        <span className="text-2xl font-bold tracking-tight text-slate-100 font-mono tabular-nums">
+        <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 font-mono tabular-nums">
           {value}
         </span>
       </div>
@@ -44,12 +48,12 @@ export const StatCard: React.FC<StatCardProps> = ({
         <div className="mt-2 flex items-center gap-1.5 text-xs">
           {change && (
             <span
-              className={`inline-flex items-center gap-0.5 font-medium font-mono ${
+              className={`inline-flex items-center gap-0.5 font-bold font-mono tabular-nums ${
                 isPositive
-                  ? 'text-emerald-400'
+                  ? 'text-emerald-600 dark:text-emerald-400'
                   : isNegative
-                  ? 'text-rose-400'
-                  : 'text-slate-400'
+                  ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-slate-500 dark:text-slate-400'
               }`}
             >
               {isPositive && <TrendingUp className="w-3.5 h-3.5" />}
@@ -57,7 +61,7 @@ export const StatCard: React.FC<StatCardProps> = ({
               {change}
             </span>
           )}
-          {subtitle && <span className="text-slate-500">{subtitle}</span>}
+          {subtitle && <span className="text-slate-500 dark:text-slate-400 font-sans">{subtitle}</span>}
         </div>
       )}
     </div>

@@ -19,8 +19,8 @@ export const AppLayout: React.FC = () => {
         <Navbar />
 
         {/* Global Educational Simulator Banner */}
-        <div className="bg-amber-950/30 border-b border-amber-800/30 px-4 py-1.5 flex items-center justify-center gap-2 text-xs text-amber-300 font-mono select-none">
-          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
+        <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800/30 px-4 py-1.5 flex items-center justify-center gap-2 text-xs text-amber-800 dark:text-amber-300 font-sans select-none">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
           <span>
             <strong>EDUCATIONAL TRADING SIMULATOR:</strong> All funds ($100,000 virtual starting cash), orders, and market dynamics are strictly simulated. No real currency is involved.
           </span>

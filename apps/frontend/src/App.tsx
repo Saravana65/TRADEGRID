@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { useUIStore } from './store/uiStore';
 import { AppLayout } from './components/layout/AppLayout';
 
 // Pages
@@ -44,10 +45,13 @@ const PublicOnlyRoute: React.FC<{ children: React.ReactElement }> = ({ children 
 
 export const App: React.FC = () => {
   const { checkAuth } = useAuthStore();
+  const { initTheme } = useUIStore();
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+    const cleanup = initTheme();
+    return () => cleanup();
+  }, [checkAuth, initTheme]);
 
   return (
     <BrowserRouter>

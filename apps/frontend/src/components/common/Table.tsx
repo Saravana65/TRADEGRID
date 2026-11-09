@@ -27,13 +27,13 @@ export function Table<T>({
 }: TableProps<T>): React.ReactElement {
   return (
     <div className={`w-full overflow-x-auto ${className}`}>
-      <table className="w-full text-left text-sm">
+      <table className="w-full text-left text-sm font-sans">
         <thead>
-          <tr className="border-b border-card-border text-xs uppercase font-medium text-slate-400">
+          <tr className="border-b border-card-border text-xs uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`py-3 px-4 ${
+                className={`py-3.5 px-4 ${
                   col.align === 'right'
                     ? 'text-right'
                     : col.align === 'center'
@@ -46,10 +46,10 @@ export function Table<T>({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-card-border/60">
+        <tbody className="divide-y divide-slate-100 dark:divide-card-border/60">
           {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="text-center py-8 text-slate-500 text-sm">
+              <td colSpan={columns.length} className="text-center py-8 text-slate-400 text-sm">
                 {emptyMessage}
               </td>
             </tr>
@@ -58,10 +58,10 @@ export function Table<T>({
               <tr
                 key={keyExtractor(row, index)}
                 onClick={() => onRowClick && onRowClick(row)}
-                className={`transition-colors duration-150 ${
+                className={`transition-colors duration-150 text-slate-800 dark:text-slate-200 ${
                   onRowClick
-                    ? 'cursor-pointer hover:bg-slate-800/40'
-                    : 'hover:bg-slate-800/20'
+                    ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'
                 }`}
               >
                 {columns.map((col) => (

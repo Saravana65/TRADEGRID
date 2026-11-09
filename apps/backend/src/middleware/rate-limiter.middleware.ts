@@ -15,12 +15,29 @@ interface ClientBucket {
 }
 
 /**
+ * Checks if a request originates from localhost / loopback.
+ */
+function isLocalhostRequest(req: Request): boolean {
+  const ip =
+    (req.headers['x-forwarded-for'] as string) ||
+    req.socket.remoteAddress ||
+    '127.0.0.1';
+  return (
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip === '::ffff:127.0.0.1' ||
+    ip.startsWith('127.') ||
+    req.hostname === 'localhost'
+  );
+}
+
+/**
  * Creates an in-memory sliding window rate limiter middleware.
  * Zero-cost ($0 infrastructure) abuse and denial-of-service protection.
  */
 export function createRateLimiter(options: RateLimitOptions) {
   const windowMs = options.windowMs;
-  const maxRequests = options.maxRequests;
+  const baseMaxRequests = options.maxRequests;
   const tierName = options.tierName || 'GENERAL';
   const skipInTest = options.skipInTest ?? true;
 
@@ -56,6 +73,14 @@ export function createRateLimiter(options: RateLimitOptions) {
     if (skipInTest && process.env.NODE_ENV === 'test' && !(req as any).__testRateLimit) {
       return next();
     }
+
+    // In unit test environment, strictly use baseMaxRequests so assertions match
+    const isVitest = process.env.NODE_ENV === 'test';
+    const isDev = !isVitest && process.env.NODE_ENV !== 'production';
+    const isLocal = !isVitest && isLocalhostRequest(req);
+    const maxRequests = (isDev || isLocal)
+      ? Math.max(baseMaxRequests * 10, 300)
+      : baseMaxRequests;
 
     const key = `${tierName}:${keyGen(req)}`;
     const now = Date.now();
@@ -98,30 +123,30 @@ export function createRateLimiter(options: RateLimitOptions) {
 }
 
 // Pre-configured Production Tier Rate Limiters
-// 1. Auth endpoints (Login, Register): 5 req / minute
+// 1. Auth endpoints (Login, Register): 60 req / minute (relaxed in dev/localhost)
 export const authRateLimiter = createRateLimiter({
   tierName: 'AUTH',
   windowMs: 60 * 1000,
-  maxRequests: 5,
+  maxRequests: 60,
 });
 
-// 2. Order submission: 30 req / minute per user/IP
+// 2. Order submission: 60 req / minute per user/IP
 export const orderRateLimiter = createRateLimiter({
   tierName: 'ORDER',
   windowMs: 60 * 1000,
-  maxRequests: 30,
+  maxRequests: 60,
 });
 
-// 3. Market data queries: 120 req / minute per IP
+// 3. Market data queries: 300 req / minute per IP
 export const marketRateLimiter = createRateLimiter({
   tierName: 'MARKET_DATA',
   windowMs: 60 * 1000,
-  maxRequests: 120,
+  maxRequests: 300,
 });
 
-// 4. General API requests: 60 req / minute
+// 4. General API requests: 120 req / minute
 export const generalRateLimiter = createRateLimiter({
   tierName: 'GENERAL_API',
   windowMs: 60 * 1000,
-  maxRequests: 60,
+  maxRequests: 120,
 });

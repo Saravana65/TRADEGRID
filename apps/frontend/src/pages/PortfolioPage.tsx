@@ -63,10 +63,10 @@ export const PortfolioPage: React.FC = () => {
       render: (row) => (
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-white">{row.symbol}</span>
+            <span className="font-sans font-bold text-slate-900 dark:text-white">{row.symbol}</span>
             <Badge variant="simulated">SIM</Badge>
           </div>
-          <span className="text-[11px] text-slate-400 block truncate max-w-[160px]">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate max-w-[160px] font-sans">
             {row.name}
           </span>
         </div>
@@ -76,7 +76,7 @@ export const PortfolioPage: React.FC = () => {
       key: 'quantity',
       header: 'Shares Held',
       render: (row) => (
-        <span className="font-mono text-slate-200 tabular-nums">
+        <span className="font-mono text-slate-800 dark:text-slate-200 tabular-nums">
           {parseFloat(row.quantity).toFixed(4)}
         </span>
       ),
@@ -86,7 +86,7 @@ export const PortfolioPage: React.FC = () => {
       header: 'Average Cost',
       align: 'right',
       render: (row) => (
-        <span className="font-mono text-slate-300 tabular-nums">
+        <span className="font-mono text-slate-700 dark:text-slate-300 tabular-nums">
           {formatCurrency(row.averageBuyPrice)}
         </span>
       ),
@@ -96,7 +96,7 @@ export const PortfolioPage: React.FC = () => {
       header: 'Market Price',
       align: 'right',
       render: (row) => (
-        <span className="font-mono text-slate-100 font-medium tabular-nums">
+        <span className="font-mono text-slate-900 dark:text-slate-100 font-medium tabular-nums">
           {formatCurrency(row.currentPrice)}
         </span>
       ),
@@ -106,7 +106,7 @@ export const PortfolioPage: React.FC = () => {
       header: 'Market Value',
       align: 'right',
       render: (row) => (
-        <span className="font-mono font-bold text-white tabular-nums">
+        <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
           {formatCurrency(row.marketValue)}
         </span>
       ),
@@ -160,14 +160,14 @@ export const PortfolioPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Portfolio & Balances</h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white font-sans tracking-tight">Portfolio & Balances</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-sans">
             Real-time snapshot of your simulated virtual assets and cash positions. Authoritative balances are managed exclusively by the double-entry backend ledger.
           </p>
         </div>
         <button
           onClick={() => fetchPortfolioSummary()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-card-border text-cyan-400 hover:text-cyan-300 text-xs font-mono"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-card-border text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 text-xs font-sans font-medium shadow-sm"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
         </button>
@@ -232,10 +232,10 @@ export const PortfolioPage: React.FC = () => {
       </Card>
 
       {/* Educational Architecture Note */}
-      <div className="p-4 rounded-xl bg-card border border-card-border flex items-start gap-3">
-        <ShieldAlert className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-slate-400 space-y-1">
-          <span className="font-semibold text-slate-200">
+      <div className="p-4 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-card-border flex items-start gap-3 shadow-sm">
+        <ShieldAlert className="w-5 h-5 text-cyan-600 dark:text-cyan-400 flex-shrink-0 mt-0.5" />
+        <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1 font-sans">
+          <span className="font-semibold text-slate-900 dark:text-slate-200">
             Phase 4B Atomic Settlement Principle:
           </span>
           <p className="leading-relaxed">

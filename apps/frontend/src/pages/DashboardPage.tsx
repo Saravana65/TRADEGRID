@@ -139,17 +139,17 @@ export const DashboardPage: React.FC = () => {
       className="space-y-6"
     >
       {/* Welcome Terminal Banner */}
-      <div className="bg-gradient-to-r from-card via-[#111A2E] to-card border border-card-border p-6 rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-white via-cyan-50/30 to-white dark:from-[#0F1626] dark:via-[#111A2E] dark:to-[#0F1626] border border-slate-200 dark:border-card-border p-6 rounded-3xl shadow-card-default flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-colors duration-200">
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="space-y-1 relative z-10">
+        <div className="space-y-1.5 relative z-10">
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold font-mono text-white tracking-tight">
-              Welcome back, <span className="text-cyan-400">{user?.username}</span>
+            <h1 className="text-2xl font-bold font-sans text-slate-900 dark:text-white tracking-tight">
+              Welcome back, <span className="text-cyan-600 dark:text-cyan-400">{user?.username}</span>
             </h1>
             <Badge variant="cyan">Virtual Trader</Badge>
           </div>
-          <p className="text-xs text-slate-400 max-w-xl font-mono leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl font-sans leading-relaxed">
             Real-time simulated Indian stock market matching engine. Connect to live feeds, execute atomic virtual trades, and hone your quantitative strategies.
           </p>
         </div>
@@ -157,13 +157,13 @@ export const DashboardPage: React.FC = () => {
         <div className="flex items-center gap-3 relative z-10">
           <Link
             to="/trade"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-lg shadow-cyan-600/25 hover:shadow-cyan-600/40"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-sans font-bold uppercase tracking-wider transition-all shadow-md shadow-cyan-600/25 hover:shadow-cyan-600/40"
           >
             <Sparkles className="w-4 h-4" /> Launch Terminal
           </Link>
           <Link
             to="/chart"
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#090D16] hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-mono border border-card-border hover:border-cyan-500/40 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white dark:bg-[#090D16] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-sans font-medium border border-slate-200 dark:border-card-border hover:border-cyan-500/40 transition-colors shadow-sm"
           >
             <BarChart3 className="w-4 h-4" /> Technical Studio
           </Link>
@@ -171,36 +171,36 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Trader Level & XP Progress Widget */}
-      <div className="bg-gradient-to-r from-[#0C1322] via-[#10182C] to-[#0C1322] border border-cyan-500/20 p-5 rounded-2xl shadow-md">
+      <div className="bg-gradient-to-r from-white via-slate-50 to-white dark:from-[#0C1322] dark:via-[#10182C] dark:to-[#0C1322] border border-cyan-500/20 p-5 rounded-3xl shadow-card-default transition-colors duration-200">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 dark:text-amber-400 flex-shrink-0 shadow-sm">
               <Crown className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold text-cyan-400 uppercase tracking-wider">
+                <span className="font-sans text-xs font-bold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider">
                   Level {achievementStats?.currentLevel || 1} Trader
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded-lg bg-slate-800 text-amber-300 font-semibold border border-slate-700">
+                <span className="text-xs px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-amber-700 dark:text-amber-300 font-semibold border border-slate-200 dark:border-slate-700 font-sans">
                   {achievementStats?.levelTitle || 'Novice Trader'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5 font-mono">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-sans">
                 {achievementStats?.totalPoints || 0} XP Earned · {achievementStats?.achievementsUnlockedCount || 0} of {achievementStats?.totalAchievementsCount || 19} Badges Unlocked
               </p>
             </div>
           </div>
 
           {/* Level Progress Bar */}
-          <div className="flex-1 max-w-xs space-y-1 font-mono">
-            <div className="flex justify-between text-[11px] text-slate-400">
+          <div className="flex-1 max-w-xs space-y-1.5 font-sans">
+            <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
               <span>Next Level Progression</span>
-              <span className="text-amber-400 font-bold">
+              <span className="text-amber-600 dark:text-amber-400 font-bold font-mono">
                 {achievementStats?.pointsToNextLevel || 100} XP needed
               </span>
             </div>
-            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
               <div
                 className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500"
                 style={{ width: `${achievementStats?.currentLevelProgressPercent || 0}%` }}
@@ -210,22 +210,22 @@ export const DashboardPage: React.FC = () => {
 
           <Link
             to="/achievements"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-semibold transition-all whitespace-nowrap self-start md:self-auto"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 text-xs font-sans font-semibold transition-all whitespace-nowrap self-start md:self-auto shadow-sm"
           >
-            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
             Hall of Fame →
           </Link>
         </div>
 
         {recentBadges.length > 0 && (
-          <div className="mt-3.5 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-mono text-slate-400">Recent Badges:</span>
+          <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-sans text-slate-500 dark:text-slate-400 font-medium">Recent Badges:</span>
             {recentBadges.map((b) => (
               <span
                 key={b.code}
-                className="px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono font-medium flex items-center gap-1"
+                className="px-2.5 py-0.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-[11px] font-sans font-semibold flex items-center gap-1"
               >
-                <Award className="w-3 h-3 text-amber-400" /> {b.name}
+                <Award className="w-3 h-3 text-amber-500 dark:text-amber-400" /> {b.name}
               </span>
             ))}
           </div>
@@ -240,7 +240,7 @@ export const DashboardPage: React.FC = () => {
           change="+0.00% Session"
           changeType="neutral"
           subtitle="Cash + Open Holdings"
-          icon={<PieChart className="w-5 h-5 text-cyan-400" />}
+          icon={<PieChart className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />}
         />
         <StatCard
           title="Available Virtual Cash"
@@ -248,7 +248,7 @@ export const DashboardPage: React.FC = () => {
           change="Double-Entry Verified"
           changeType="positive"
           subtitle="Ready for order execution"
-          icon={<Wallet className="w-5 h-5 text-emerald-400" />}
+          icon={<Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
         />
         <StatCard
           title="Ledger Consistency"
@@ -256,7 +256,7 @@ export const DashboardPage: React.FC = () => {
           change="Double-Entry Proof"
           changeType="positive"
           subtitle="Audit ledger verified"
-          icon={<Layers className="w-5 h-5 text-indigo-400" />}
+          icon={<Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />}
         />
         <StatCard
           title="Exchange Equities"
@@ -264,7 +264,7 @@ export const DashboardPage: React.FC = () => {
           change="Continuous 24/7"
           changeType="neutral"
           subtitle="NSE Reference & Synthetic"
-          icon={<Activity className="w-5 h-5 text-amber-400" />}
+          icon={<Activity className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
         />
       </div>
 
@@ -275,32 +275,32 @@ export const DashboardPage: React.FC = () => {
         action={
           <Link
             to="/markets"
-            className="text-xs font-mono text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1"
+            className="text-xs font-sans text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 font-semibold flex items-center gap-1"
           >
             Explore All Equities →
           </Link>
         }
       >
         <div className="overflow-x-auto">
-          <table className="w-full text-left font-mono text-xs">
+          <table className="w-full text-left font-sans text-xs">
             <thead>
-              <tr className="border-b border-card-border text-slate-400 text-[11px] uppercase">
-                <th className="py-2.5 px-3">Ticker</th>
-                <th className="py-2.5 px-3">Company</th>
-                <th className="py-2.5 px-3">Sector</th>
-                <th className="py-2.5 px-3 text-right">LTP (INR)</th>
-                <th className="py-2.5 px-3 text-right">24h Change</th>
-                <th className="py-2.5 px-3 text-right">Action</th>
+              <tr className="border-b border-card-border text-slate-400 dark:text-slate-500 text-[11px] uppercase font-bold tracking-wider">
+                <th className="py-3 px-3">Ticker</th>
+                <th className="py-3 px-3">Company</th>
+                <th className="py-3 px-3">Sector</th>
+                <th className="py-3 px-3 text-right">LTP (INR)</th>
+                <th className="py-3 px-3 text-right">24h Change</th>
+                <th className="py-3 px-3 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-card-border/60">
+            <tbody className="divide-y divide-slate-100 dark:divide-card-border/60">
               {displayListings.slice(0, 8).map((stock) => {
                 const isPos = stock.changePercent >= 0;
                 return (
-                  <tr key={stock.id || stock.symbol} className="hover:bg-slate-800/20 transition-colors">
-                    <td className="py-3 px-3">
+                  <tr key={stock.id || stock.symbol} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                    <td className="py-3.5 px-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-sm">{stock.symbol}</span>
+                        <span className="font-bold text-slate-900 dark:text-white text-sm font-sans">{stock.symbol}</span>
                         <Badge
                           variant={stock.dataClassification === 'REAL' ? 'cyan' : 'simulated'}
                         >
@@ -308,15 +308,15 @@ export const DashboardPage: React.FC = () => {
                         </Badge>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-slate-300 font-sans text-xs">{stock.name}</td>
-                    <td className="py-3 px-3 text-slate-400 text-xs">{stock.sector}</td>
-                    <td className="py-3 px-3 text-right font-bold text-slate-100 tabular-nums text-sm">
+                    <td className="py-3.5 px-3 text-slate-600 dark:text-slate-300 font-sans text-xs">{stock.name}</td>
+                    <td className="py-3.5 px-3 text-slate-500 dark:text-slate-400 text-xs">{stock.sector}</td>
+                    <td className="py-3.5 px-3 text-right font-bold text-slate-900 dark:text-slate-100 tabular-nums text-sm font-mono">
                       {formatCurrency(stock.currentPrice)}
                     </td>
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-3.5 px-3 text-right">
                       <span
-                        className={`inline-flex items-center gap-0.5 font-bold tabular-nums ${
-                          isPos ? 'text-emerald-400' : 'text-rose-400'
+                        className={`inline-flex items-center gap-0.5 font-bold tabular-nums font-mono ${
+                          isPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                         }`}
                       >
                         {isPos ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
@@ -324,10 +324,10 @@ export const DashboardPage: React.FC = () => {
                         {stock.changePercent.toFixed(2)}%
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-3.5 px-3 text-right">
                       <Link
                         to={`/trade?symbol=${stock.symbol}`}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white rounded-lg text-xs font-mono font-semibold transition-all border border-cyan-500/30"
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-50 dark:bg-cyan-600/20 hover:bg-cyan-600 text-cyan-700 dark:text-cyan-300 hover:text-white rounded-lg text-xs font-sans font-semibold transition-all border border-cyan-200 dark:border-cyan-500/30"
                       >
                         Trade <Sparkles className="w-3 h-3" />
                       </Link>
@@ -348,24 +348,24 @@ export const DashboardPage: React.FC = () => {
             {gainers.map((g) => (
               <div
                 key={g.symbol}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-[#070A12] border border-card-border/70 hover:border-cyan-500/30 transition-colors"
+                className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border/70 hover:border-cyan-500/30 transition-colors shadow-sm"
               >
                 <div>
-                  <div className="flex items-center gap-1.5 font-mono">
-                    <span className="font-bold text-sm text-white">{g.symbol}</span>
+                  <div className="flex items-center gap-1.5 font-sans">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">{g.symbol}</span>
                     <Badge variant="gain">+{g.changePercent.toFixed(2)}%</Badge>
                   </div>
-                  <span className="text-[11px] text-slate-400 truncate block max-w-[130px]">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate block max-w-[130px] font-sans mt-0.5">
                     {g.name}
                   </span>
                 </div>
-                <div className="text-right font-mono">
-                  <div className="text-sm font-semibold text-slate-100">
+                <div className="text-right">
+                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">
                     {formatCurrency(g.currentPrice)}
                   </div>
                   <Link
                     to={`/trade?symbol=${g.symbol}`}
-                    className="text-[10px] text-cyan-400 hover:underline"
+                    className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline font-sans font-medium"
                   >
                     Open Terminal →
                   </Link>
@@ -379,31 +379,31 @@ export const DashboardPage: React.FC = () => {
         <Card title="Top Decliners" subtitle="Pullback opportunities" className="lg:col-span-1">
           <div className="space-y-2.5">
             {losers.length === 0 ? (
-              <div className="py-8 text-center text-slate-500 text-xs font-mono">
+              <div className="py-8 text-center text-slate-400 text-xs font-sans">
                 No active decliners in current cycle
               </div>
             ) : (
               losers.map((l) => (
                 <div
                   key={l.symbol}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-[#070A12] border border-card-border/70 hover:border-cyan-500/30 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border/70 hover:border-cyan-500/30 transition-colors shadow-sm"
                 >
                   <div>
-                    <div className="flex items-center gap-1.5 font-mono">
-                      <span className="font-bold text-sm text-white">{l.symbol}</span>
+                    <div className="flex items-center gap-1.5 font-sans">
+                      <span className="font-bold text-sm text-slate-900 dark:text-white">{l.symbol}</span>
                       <Badge variant="loss">{l.changePercent.toFixed(2)}%</Badge>
                     </div>
-                    <span className="text-[11px] text-slate-400 truncate block max-w-[130px]">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate block max-w-[130px] font-sans mt-0.5">
                       {l.name}
                     </span>
                   </div>
-                  <div className="text-right font-mono">
-                    <div className="text-sm font-semibold text-slate-100">
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">
                       {formatCurrency(l.currentPrice)}
                     </div>
                     <Link
                       to={`/trade?symbol=${l.symbol}`}
-                      className="text-[10px] text-cyan-400 hover:underline"
+                      className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline font-sans font-medium"
                     >
                       Open Terminal →
                     </Link>
@@ -419,7 +419,7 @@ export const DashboardPage: React.FC = () => {
           title="Market Catalysts"
           subtitle="Real-time macro & corporate announcements"
           action={
-            <Link to="/news" className="text-xs font-mono text-cyan-400 hover:text-cyan-300">
+            <Link to="/news" className="text-xs font-sans text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 font-semibold">
               All News →
             </Link>
           }
@@ -429,14 +429,14 @@ export const DashboardPage: React.FC = () => {
             {newsFeed.slice(0, 3).map((item) => (
               <div
                 key={item.id}
-                className="p-3 rounded-xl bg-[#070A12] border border-card-border/70 space-y-1"
+                className="p-3 rounded-2xl bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border/70 space-y-1 shadow-sm"
               >
-                <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-sans">
                   <Badge variant="cyan">{item.category}</Badge>
                   <span>{formatDate(item.createdAt)}</span>
                 </div>
-                <h4 className="text-xs font-semibold text-slate-200 line-clamp-1">{item.headline}</h4>
-                <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-1 font-sans">{item.headline}</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed font-sans">
                   {item.summary}
                 </p>
               </div>

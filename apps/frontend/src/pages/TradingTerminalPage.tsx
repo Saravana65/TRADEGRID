@@ -324,9 +324,9 @@ export const TradingTerminalPage: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setShowSymbolPicker(!showSymbolPicker)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#070A12] border border-card-border hover:border-cyan-500/50 transition-colors"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border hover:border-cyan-500/50 transition-colors shadow-sm"
             >
-              <span className="font-mono text-xl font-bold text-white tracking-wide">
+              <span className="font-sans text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                 {selectedInstrument?.symbol || symbol}
               </span>
               <Badge
@@ -341,13 +341,13 @@ export const TradingTerminalPage: React.FC = () => {
 
             {/* Quick Symbol Picker Dropdown */}
             {showSymbolPicker && (
-              <div className="absolute top-full left-0 mt-2 w-80 max-h-80 bg-card border border-card-border rounded-xl shadow-2xl p-2 z-50 overflow-y-auto">
+              <div className="absolute top-full left-0 mt-2 w-80 max-h-80 bg-white dark:bg-card border border-slate-200 dark:border-card-border rounded-2xl shadow-2xl p-2 z-50 overflow-y-auto">
                 <input
                   type="text"
                   placeholder="Search NSE / Simulated symbols..."
                   value={symbolSearch}
                   onChange={(e) => setSymbolSearch(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-[#070A12] border border-card-border rounded-lg text-xs font-mono text-white mb-2 focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border rounded-xl text-xs font-sans text-slate-900 dark:text-white mb-2 focus:outline-none focus:border-cyan-500"
                   autoFocus
                 />
                 <div className="space-y-1">
@@ -477,15 +477,15 @@ export const TradingTerminalPage: React.FC = () => {
               action={
                 <button
                   onClick={fetchMarketDepth}
-                  className="p-1 rounded bg-[#070A12] border border-card-border text-slate-400 hover:text-slate-200"
+                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-[#070A12] border border-slate-200 dark:border-card-border text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors shadow-sm"
                   title="Refresh Depth"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBook ? 'animate-spin' : ''}`} />
                 </button>
               }
             >
-              <div className="p-3 bg-[#070A12] rounded-xl border border-card-border font-mono text-xs space-y-2">
-                <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-card-border/60 pb-1.5 font-semibold">
+              <div className="p-3.5 bg-slate-50 dark:bg-[#070A12] rounded-2xl border border-slate-200 dark:border-card-border font-sans text-xs space-y-2">
+                <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-slate-200 dark:border-card-border/60 pb-1.5 font-bold">
                   <span>Price ({selectedInstrument?.currency || 'INR'})</span>
                   <span className="text-right">Size</span>
                   <span className="text-right">Total</span>
@@ -588,8 +588,8 @@ export const TradingTerminalPage: React.FC = () => {
                 </div>
               }
             >
-              <div className="p-3 bg-[#070A12] rounded-xl border border-card-border font-mono text-xs space-y-2">
-                <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-card-border/60 pb-1.5 font-semibold">
+              <div className="p-3.5 bg-slate-50 dark:bg-[#070A12] rounded-2xl border border-slate-200 dark:border-card-border font-sans text-xs space-y-2">
+                <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-slate-200 dark:border-card-border/60 pb-1.5 font-bold">
                   <span>Price</span>
                   <span className="text-right">Qty</span>
                   <span className="text-right">Time</span>
@@ -673,14 +673,14 @@ export const TradingTerminalPage: React.FC = () => {
 
             <form onSubmit={handlePlaceOrder} className="space-y-4">
               {/* Buy / Sell Tabs */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-[#070A12] rounded-xl border border-card-border">
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-[#070A12] rounded-xl border border-slate-200 dark:border-card-border">
                 <button
                   type="button"
                   onClick={() => setOrderSide('BUY')}
-                  className={`py-2 text-xs font-mono font-bold rounded-lg transition-colors ${
+                  className={`py-2 text-xs font-sans font-bold rounded-lg transition-colors ${
                     orderSide === 'BUY'
-                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   BUY
@@ -688,10 +688,10 @@ export const TradingTerminalPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setOrderSide('SELL')}
-                  className={`py-2 text-xs font-mono font-bold rounded-lg transition-colors ${
+                  className={`py-2 text-xs font-sans font-bold rounded-lg transition-colors ${
                     orderSide === 'SELL'
-                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   SELL
@@ -773,7 +773,7 @@ export const TradingTerminalPage: React.FC = () => {
                       key={p.label}
                       type="button"
                       onClick={() => handleQuickPercent(p.val)}
-                      className="py-1 text-[10px] font-mono bg-[#070A12] border border-card-border rounded hover:border-cyan-500 text-slate-400 hover:text-white transition-colors"
+                      className="py-1 text-xs font-mono font-medium bg-slate-100 dark:bg-[#070A12] border border-slate-200 dark:border-card-border rounded-lg hover:border-cyan-500 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                     >
                       {p.label}
                     </button>
@@ -782,18 +782,18 @@ export const TradingTerminalPage: React.FC = () => {
               </div>
 
               {/* Estimated Total Calculation */}
-              <div className="p-3.5 rounded-xl bg-[#070A12] border border-card-border text-xs space-y-2 font-mono">
-                <div className="flex justify-between text-slate-400">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#070A12] border border-slate-200 dark:border-card-border text-xs space-y-2 font-sans">
+                <div className="flex justify-between text-slate-500 dark:text-slate-400">
                   <span>Available Virtual Cash:</span>
-                  <span className="text-emerald-400 font-bold">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono tabular-nums">
                     {formatCurrency(availableCash)}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-400">
+                <div className="flex justify-between text-slate-500 dark:text-slate-400">
                   <span>Order Consideration:</span>
                   <span
-                    className={`font-bold ${
-                      hasInsufficientFunds ? 'text-rose-400' : 'text-slate-100'
+                    className={`font-bold font-mono tabular-nums ${
+                      hasInsufficientFunds ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-slate-100'
                     }`}
                   >
                     ${estimatedTotal}
@@ -862,23 +862,23 @@ export const TradingTerminalPage: React.FC = () => {
         subtitle="Manage resting open orders and review historical executions"
         action={
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-[#070A12] p-1 rounded-lg border border-card-border">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#070A12] p-1 rounded-xl border border-slate-200 dark:border-card-border">
               <button
                 onClick={() => setActiveTab('open')}
-                className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+                className={`px-3 py-1.5 text-xs font-sans rounded-lg transition-colors ${
                   activeTab === 'open'
-                    ? 'bg-cyan-500/20 text-cyan-300 font-bold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 Active Orders ({openOrders.length})
               </button>
               <button
                 onClick={() => setActiveTab('history')}
-                className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+                className={`px-3 py-1.5 text-xs font-sans rounded-lg transition-colors ${
                   activeTab === 'history'
-                    ? 'bg-cyan-500/20 text-cyan-300 font-bold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 Order History ({orderHistory.length})
@@ -886,7 +886,7 @@ export const TradingTerminalPage: React.FC = () => {
             </div>
             <button
               onClick={() => fetchOrders()}
-              className="p-1.5 rounded-lg bg-[#070A12] border border-card-border text-slate-400 hover:text-slate-200"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-[#070A12] border border-slate-200 dark:border-card-border text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors shadow-sm"
               title="Refresh Orders"
             >
               <RefreshCw className={`w-4 h-4 ${isLoadingOrders ? 'animate-spin' : ''}`} />
