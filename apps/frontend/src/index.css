@@ -3,45 +3,80 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-background text-slate-100 font-sans antialiased;
+  :root {
     color-scheme: dark;
   }
 
-  /* Custom scrollbar for modern terminal aesthetic */
+  body {
+    @apply bg-background text-slate-100 font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* Custom terminal scrollbars */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: #090D16;
+    background: #070A12;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #1F293D;
-    border-radius: 3px;
+    background: #1A253C;
+    border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #374151;
+    background: #2D3E63;
   }
 }
 
-/* Financial Number Styling (tabular numbers align vertically) */
+/* Tabular figures for strict vertical alignment of monetary & quote data */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Subtle glow effect for active states */
+/* Terminal Glass Effect */
+.glass-panel {
+  background: rgba(13, 19, 34, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(30, 41, 59, 0.6);
+}
+
+/* Subtle Glowing Borders and Indicators */
 .terminal-glow-cyan {
-  box-shadow: 0 0 15px -3px rgba(6, 182, 212, 0.25);
+  box-shadow: 0 0 16px -2px rgba(6, 182, 212, 0.3);
 }
 
 .terminal-glow-green {
-  box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 0 16px -2px rgba(16, 185, 129, 0.3);
 }
 
 .terminal-glow-red {
-  box-shadow: 0 0 15px -3px rgba(239, 68, 68, 0.25);
+  box-shadow: 0 0 16px -2px rgba(239, 68, 68, 0.3);
+}
+
+/* Shimmer animation for loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(26, 37, 60, 0.4) 0%,
+    rgba(45, 62, 99, 0.7) 50%,
+    rgba(26, 37, 60, 0.4) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite ease-in-out;
 }

@@ -12,6 +12,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Badge } from '../components/common/Badge';
+import { AdvancedTradingChart } from '../components/charting/AdvancedTradingChart';
 import { OrderSide, OrderType, OrderBook, Trade, ActiveCatalystSummary } from '@tradegrid/shared-types';
 import {
   ArrowUpRight,
@@ -69,13 +70,13 @@ export const TradingTerminalPage: React.FC = () => {
   const { user } = useAuthStore();
   const lastBookSeq = useRef<number>(0);
 
-  // Phase 4B / 5A: Live Order Book & Trade Tape State
+  // Live Order Book & Trade Tape State
   const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [isLoadingBook, setIsLoadingBook] = useState(false);
   const [activeCatalyst, setActiveCatalyst] = useState<ActiveCatalystSummary | null>(null);
 
-  // Phase 5C: Fetch Active Catalyst Impact for Current Symbol / Sector
+  // Active Catalyst Impact for Current Symbol / Sector
   const checkActiveCatalysts = useCallback(async () => {
     try {
       const catalysts = await newsApiService.getActiveCatalysts();
@@ -98,56 +99,50 @@ export const TradingTerminalPage: React.FC = () => {
 
   // Fetch Order Book & Market Tape Initial Baseline
   const fetchMarketDepth = useCallback(async () => {
-    if (!symbol) return;
+    const sym = selectedInstrument?.symbol || symbol;
+    if (!sym) return;
+    setIsLoadingBook(true);
     try {
-      setIsLoadingBook(true);
-      const [bookData, tapeData] = await Promise.allSettled([
-        tradeApiService.getOrderBook(symbol, 10),
-        tradeApiService.getRecentMarketTrades(symbol, 30),
+      const [bookData, tradesData] = await Promise.all([
+        tradeApiService.getOrderBook(sym, 12),
+        tradeApiService.getRecentMarketTrades(sym, 20),
       ]);
-      if (bookData.status === 'fulfilled') {
-        setOrderBook(bookData.value);
-        if ((bookData.value as any).sequence) {
-          lastBookSeq.current = (bookData.value as any).sequence;
-        }
-      }
-      if (tapeData.status === 'fulfilled') {
-        setRecentTrades(tapeData.value);
-      }
+      setOrderBook(bookData);
+      setRecentTrades(tradesData);
+      lastBookSeq.current = (bookData as any).sequenceNumber || 0;
     } catch {
-      // Silently catch baseline errors
+      // Fallback
     } finally {
       setIsLoadingBook(false);
     }
-  }, [symbol]);
+  }, [selectedInstrument, symbol]);
 
-  // Initial Data Fetching
+  // Initial Boot & Route Param Listeners
   useEffect(() => {
     fetchInstruments();
-    fetchWalletSummary();
     fetchOrders();
-  }, [fetchInstruments, fetchWalletSummary, fetchOrders]);
+    fetchWalletSummary();
+  }, [fetchInstruments, fetchOrders, fetchWalletSummary]);
 
-  // Load details & order book when symbol changes
   useEffect(() => {
     if (symbol) {
       fetchInstrumentDetail(symbol);
-      fetchMarketDepth();
-      checkActiveCatalysts();
     }
-  }, [symbol, fetchInstrumentDetail, fetchMarketDepth, checkActiveCatalysts]);
+  }, [symbol, fetchInstrumentDetail]);
 
-  // Phase 5A & 5C: Real-Time WebSocket Streaming Subscriptions & Handlers
   useEffect(() => {
-    if (!symbol) return;
-    const normSymbol = symbol.toUpperCase();
-    const obChannel = `orderbook:${normSymbol}`;
-    const tradesChannel = `trades:${normSymbol}`;
-    const marketChannel = `market:${normSymbol}`;
+    fetchMarketDepth();
+    checkActiveCatalysts();
+  }, [fetchMarketDepth, checkActiveCatalysts]);
+
+  // Real-time WebSocket Channel Bindings
+  useEffect(() => {
+    const activeSym = symbol.toUpperCase();
+    const obChannel = `orderbook:${activeSym}`;
+    const tradesChannel = `trades:${activeSym}`;
+    const marketChannel = `market:${activeSym}`;
     const userChannel = user?.id ? `user:${user.id}` : null;
 
-    // Connect and subscribe to symbol channels and global news channel
-    socketService.connect();
     socketService.subscribe(obChannel);
     socketService.subscribe(tradesChannel);
     socketService.subscribe(marketChannel);
@@ -156,52 +151,35 @@ export const TradingTerminalPage: React.FC = () => {
       socketService.subscribe(userChannel);
     }
 
-    // 1. Order Book Snapshot Handler
-    const handleSnapshot = (snap: any) => {
-      if (snap.symbol?.toUpperCase() === normSymbol) {
-        lastBookSeq.current = snap.sequence || 0;
-        setOrderBook(snap);
+    const handleSnapshot = (snapshot: OrderBook) => {
+      if (snapshot.symbol.toUpperCase() === activeSym) {
+        setOrderBook(snapshot);
+        lastBookSeq.current = (snapshot as any).sequenceNumber || 0;
       }
     };
 
-    // 2. Order Book Depth Incremental Update Handler (with Sequence Gap Recovery)
-    const handleDepthUpdate = (update: any) => {
-      if (update.symbol?.toUpperCase() === normSymbol) {
-        // Detect sequence gap for recovery
-        if (lastBookSeq.current > 0 && update.prevSequence && update.prevSequence !== lastBookSeq.current) {
-          console.warn(
-            `[WS] OrderBook sequence gap detected on ${normSymbol} (expected #${lastBookSeq.current}, got prev #${update.prevSequence}). Requesting snapshot recovery.`
-          );
-          socketService.requestOrderBookSnapshot(normSymbol);
-          return;
-        }
-
-        lastBookSeq.current = update.sequence;
-        setOrderBook({
-          symbol: update.symbol,
-          instrumentId: update.instrumentId,
-          bids: update.bids,
-          asks: update.asks,
-          spread: update.spread,
-          midPrice: update.midPrice,
-          timestamp: update.timestamp,
-        });
+    const handleDepthUpdate = (delta: { symbol: string; sequenceNumber: number; orderBook: OrderBook }) => {
+      if (delta.symbol.toUpperCase() === activeSym) {
+        setOrderBook(delta.orderBook);
+        lastBookSeq.current = delta.sequenceNumber || 0;
       }
     };
 
-    // 3. Trade Tape Stream Handler
-    const handleTapeUpdate = (trade: any) => {
-      if (trade.symbol?.toUpperCase() === normSymbol) {
-        setRecentTrades((prev) => [trade, ...prev.slice(0, 29)]);
-      }
+    const handleTapeUpdate = (newTrades: Trade[]) => {
+      setRecentTrades((prev) => {
+        const filtered = newTrades.filter(
+          (t) => t.symbol?.toUpperCase() === activeSym || !t.symbol
+        );
+        const combined = [...filtered, ...prev];
+        const unique = Array.from(new Map(combined.map((t) => [t.id, t])).values());
+        return unique.slice(0, 30);
+      });
     };
 
-    // 4. Private Order Lifecycle Handlers
     const handleOrderEvent = () => {
       fetchOrders();
     };
 
-    // 5. Portfolio & Cash Update Handler
     const handlePortfolioEvent = () => {
       fetchWalletSummary();
     };
@@ -266,6 +244,18 @@ export const TradingTerminalPage: React.FC = () => {
   const parsedCash = parseFloat(availableCash || '0');
   const hasInsufficientFunds = orderSide === 'BUY' && parseFloat(estimatedTotal) > parsedCash;
 
+  // Percentage preset calculation
+  const handleQuickPercent = (pct: number) => {
+    if (orderSide === 'BUY') {
+      if (effectivePrice <= 0) return;
+      const budget = parsedCash * pct;
+      const calculatedShares = Math.floor((budget / effectivePrice) * 100) / 100;
+      setQuantity(calculatedShares.toFixed(4));
+    } else {
+      setQuantity((10 * pct * 2).toFixed(4));
+    }
+  };
+
   // Order Submission Handler
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,7 +278,7 @@ export const TradingTerminalPage: React.FC = () => {
       fetchWalletSummary();
       fetchMarketDepth();
     } catch {
-      // Error handled by store
+      // Handled by store
     }
   };
 
@@ -299,7 +289,7 @@ export const TradingTerminalPage: React.FC = () => {
       fetchOrders();
       fetchMarketDepth();
     } catch {
-      // Error handled by store
+      // Handled by store
     }
   };
 
@@ -317,7 +307,6 @@ export const TradingTerminalPage: React.FC = () => {
       inst.name.toLowerCase().includes(symbolSearch.toLowerCase())
   );
 
-  // Maximum quantity for relative depth bars
   const maxAskQty = Math.max(
     ...(orderBook?.asks.map((a) => parseFloat(a.quantity)) || [1]),
     1
@@ -330,12 +319,12 @@ export const TradingTerminalPage: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Symbol Desk Header Bar */}
-      <div className="bg-card border border-card-border p-4 rounded-xl flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="bg-card border border-card-border p-4 rounded-xl flex flex-wrap items-center justify-between gap-4 shadow-lg">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="relative">
             <button
               onClick={() => setShowSymbolPicker(!showSymbolPicker)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#090D16] border border-card-border hover:border-cyan-500/50 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#070A12] border border-card-border hover:border-cyan-500/50 transition-colors"
             >
               <span className="font-mono text-xl font-bold text-white tracking-wide">
                 {selectedInstrument?.symbol || symbol}
@@ -352,17 +341,17 @@ export const TradingTerminalPage: React.FC = () => {
 
             {/* Quick Symbol Picker Dropdown */}
             {showSymbolPicker && (
-              <div className="absolute top-full left-0 mt-2 w-72 max-h-80 bg-card border border-card-border rounded-xl shadow-2xl p-2 z-50 overflow-y-auto">
+              <div className="absolute top-full left-0 mt-2 w-80 max-h-80 bg-card border border-card-border rounded-xl shadow-2xl p-2 z-50 overflow-y-auto">
                 <input
                   type="text"
-                  placeholder="Search symbols..."
+                  placeholder="Search NSE / Simulated symbols..."
                   value={symbolSearch}
                   onChange={(e) => setSymbolSearch(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-[#090D16] border border-card-border rounded-lg text-xs font-mono text-white mb-2 focus:outline-none focus:border-cyan-500"
+                  className="w-full px-2.5 py-1.5 bg-[#070A12] border border-card-border rounded-lg text-xs font-mono text-white mb-2 focus:outline-none focus:border-cyan-500"
                   autoFocus
                 />
                 <div className="space-y-1">
-                  {filteredInstruments.slice(0, 8).map((inst) => (
+                  {filteredInstruments.slice(0, 10).map((inst) => (
                     <button
                       key={inst.id}
                       onClick={() => {
@@ -373,7 +362,7 @@ export const TradingTerminalPage: React.FC = () => {
                     >
                       <div>
                         <span className="font-bold text-white mr-2">{inst.symbol}</span>
-                        <span className="text-[10px] text-slate-400 truncate block">
+                        <span className="text-[10px] text-slate-400 truncate block max-w-[150px]">
                           {inst.name}
                         </span>
                       </div>
@@ -439,16 +428,16 @@ export const TradingTerminalPage: React.FC = () => {
           </div>
           <Link
             to={`/chart?symbol=${selectedInstrument?.symbol || symbol}`}
-            className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-xs border border-cyan-500/30 px-2 py-1 rounded-lg hover:bg-cyan-500/10 transition-colors"
+            className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-xs border border-cyan-500/30 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors font-mono font-semibold"
           >
             Technical Studio <ExternalLink className="w-3 h-3" />
           </Link>
         </div>
       </div>
 
-      {/* Phase 5C: Active News Catalyst Banner for Current Symbol */}
+      {/* Active News Catalyst Banner for Current Symbol */}
       {activeCatalyst && (
-        <div className="bg-purple-950/40 border border-purple-800/50 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
+        <div className="bg-purple-950/40 border border-purple-800/50 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono shadow-md">
           <div className="flex items-center gap-2.5 text-purple-200">
             <Radio className="w-4 h-4 text-purple-400 animate-pulse flex-shrink-0" />
             <div>
@@ -461,86 +450,48 @@ export const TradingTerminalPage: React.FC = () => {
               </span>
             </div>
           </div>
-          <Badge variant="simulated">BOT PARTICIPATION SHIFT</Badge>
+          <Badge variant="simulated">PARTICIPATION SHIFT</Badge>
         </div>
       )}
 
       {/* Main Terminal Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left 2 Cols: Terminal Summary, LOB & Trade Tape */}
+        {/* Left 2 Cols: Central Trading Chart + Order Book + Recent Trades */}
         <div className="lg:col-span-2 space-y-4">
-          <Card
-            title={`${selectedInstrument?.symbol || symbol} Instrument Overview`}
-            subtitle={`${selectedInstrument?.name || 'Loading company...'} • ${selectedInstrument?.exchange || 'TRADEGRID'} • ${selectedInstrument?.sector || 'General'}`}
-          >
-            <div className="p-4 bg-[#080C14] rounded-xl border border-card-border space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-                <div className="p-3 bg-card rounded-lg border border-card-border">
-                  <span className="text-[10px] text-slate-400 block uppercase">Exchange</span>
-                  <span className="text-white font-bold">{selectedInstrument?.exchange}</span>
-                </div>
-                <div className="p-3 bg-card rounded-lg border border-card-border">
-                  <span className="text-[10px] text-slate-400 block uppercase">Trading Status</span>
-                  <span
-                    className={`font-bold ${
-                      selectedInstrument?.marketStatus === 'ACTIVE'
-                        ? 'text-emerald-400'
-                        : 'text-amber-400'
-                    }`}
-                  >
-                    {selectedInstrument?.marketStatus}
-                  </span>
-                </div>
-                <div className="p-3 bg-card rounded-lg border border-card-border">
-                  <span className="text-[10px] text-slate-400 block uppercase">Previous Close</span>
-                  <span className="text-slate-200 font-bold">
-                    {selectedQuote ? formatCurrency(selectedQuote.previousClose) : '---'}
-                  </span>
-                </div>
-                <div className="p-3 bg-card rounded-lg border border-card-border">
-                  <span className="text-[10px] text-slate-400 block uppercase">Currency</span>
-                  <span className="text-indigo-400 font-bold">
-                    {selectedInstrument?.currency || 'USD'}
-                  </span>
-                </div>
-              </div>
+          {/* PRIMARY LIVE TRADING CHART */}
+          <AdvancedTradingChart
+            symbol={selectedInstrument?.symbol || symbol}
+            height={440}
+            showToolbar={true}
+            dataClassification={
+              selectedInstrument?.dataClassification === 'REAL' ? 'REAL' : 'SIMULATED'
+            }
+          />
 
-              <div className="p-3 bg-cyan-950/30 border border-cyan-800/40 rounded-lg flex items-start gap-2.5 text-xs font-mono text-cyan-300">
-                <AlertCircle className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <strong>Continuous Matching Engine & Atomic Settlement (Phase 4B):</strong> Orders
-                  submitted match against resting counterparty orders according to strict price-time
-                  priority. Trades atomically settle through the double-entry virtual cash ledger and
-                  real-time equity positions.
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Phase 4B: Live Order Book & Trade Tape Deck */}
+          {/* Live Order Book & Trade Tape Deck */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Live Order Book */}
             <Card
-              title="Order Book (LOB)"
+              title="Order Book (Depth)"
               subtitle="Live bids & asks depth ladder (FIFO)"
               action={
                 <button
                   onClick={fetchMarketDepth}
-                  className="p-1 rounded bg-[#090D16] border border-card-border text-slate-400 hover:text-slate-200"
+                  className="p-1 rounded bg-[#070A12] border border-card-border text-slate-400 hover:text-slate-200"
                   title="Refresh Depth"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBook ? 'animate-spin' : ''}`} />
                 </button>
               }
             >
-              <div className="p-3 bg-[#080C14] rounded-xl border border-card-border font-mono text-xs space-y-2">
+              <div className="p-3 bg-[#070A12] rounded-xl border border-card-border font-mono text-xs space-y-2">
                 <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-card-border/60 pb-1.5 font-semibold">
-                  <span>Price (USD)</span>
+                  <span>Price ({selectedInstrument?.currency || 'INR'})</span>
                   <span className="text-right">Size</span>
                   <span className="text-right">Total</span>
                 </div>
 
-                {/* Asks (Sell Orders) - Display in reverse to place best ask closest to mid price */}
+                {/* Asks (Sell Orders) */}
                 <div className="space-y-1">
                   {!orderBook || orderBook.asks.length === 0 ? (
                     <div className="py-3 text-center text-slate-500 text-[11px]">
@@ -629,22 +580,22 @@ export const TradingTerminalPage: React.FC = () => {
 
             {/* Recent Executed Trades Tape */}
             <Card
-              title="Recent Trades"
-              subtitle="Live exchange executions tape"
+              title="Recent Executions"
+              subtitle="Live exchange trade tape"
               action={
                 <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-400">
                   <Activity className="w-3.5 h-3.5 animate-pulse" /> Live
                 </div>
               }
             >
-              <div className="p-3 bg-[#080C14] rounded-xl border border-card-border font-mono text-xs space-y-2">
+              <div className="p-3 bg-[#070A12] rounded-xl border border-card-border font-mono text-xs space-y-2">
                 <div className="grid grid-cols-3 text-[10px] text-slate-500 uppercase border-b border-card-border/60 pb-1.5 font-semibold">
-                  <span>Price (USD)</span>
-                  <span className="text-right">Quantity</span>
+                  <span>Price</span>
+                  <span className="text-right">Qty</span>
                   <span className="text-right">Time</span>
                 </div>
 
-                <div className="space-y-1 max-h-[268px] overflow-y-auto pr-1">
+                <div className="space-y-1 max-h-[250px] overflow-y-auto pr-1">
                   {recentTrades.length === 0 ? (
                     <div className="py-12 text-center text-slate-500 text-[11px]">
                       No recent trade executions yet
@@ -684,32 +635,11 @@ export const TradingTerminalPage: React.FC = () => {
               </div>
             </Card>
           </div>
-
-          {/* Quick Stats Banner */}
-          <div className="p-4 rounded-xl bg-card border border-card-border flex items-center justify-between text-xs font-mono">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-slate-300">Matching Engine & Settlement Active</span>
-            </div>
-            <div className="text-slate-400">
-              Open / Partial Orders: <strong className="text-white">{openOrders.length}</strong> | Executed Trades:{' '}
-              <strong className="text-white">{recentTrades.length}</strong>
-            </div>
-            <button
-              onClick={() => {
-                fetchOrders();
-                fetchMarketDepth();
-              }}
-              className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOrders ? 'animate-spin' : ''}`} /> Sync All
-            </button>
-          </div>
         </div>
 
         {/* Right 1 Col: Live Order Entry Desk */}
         <div className="lg:col-span-1 space-y-4">
-          <Card title="Order Entry Desk" subtitle="Submit validated limit & market orders">
+          <Card title="Order Entry Ticket" subtitle="Place virtual market & limit orders">
             {/* Feedback Notifications */}
             {successMessage && (
               <div className="p-3 mb-4 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2">
@@ -743,13 +673,13 @@ export const TradingTerminalPage: React.FC = () => {
 
             <form onSubmit={handlePlaceOrder} className="space-y-4">
               {/* Buy / Sell Tabs */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-[#090D16] rounded-xl border border-card-border">
+              <div className="grid grid-cols-2 gap-2 p-1 bg-[#070A12] rounded-xl border border-card-border">
                 <button
                   type="button"
                   onClick={() => setOrderSide('BUY')}
                   className={`py-2 text-xs font-mono font-bold rounded-lg transition-colors ${
                     orderSide === 'BUY'
-                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -760,7 +690,7 @@ export const TradingTerminalPage: React.FC = () => {
                   onClick={() => setOrderSide('SELL')}
                   className={`py-2 text-xs font-mono font-bold rounded-lg transition-colors ${
                     orderSide === 'SELL'
-                      ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -779,7 +709,7 @@ export const TradingTerminalPage: React.FC = () => {
                       : 'bg-card border-card-border text-slate-400 hover:text-white'
                   }`}
                 >
-                  LIMIT ORDER
+                  LIMIT
                 </button>
                 <button
                   type="button"
@@ -790,15 +720,15 @@ export const TradingTerminalPage: React.FC = () => {
                       : 'bg-card border-card-border text-slate-400 hover:text-white'
                   }`}
                 >
-                  MARKET ORDER
+                  MARKET
                 </button>
               </div>
 
-              {/* Limit Price Input (Only for LIMIT orders) */}
+              {/* Limit Price Input */}
               {orderType === 'LIMIT' && (
                 <div>
                   <label className="block text-xs font-mono text-slate-400 mb-1.5">
-                    Limit Price (USD)
+                    Limit Price ({selectedInstrument?.currency || 'INR'})
                   </label>
                   <Input
                     type="number"
@@ -810,15 +740,15 @@ export const TradingTerminalPage: React.FC = () => {
                     required
                   />
                   <div className="flex justify-between items-center mt-1 text-[11px] text-slate-500 font-mono">
-                    <span>Last Market Price:</span>
+                    <span>LTP:</span>
                     <span>
-                      {selectedQuote ? formatCurrency(selectedQuote.lastPrice) : '$0.00'}
+                      {selectedQuote ? formatCurrency(selectedQuote.lastPrice) : '---'}
                     </span>
                   </div>
                 </div>
               )}
 
-              {/* Quantity Input */}
+              {/* Quantity Input with Percentage Presets */}
               <div>
                 <label className="block text-xs font-mono text-slate-400 mb-1.5">
                   Quantity (Shares)
@@ -832,22 +762,27 @@ export const TradingTerminalPage: React.FC = () => {
                   placeholder="Enter share count"
                   required
                 />
-                <div className="flex gap-2 mt-1.5">
-                  {['1', '5', '10', '25', '50'].map((preset) => (
+                <div className="grid grid-cols-4 gap-1.5 mt-1.5">
+                  {[
+                    { label: '25%', val: 0.25 },
+                    { label: '50%', val: 0.5 },
+                    { label: '75%', val: 0.75 },
+                    { label: '100%', val: 1.0 },
+                  ].map((p) => (
                     <button
-                      key={preset}
+                      key={p.label}
                       type="button"
-                      onClick={() => setQuantity(`${preset}.0000`)}
-                      className="flex-1 py-1 text-[10px] font-mono bg-card border border-card-border rounded hover:border-cyan-500 text-slate-400 hover:text-white transition-colors"
+                      onClick={() => handleQuickPercent(p.val)}
+                      className="py-1 text-[10px] font-mono bg-[#070A12] border border-card-border rounded hover:border-cyan-500 text-slate-400 hover:text-white transition-colors"
                     >
-                      {preset}
+                      {p.label}
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Estimated Total Calculation */}
-              <div className="p-3.5 rounded-xl bg-[#090D16] border border-card-border text-xs space-y-2 font-mono">
+              <div className="p-3.5 rounded-xl bg-[#070A12] border border-card-border text-xs space-y-2 font-mono">
                 <div className="flex justify-between text-slate-400">
                   <span>Available Virtual Cash:</span>
                   <span className="text-emerald-400 font-bold">
@@ -855,7 +790,7 @@ export const TradingTerminalPage: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex justify-between text-slate-400">
-                  <span>Estimated Total:</span>
+                  <span>Order Consideration:</span>
                   <span
                     className={`font-bold ${
                       hasInsufficientFunds ? 'text-rose-400' : 'text-slate-100'
@@ -867,19 +802,19 @@ export const TradingTerminalPage: React.FC = () => {
                 {hasInsufficientFunds && (
                   <div className="p-2 rounded bg-rose-950/40 border border-rose-800/40 text-rose-300 text-[11px] flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>Insufficient funds to place this BUY order</span>
+                    <span>Insufficient virtual cash for this order</span>
                   </div>
                 )}
                 <div className="flex justify-between text-slate-500 text-[10px]">
                   <span>Execution Fee:</span>
-                  <span>$0.00 (Virtual)</span>
+                  <span>$0.00 (Zero Commissions)</span>
                 </div>
               </div>
 
               <Button
                 type="submit"
                 variant={orderSide === 'BUY' ? 'success' : 'danger'}
-                className="w-full font-mono text-sm uppercase font-bold py-2.5"
+                className="w-full font-mono text-sm uppercase font-bold py-2.5 shadow-lg"
                 disabled={
                   isSubmitting ||
                   hasInsufficientFunds ||
@@ -893,21 +828,41 @@ export const TradingTerminalPage: React.FC = () => {
                     <RefreshCw className="w-4 h-4 animate-spin" /> Submitting...
                   </span>
                 ) : (
-                  `Submit ${orderSide} Order`
+                  `Execute ${orderSide} Order`
                 )}
               </Button>
             </form>
           </Card>
+
+          {/* Instrument Metadata Details Card */}
+          <div className="p-4 bg-card rounded-xl border border-card-border text-xs font-mono space-y-2.5">
+            <div className="flex justify-between text-slate-400">
+              <span>Exchange / Sector</span>
+              <span className="text-slate-200 font-bold">
+                {selectedInstrument?.exchange || 'NSE'} • {selectedInstrument?.sector || 'General'}
+              </span>
+            </div>
+            <div className="flex justify-between text-slate-400">
+              <span>Instrument Type</span>
+              <span className="text-slate-200 font-bold">
+                {selectedInstrument?.instrumentType || 'EQUITY'}
+              </span>
+            </div>
+            <div className="flex justify-between text-slate-400">
+              <span>Trading Session</span>
+              <span className="text-emerald-400 font-bold">Continuous 24/7 Virtual</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Bottom Full-Width Orders Management Deck */}
       <Card
         title="Order Management Center"
-        subtitle="Manage resting open orders and review historical order activity"
+        subtitle="Manage resting open orders and review historical executions"
         action={
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-[#090D16] p-1 rounded-lg border border-card-border">
+            <div className="flex items-center gap-1 bg-[#070A12] p-1 rounded-lg border border-card-border">
               <button
                 onClick={() => setActiveTab('open')}
                 className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
@@ -931,7 +886,7 @@ export const TradingTerminalPage: React.FC = () => {
             </div>
             <button
               onClick={() => fetchOrders()}
-              className="p-1.5 rounded-lg bg-[#090D16] border border-card-border text-slate-400 hover:text-slate-200"
+              className="p-1.5 rounded-lg bg-[#070A12] border border-card-border text-slate-400 hover:text-slate-200"
               title="Refresh Orders"
             >
               <RefreshCw className={`w-4 h-4 ${isLoadingOrders ? 'animate-spin' : ''}`} />
@@ -1035,7 +990,7 @@ export const TradingTerminalPage: React.FC = () => {
         ) : orderHistory.length === 0 ? (
           <div className="py-12 text-center text-slate-400 font-mono text-xs">
             <CheckCircle className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-            <span>No historical order executions or cancellations recorded yet.</span>
+            <span>No historical executions or cancellations recorded yet.</span>
           </div>
         ) : (
           <div className="overflow-x-auto">
