@@ -40,6 +40,7 @@ export async function seed(knex: Knex): Promise<void> {
       id: 2,
       email: 'trader@tradegrid.internal',
       username: 'trader_demo',
+      password_hash: traderPasswordHash,
       role: 'TRADER',
       status: 'ACTIVE',
       created_at: knex.fn.now(),
