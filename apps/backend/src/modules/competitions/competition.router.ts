@@ -8,6 +8,7 @@ export function createCompetitionsRouter(controller: CompetitionController): Rou
   // Public / Authenticated Discovery
   router.get('/', controller.listCompetitions);
   router.get('/me', authenticate, controller.listMyCompetitions);
+  router.get('/my', authenticate, controller.listMyCompetitions);
   router.get('/:id', controller.getCompetition);
   router.get('/:id/participants', controller.listParticipants);
   router.get('/:id/leaderboard', controller.getLeaderboard);

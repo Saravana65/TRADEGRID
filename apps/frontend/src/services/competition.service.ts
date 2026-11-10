@@ -34,66 +34,92 @@ export const competitionApiService = {
    * Fetches public list of competitions with optional status/visibility/search filtering.
    */
   async listCompetitions(params?: Partial<CompetitionQueryInput>): Promise<CompetitionsListResponse> {
-    const res = await apiClient.get<ApiResponse<CompetitionsListResponse>>('/competitions', {
+    const res = await apiClient.get<ApiResponse<any>>('/competitions', {
       params,
     });
-    return res.data.data;
+    const d: any = res.data.data;
+    const comps = Array.isArray(d?.competitions) ? d.competitions : (Array.isArray(d) ? d : []);
+    const total = typeof d?.total === 'number' ? d.total : comps.length;
+    return {
+      competitions: comps,
+      total,
+    };
   },
 
   /**
    * Fetches all competitions the authenticated user is currently enrolled in or created.
    */
   async getMyCompetitions(): Promise<Competition[]> {
-    const res = await apiClient.get<ApiResponse<Competition[]>>('/competitions/me');
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>('/competitions/me');
+    const d: any = res.data.data;
+    if (Array.isArray(d)) return d;
+    if (Array.isArray(d?.competitions)) return d.competitions;
+    return [];
   },
 
   /**
    * Fetches detailed information for a single competition.
    */
   async getCompetition(id: number): Promise<Competition> {
-    const res = await apiClient.get<ApiResponse<Competition>>(`/competitions/${id}`);
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>(`/competitions/${id}`);
+    const d: any = res.data.data;
+    return d?.competition || d;
   },
 
   /**
    * Fetches the participants list of a competition.
    */
   async listParticipants(id: number): Promise<CompetitionParticipant[]> {
-    const res = await apiClient.get<ApiResponse<CompetitionParticipant[]>>(`/competitions/${id}/participants`);
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>(`/competitions/${id}/participants`);
+    const d: any = res.data.data;
+    if (Array.isArray(d)) return d;
+    if (Array.isArray(d?.participants)) return d.participants;
+    return [];
   },
 
   /**
    * Fetches current or final server-authoritative leaderboard rankings.
    */
   async getLeaderboard(id: number): Promise<LeaderboardResponse> {
-    const res = await apiClient.get<ApiResponse<LeaderboardResponse>>(`/competitions/${id}/leaderboard`);
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>(`/competitions/${id}/leaderboard`);
+    const d: any = res.data.data;
+    const entries = Array.isArray(d?.leaderboard) ? d.leaderboard : (Array.isArray(d) ? d : []);
+    return {
+      competitionId: id,
+      status: d?.status || 'ACTIVE',
+      isFinal: !!d?.isFinal,
+      generatedAt: d?.generatedAt || new Date().toISOString(),
+      leaderboard: entries,
+    };
   },
 
   /**
    * Fetches recent trade tape for a competition.
    */
   async getTrades(id: number): Promise<CompetitionTrade[]> {
-    const res = await apiClient.get<ApiResponse<CompetitionTrade[]>>(`/competitions/${id}/trades`);
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>(`/competitions/${id}/trades`);
+    const d: any = res.data.data;
+    if (Array.isArray(d)) return d;
+    if (Array.isArray(d?.trades)) return d.trades;
+    return [];
   },
 
   /**
    * Creates a new tournament competition.
    */
   async createCompetition(data: CreateCompetitionInput): Promise<Competition> {
-    const res = await apiClient.post<ApiResponse<Competition>>('/competitions', data);
-    return res.data.data;
+    const res = await apiClient.post<ApiResponse<any>>('/competitions', data);
+    const d: any = res.data.data;
+    return d?.competition || d;
   },
 
   /**
    * Enrolls authenticated user into a competition with isolated starting virtual capital.
    */
   async joinCompetition(id: number, data?: JoinCompetitionInput): Promise<CompetitionParticipant> {
-    const res = await apiClient.post<ApiResponse<CompetitionParticipant>>(`/competitions/${id}/join`, data || {});
-    return res.data.data;
+    const res = await apiClient.post<ApiResponse<any>>(`/competitions/${id}/join`, data || {});
+    const d: any = res.data.data;
+    return d?.participant || d;
   },
 
   /**
@@ -116,8 +142,11 @@ export const competitionApiService = {
    * Retrieves participant's active and historical orders in this competition.
    */
   async getOrders(id: number): Promise<CompetitionOrder[]> {
-    const res = await apiClient.get<ApiResponse<CompetitionOrder[]>>(`/competitions/${id}/orders`);
-    return res.data.data;
+    const res = await apiClient.get<ApiResponse<any>>(`/competitions/${id}/orders`);
+    const d: any = res.data.data;
+    if (Array.isArray(d)) return d;
+    if (Array.isArray(d?.orders)) return d.orders;
+    return [];
   },
 
   /**

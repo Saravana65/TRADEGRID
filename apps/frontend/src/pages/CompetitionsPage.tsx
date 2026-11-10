@@ -49,7 +49,7 @@ export const CompetitionsPage: React.FC = () => {
   const [formDescription, setFormDescription] = useState<string>('');
   const [formVisibility, setFormVisibility] = useState<CompetitionVisibility>('PUBLIC');
   const [formJoinCode, setFormJoinCode] = useState<string>('');
-  const [formCapital, setFormCapital] = useState<string>('100000');
+  const [formCapital, setFormCapital] = useState<string>('500000');
   const [formMaxParticipants, setFormMaxParticipants] = useState<number>(100);
   const [formMinParticipants, setFormMinParticipants] = useState<number>(2);
   const [formStartTime, setFormStartTime] = useState<string>('');
@@ -69,8 +69,8 @@ export const CompetitionsPage: React.FC = () => {
         }),
         competitionApiService.getMyCompetitions().catch(() => []),
       ]);
-      setCompetitions(listRes.competitions);
-      setMyCompetitions(myRes);
+      setCompetitions(Array.isArray(listRes.competitions) ? listRes.competitions : []);
+      setMyCompetitions(Array.isArray(myRes) ? myRes : []);
     } catch (err: any) {
       setError(err?.response?.data?.error?.message || err?.message || 'Failed to load competitions');
     } finally {
@@ -174,7 +174,7 @@ export const CompetitionsPage: React.FC = () => {
     switch (status) {
       case 'ACTIVE':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -184,28 +184,28 @@ export const CompetitionsPage: React.FC = () => {
         );
       case 'UPCOMING':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
             <Clock className="w-3.5 h-3.5" />
             UPCOMING
           </span>
         );
       case 'COMPLETED':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
             <CheckCircle2 className="w-3.5 h-3.5" />
             COMPLETED
           </span>
         );
       case 'CANCELLED':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
             <AlertCircle className="w-3.5 h-3.5" />
             CANCELLED
           </span>
         );
       default:
         return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
             {status}
           </span>
         );
@@ -213,28 +213,28 @@ export const CompetitionsPage: React.FC = () => {
   };
 
   return (
-    <div className="p-4 lg:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Top Banner & Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-card to-slate-900 border border-card-border p-6 rounded-2xl relative overflow-hidden">
-        <div className="space-y-1.5 relative z-10">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/30">
-              <Trophy className="w-6 h-6" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] p-6 rounded-2xl shadow-sm">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/20">
+              <Trophy className="w-5 h-5" />
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight  text-slate-900 dark:text-white  font-mono">
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
               Trading Competitions
             </h1>
           </div>
-          <p className="text-slate-400 text-sm max-w-2xl">
+          <p className="text-neutral-500 dark:text-neutral-400 text-sm max-w-2xl">
             Test your alpha against peers in time-boxed virtual markets. Every tournament provides
             dedicated isolated starting capital, fair Price-Time FIFO matching, and real-time leaderboards.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 relative z-10">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-black hover:bg-black dark:hover:bg-neutral-200 font-semibold text-sm transition-all shadow-sm active:translate-y-0.5"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-900 text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-neutral-200 font-semibold text-sm transition-all shadow-sm active:translate-y-0.5"
           >
             <Plus className="w-4 h-4" />
             Create Competition
@@ -243,17 +243,17 @@ export const CompetitionsPage: React.FC = () => {
       </div>
 
       {/* Filters & Control Toolbar */}
-      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between bg-card/60 border border-card-border p-4 rounded-xl backdrop-blur-sm">
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] p-4 rounded-xl shadow-sm">
         {/* Status Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto bg-slate-900/60 p-1 rounded-lg border border-slate-800/80">
+        <div className="flex items-center gap-1 overflow-x-auto bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl border border-neutral-200 dark:border-neutral-800">
           {(['ALL', 'ACTIVE', 'UPCOMING', 'COMPLETED'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setStatusFilter(tab)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium font-mono transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 statusFilter === tab
-                  ? 'bg-cyan-500 text-slate-950 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-white'
+                  : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
               }`}
             >
               {tab}
@@ -264,32 +264,32 @@ export const CompetitionsPage: React.FC = () => {
         {/* Search & Secondary Filters */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search tournaments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-700/80 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              className="w-full pl-9 pr-3 py-1.5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 transition-colors"
             />
           </div>
 
           <select
             value={visibilityFilter}
             onChange={(e) => setVisibilityFilter(e.target.value as any)}
-            className="bg-slate-900 border border-slate-700/80 rounded-lg text-xs text-slate-300 px-3 py-1.5 focus:outline-none focus:border-cyan-500"
+            className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs text-neutral-700 dark:text-neutral-300 px-3 py-1.5 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 transition-colors"
           >
             <option value="ALL">All Visibility</option>
             <option value="PUBLIC">Public</option>
             <option value="PRIVATE">Private Only</option>
           </select>
 
-          <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none px-2 py-1.5 bg-slate-900/60 rounded-lg border border-slate-800">
+          <label className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300 cursor-pointer select-none px-3 py-1.5 bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800">
             <input
               type="checkbox"
               checked={showOnlyMine}
               onChange={(e) => setShowOnlyMine(e.target.checked)}
-              className="rounded border-slate-700 text-cyan-500 focus:ring-0"
+              className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-0"
             />
             My Tournaments
           </label>
@@ -299,26 +299,26 @@ export const CompetitionsPage: React.FC = () => {
       {/* Competitions Grid */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 space-y-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400" />
-          <span className="text-xs font-mono text-slate-500">Retrieving competition registry...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-900 dark:border-white" />
+          <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">Retrieving competition registry...</span>
         </div>
       ) : error ? (
-        <div className="p-6 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm flex items-center gap-3">
+        <div className="p-6 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm flex items-center gap-3">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       ) : filteredCompetitions.length === 0 ? (
-        <div className="text-center py-20 bg-card/30 border border-card-border rounded-2xl space-y-4">
-          <Trophy className="w-12 h-12 text-slate-600 mx-auto" />
+        <div className="text-center py-20 bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-2xl space-y-4">
+          <Trophy className="w-12 h-12 text-neutral-400 dark:text-neutral-600 mx-auto" />
           <div className="space-y-1">
-            <h3 className="text-base font-semibold text-white">No Competitions Found</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            <h3 className="text-base font-semibold text-neutral-900 dark:text-white">No Competitions Found</h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-sm mx-auto">
               There are no competitions matching your current filters. Create a new tournament or check back soon!
             </p>
           </div>
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold rounded-lg transition-colors border border-cyan-500/30"
+            className="px-4 py-2 bg-neutral-900 text-white dark:bg-white dark:text-black text-xs font-semibold rounded-xl hover:bg-black dark:hover:bg-neutral-200 transition-colors"
           >
             Create Competition
           </button>
@@ -331,47 +331,47 @@ export const CompetitionsPage: React.FC = () => {
             return (
               <div
                 key={comp.id}
-                className="bg-card border border-card-border hover:border-slate-700 transition-all rounded-2xl flex flex-col justify-between overflow-hidden group shadow-lg"
+                className="bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] hover:border-neutral-400 dark:hover:border-neutral-700 transition-all rounded-2xl flex flex-col justify-between overflow-hidden group shadow-sm"
               >
                 {/* Card Header */}
                 <div className="p-5 space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     {getStatusBadge(comp.status)}
-                    <span className="flex items-center gap-1 text-[11px] font-mono font-medium text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                    <span className="flex items-center gap-1 text-[11px] font-mono font-medium text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-900 px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-800">
                       {comp.visibility === 'PRIVATE' ? (
                         <>
-                          <Lock className="w-3 h-3 text-amber-400" /> Private
+                          <Lock className="w-3 h-3 text-amber-500" /> Private
                         </>
                       ) : (
                         <>
-                          <Globe className="w-3 h-3 text-cyan-400" /> Public
+                          <Globe className="w-3 h-3 text-neutral-500 dark:text-neutral-400" /> Public
                         </>
                       )}
                     </span>
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-white text-base group-hover:text-cyan-400 transition-colors line-clamp-1">
+                    <h3 className="font-bold text-neutral-900 dark:text-white text-base group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors line-clamp-1">
                       {comp.name}
                     </h3>
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-2 min-h-[32px]">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2 min-h-[32px]">
                       {comp.description || 'No description provided.'}
                     </p>
                   </div>
 
                   {/* Highlights Grid */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
-                    <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-                      <span className="text-[10px] text-slate-500 uppercase font-mono block">Starting Capital</span>
-                      <span className="text-xs font-bold font-mono text-emerald-400">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
+                    <div className="bg-neutral-50 dark:bg-neutral-900/60 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-mono block">Starting Capital</span>
+                      <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
                         {formatCurrency(comp.startingCapital)}
                       </span>
                     </div>
 
-                    <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-                      <span className="text-[10px] text-slate-500 uppercase font-mono block">Traders</span>
-                      <span className="text-xs font-bold font-mono text-white flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5 text-cyan-400" />
+                    <div className="bg-neutral-50 dark:bg-neutral-900/60 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-mono block">Traders</span>
+                      <span className="text-xs font-bold font-mono text-neutral-900 dark:text-white flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
                         {comp.participantCount || 0}
                         {comp.maxParticipants ? ` / ${comp.maxParticipants}` : ''}
                       </span>
@@ -379,24 +379,24 @@ export const CompetitionsPage: React.FC = () => {
                   </div>
 
                   {/* Timing Meta */}
-                  <div className="space-y-1 text-[11px] text-slate-400 font-mono">
+                  <div className="space-y-1 text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Starts:</span>
-                      <span>{new Date(comp.startTime).toLocaleString()}</span>
+                      <span>Starts:</span>
+                      <span className="text-neutral-800 dark:text-neutral-200">{new Date(comp.startTime).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Ends:</span>
-                      <span>{new Date(comp.endTime).toLocaleString()}</span>
+                      <span>Ends:</span>
+                      <span className="text-neutral-800 dark:text-neutral-200">{new Date(comp.endTime).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Card Actions Footer */}
-                <div className="p-4 bg-slate-900/70 border-t border-card-border flex items-center justify-between gap-2">
+                <div className="p-4 bg-neutral-50 dark:bg-neutral-900/40 border-t border-neutral-200 dark:border-[#1F1F1F] flex items-center justify-between gap-2">
                   {isEnrolled ? (
                     <button
                       onClick={() => navigate(`/competitions/${comp.id}`)}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-semibold text-xs transition-colors border border-cyan-500/40"
+                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-neutral-900 text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-neutral-200 font-semibold text-xs transition-colors shadow-sm"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       Enter Arena
@@ -410,7 +410,7 @@ export const CompetitionsPage: React.FC = () => {
                           setJoinError(null);
                           setIsJoinCodeOpen(true);
                         }}
-                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors"
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs transition-colors"
                       >
                         <Key className="w-3.5 h-3.5" />
                         Enter Join Code
@@ -419,7 +419,7 @@ export const CompetitionsPage: React.FC = () => {
                       <button
                         onClick={() => handleJoinPublic(comp)}
                         disabled={isSubmitting}
-                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-semibold text-xs transition-colors"
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold text-xs transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Join Competition
@@ -428,7 +428,7 @@ export const CompetitionsPage: React.FC = () => {
                   ) : (
                     <button
                       onClick={() => navigate(`/competitions/${comp.id}`)}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors"
+                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-semibold text-xs transition-colors"
                     >
                       View Leaderboard & Tape
                       <ChevronRight className="w-3.5 h-3.5 ml-auto" />
@@ -443,21 +443,21 @@ export const CompetitionsPage: React.FC = () => {
 
       {/* Modal: Join Private Competition Code Prompt */}
       {isJoinCodeOpen && selectedCompForJoin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-card border border-card-border rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0E0E0E] border border-neutral-200 dark:border-[#222222] rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 <Lock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Join Private Competition</h3>
-                <p className="text-xs text-slate-400">{selectedCompForJoin.name}</p>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white">Join Private Competition</h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">{selectedCompForJoin.name}</p>
               </div>
             </div>
 
             <form onSubmit={handleJoinPrivateSubmit} className="space-y-4">
               <div>
-                <label className="text-xs font-mono text-slate-400 block mb-1">
+                <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">
                   Access Join Code
                 </label>
                 <input
@@ -466,12 +466,12 @@ export const CompetitionsPage: React.FC = () => {
                   placeholder="e.g. VIP-ALPHA-2026"
                   value={joinCodeInput}
                   onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-mono uppercase tracking-widest focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-sm text-neutral-900 dark:text-white font-mono uppercase tracking-widest focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                 />
               </div>
 
               {joinError && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs">
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs">
                   {joinError}
                 </div>
               )}
@@ -480,14 +480,14 @@ export const CompetitionsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsJoinCodeOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !joinCodeInput.trim()}
-                  className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-lg transition-colors"
+                  className="px-4 py-2 bg-neutral-900 text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-neutral-200 disabled:opacity-50 font-bold text-xs rounded-xl transition-colors"
                 >
                   {isSubmitting ? 'Joining...' : 'Verify & Join'}
                 </button>
@@ -499,22 +499,22 @@ export const CompetitionsPage: React.FC = () => {
 
       {/* Modal: Create Competition */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-card border border-card-border rounded-2xl w-full max-w-xl p-6 space-y-4 shadow-2xl my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-[#0E0E0E] border border-neutral-200 dark:border-[#222222] rounded-2xl w-full max-w-xl p-6 space-y-4 shadow-2xl my-8">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 <Trophy className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Create Virtual Tournament</h3>
-                <p className="text-xs text-slate-400">Launch a multiplayer trading contest with custom rules</p>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-white">Create Virtual Tournament</h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">Launch a multiplayer trading contest with custom rules</p>
               </div>
             </div>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-mono text-slate-400 block mb-1">Competition Title *</label>
+                  <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">Competition Title *</label>
                   <input
                     type="text"
                     required
@@ -522,27 +522,27 @@ export const CompetitionsPage: React.FC = () => {
                     placeholder="e.g. Apex High-Frequency Invitational"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-mono text-slate-400 block mb-1">Description</label>
+                  <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">Description</label>
                   <textarea
                     rows={2}
                     placeholder="Brief description of rules, prizes, or theme..."
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-mono text-slate-400 block mb-1">Visibility</label>
+                  <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">Visibility</label>
                   <select
                     value={formVisibility}
                     onChange={(e) => setFormVisibility(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-sm text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                   >
                     <option value="PUBLIC">Public (Anyone can enroll)</option>
                     <option value="PRIVATE">Private (Password / Join Code)</option>
@@ -551,20 +551,20 @@ export const CompetitionsPage: React.FC = () => {
 
                 {formVisibility === 'PRIVATE' && (
                   <div>
-                    <label className="text-xs font-mono text-slate-400 block mb-1">Join Code *</label>
+                    <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">Join Code *</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. SECRET99"
                       value={formJoinCode}
                       onChange={(e) => setFormJoinCode(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-mono uppercase focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-sm text-neutral-900 dark:text-white font-mono uppercase focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="text-xs font-mono text-slate-400 block mb-1">Starting Virtual Capital ($) *</label>
+                  <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">Starting Virtual Capital ($) *</label>
                   <input
                     type="number"
                     required
@@ -573,58 +573,58 @@ export const CompetitionsPage: React.FC = () => {
                     step={1000}
                     value={formCapital}
                     onChange={(e) => setFormCapital(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-sm text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs font-mono text-slate-400 block mb-1">Min Traders</label>
+                    <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">Min Traders</label>
                     <input
                       type="number"
                       min={2}
                       value={formMinParticipants}
                       onChange={(e) => setFormMinParticipants(parseInt(e.target.value, 10))}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-sm text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-mono text-slate-400 block mb-1">Max Traders</label>
+                    <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">Max Traders</label>
                     <input
                       type="number"
                       min={2}
                       max={10000}
                       value={formMaxParticipants}
                       onChange={(e) => setFormMaxParticipants(parseInt(e.target.value, 10))}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-sm text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-mono text-slate-400 block mb-1">Start Time *</label>
+                  <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">Start Time *</label>
                   <input
                     type="datetime-local"
                     required
                     value={formStartTime}
                     onChange={(e) => setFormStartTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-mono text-slate-400 block mb-1">End Time *</label>
+                  <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">End Time *</label>
                   <input
                     type="datetime-local"
                     required
                     value={formEndTime}
                     onChange={(e) => setFormEndTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-mono text-slate-400 block mb-1">
+                  <label className="text-xs font-mono text-neutral-500 dark:text-neutral-400 block mb-1">
                     Allowed Tradable Instruments (comma-separated symbols)
                   </label>
                   <input
@@ -632,32 +632,32 @@ export const CompetitionsPage: React.FC = () => {
                     placeholder="ALPHA, BETA, TGRID, RELIANCE, TCS"
                     value={formAllowedInstruments}
                     onChange={(e) => setFormAllowedInstruments(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono uppercase focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs text-neutral-900 dark:text-white font-mono uppercase focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
                   />
-                  <span className="text-[10px] text-slate-500 mt-1 block">
+                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1 block">
                     Leave blank to permit all market instruments.
                   </span>
                 </div>
               </div>
 
               {formCreateError && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs">
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-xs">
                   {formCreateError}
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-200 dark:border-neutral-800">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-lg transition-colors shadow-lg shadow-cyan-500/20"
+                  className="px-5 py-2 bg-neutral-900 text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-neutral-200 disabled:opacity-50 font-bold text-xs rounded-xl transition-colors shadow-sm"
                 >
                   {isSubmitting ? 'Launching...' : 'Create Competition'}
                 </button>
