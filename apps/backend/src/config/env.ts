@@ -9,7 +9,7 @@ dotenv.config(); // fallback to current working directory
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().default('5000').transform((val) => parseInt(val, 10)),
+  PORT: z.string().default('5005').transform((val) => parseInt(val, 10)),
   
   // Database
   DB_HOST: z.string().default('localhost'),
@@ -62,7 +62,7 @@ export const config = parsed.success
   ? parsed.data
   : {
       NODE_ENV: 'test' as const,
-      PORT: 5000,
+      PORT: 5005,
       DB_HOST: 'localhost',
       DB_PORT: 3306,
       DB_NAME: 'tradegrid_test',
