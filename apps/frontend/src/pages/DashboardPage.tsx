@@ -295,26 +295,15 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Right: Buy & Sell Action Buttons */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleOpenOrder('BUY')}
-                  className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs font-sans shadow-sm transition-all"
-                >
-                  BUY
-                </button>
-                <button
-                  onClick={() => handleOpenOrder('SELL')}
-                  className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold text-xs font-sans shadow-sm transition-all"
-                >
-                  SELL
-                </button>
+              {/* Right: Quick Terminal Navigation & Action */}
+              <div className="flex items-center gap-2">
                 <Link
                   to={`/terminal?symbol=${activeSymbol}`}
-                  className="p-2.5 rounded-xl border border-neutral-200 dark:border-[#262626] text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-[#1A1A1A] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-200 dark:border-[#262626] text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#1A1A1A] transition-colors shadow-sm"
                   title="Open in Dedicated Trading Terminal"
                 >
-                  <Maximize2 className="w-4 h-4" />
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Advanced Studio</span>
                 </Link>
               </div>
             </div>
@@ -634,6 +623,54 @@ export const DashboardPage: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* 4. GROWW-STYLE BOTTOM BUY & SELL TRADING ACTION CONSOLE */}
+          <div className="bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-2xl p-4 sm:p-5 shadow-sm transition-colors duration-200">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* Left: Execution Context */}
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="p-2.5 rounded-xl bg-neutral-100 dark:bg-[#171717] border border-neutral-200 dark:border-[#262626] text-center min-w-[72px]">
+                  <span className="text-[10px] text-neutral-400 font-sans uppercase font-bold block">
+                    Symbol
+                  </span>
+                  <span className="text-sm font-extrabold font-mono text-neutral-900 dark:text-white">
+                    {currentInstrument.symbol}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                      Live Market Price:
+                    </span>
+                    <span className="text-sm font-bold font-mono text-neutral-900 dark:text-white tabular-nums">
+                      {formatCurrency(lastPrice)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 font-sans">
+                    Atomic simulated execution • ₹0 brokerage • T+0 settlement
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: Big Prominent BUY and SELL Buttons at Bottom */}
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <button
+                  onClick={() => handleOpenOrder('BUY')}
+                  className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-sm font-sans shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  <span>BUY {currentInstrument.symbol}</span>
+                </button>
+                <button
+                  onClick={() => handleOpenOrder('SELL')}
+                  className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-sm font-sans shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                >
+                  <TrendingDown className="w-4 h-4" />
+                  <span>SELL {currentInstrument.symbol}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ========================================================================= */}
@@ -669,6 +706,24 @@ export const DashboardPage: React.FC = () => {
         selectedInstrument={currentInstrument}
         selectedQuote={currentQuote}
       />
+
+      {/* Mobile Sticky Bottom Trade Bar (Only visible on mobile screens < lg) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 p-3 bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-md border-t border-neutral-200 dark:border-[#222222] flex items-center gap-3 shadow-lg">
+        <button
+          onClick={() => handleOpenOrder('BUY')}
+          className="flex-1 py-3 rounded-xl bg-emerald-600 active:bg-emerald-700 text-white font-extrabold text-sm font-sans shadow-md flex items-center justify-center gap-2"
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>BUY ({formatCurrency(lastPrice)})</span>
+        </button>
+        <button
+          onClick={() => handleOpenOrder('SELL')}
+          className="flex-1 py-3 rounded-xl bg-rose-600 active:bg-rose-700 text-white font-extrabold text-sm font-sans shadow-md flex items-center justify-center gap-2"
+        >
+          <TrendingDown className="w-4 h-4" />
+          <span>SELL ({formatCurrency(lastPrice)})</span>
+        </button>
+      </div>
     </div>
   );
 };

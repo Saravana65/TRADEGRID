@@ -147,7 +147,7 @@ export const AITradingAssistant: React.FC<AITradingAssistantProps> = ({
   return (
     <>
       {/* Floating Trigger Button */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-20 lg:bottom-6 right-6 z-40">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={`flex items-center gap-2 px-3.5 py-2.5 rounded-full shadow-xl transition-all duration-200 border ${
