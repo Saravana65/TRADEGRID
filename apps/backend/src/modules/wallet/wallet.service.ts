@@ -131,9 +131,10 @@ export class WalletService {
    * Retrieves user wallet summary, available balance, and ledger consistency verification.
    */
   async getWalletSummary(userId: number): Promise<WalletSummaryResponse> {
-    const wallet = await this.walletRepo.findByUserId(userId);
+    let wallet = await this.walletRepo.findByUserId(userId);
     if (!wallet) {
-      throw new AppError(404, 'WALLET_NOT_FOUND', 'Virtual wallet not found for user');
+      logger.info(`[WALLET] Wallet not found for user #${userId}. Auto-provisioning initial virtual wallet...`);
+      wallet = await this.createWalletForUser(userId);
     }
 
     const account = await this.ledgerRepo.findOrCreateAccount(

@@ -15,7 +15,7 @@ import { socketService } from '../../services/socket.service';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
-import { formatDate } from '../../utils/formatters';
+import { formatISTDate } from '../../utils/formatters';
 import {
   Newspaper,
   Play,
@@ -23,15 +23,14 @@ import {
   RefreshCw,
   Plus,
   FileText,
-  Activity,
-  Zap,
-  X,
-  AlertTriangle,
+  Radio,
+  Search,
   TrendingUp,
   TrendingDown,
   Clock,
-  Radio,
-  Search,
+  AlertTriangle,
+  X,
+  CheckCircle2,
 } from 'lucide-react';
 
 const CATEGORIES: NewsCategory[] = [
@@ -50,6 +49,8 @@ const CATEGORIES: NewsCategory[] = [
   'Other',
 ];
 
+type PublishMode = 'IMMEDIATE' | 'SCHEDULED' | 'DRAFT';
+
 export const AdminNewsTab: React.FC = () => {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [metrics, setMetrics] = useState<NewsMetricsSummary | null>(null);
@@ -66,6 +67,9 @@ export const AdminNewsTab: React.FC = () => {
   // Create News Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publishMode, setPublishMode] = useState<PublishMode>('IMMEDIATE');
+  const [scheduledDateTime, setScheduledDateTime] = useState('');
+
   const [createForm, setCreateForm] = useState<CreateNewsInput>({
     headline: '',
     summary: '',
@@ -74,7 +78,7 @@ export const AdminNewsTab: React.FC = () => {
     impactDirection: 'POSITIVE',
     severity: 'HIGH',
     targetScope: 'INSTRUMENT',
-    targetSymbol: 'ALPHA',
+    targetSymbol: 'RELIANCE',
     targetSector: '',
     publishImmediately: true,
     catalyst: {
@@ -97,7 +101,7 @@ export const AdminNewsTab: React.FC = () => {
     try {
       const [newsData, metricsData, instData] = await Promise.allSettled([
         newsApiService.getNews({
-          limit: 50,
+          limit: 100,
           category: categoryFilter !== 'ALL' ? (categoryFilter as NewsCategory) : undefined,
           status: statusFilter !== 'ALL' ? (statusFilter as any) : undefined,
           search: searchQuery.trim() || undefined,
@@ -115,8 +119,13 @@ export const AdminNewsTab: React.FC = () => {
       if (instData.status === 'fulfilled') {
         const symList = (instData.value.instruments || []).map((i: any) => i.symbol);
         setSymbols(symList);
-        if (symList.length > 0 && !createForm.targetSymbol) {
-          setCreateForm((prev) => ({ ...prev, targetSymbol: symList[0] }));
+        if (symList.length > 0) {
+          setCreateForm((prev) => {
+            if (!prev.targetSymbol || !symList.includes(prev.targetSymbol)) {
+              return { ...prev, targetSymbol: symList[0] };
+            }
+            return prev;
+          });
         }
       }
     } catch (err: any) {
@@ -124,7 +133,7 @@ export const AdminNewsTab: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [categoryFilter, statusFilter, searchQuery, createForm.targetSymbol]);
+  }, [categoryFilter, statusFilter, searchQuery]);
 
   useEffect(() => {
     fetchNewsAndMetrics();
@@ -169,12 +178,31 @@ export const AdminNewsTab: React.FC = () => {
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await newsApiService.createNews(createForm);
+      const payload: CreateNewsInput = {
+        ...createForm,
+        publishImmediately: publishMode === 'IMMEDIATE',
+        scheduledAt: publishMode === 'SCHEDULED' && scheduledDateTime ? new Date(scheduledDateTime).toISOString() : undefined,
+      };
+
+      await newsApiService.createNews(payload);
       setShowCreateModal(false);
-      setActionNotice(`Simulated news article "${createForm.headline}" created successfully.`);
+      setActionNotice(
+        publishMode === 'IMMEDIATE'
+          ? `Simulated news "${payload.headline}" published and catalyst activated!`
+          : publishMode === 'SCHEDULED'
+          ? `Simulated news "${payload.headline}" scheduled successfully.`
+          : `Simulated news "${payload.headline}" saved as draft.`
+      );
+      // Reset form
+      setCreateForm((prev) => ({
+        ...prev,
+        headline: '',
+        summary: '',
+        content: '',
+      }));
       fetchNewsAndMetrics();
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message;
+      const msg = err.response?.data?.message || err.response?.data?.error?.message || err.message;
       setActionError(`Failed to create simulated news: ${msg}`);
     } finally {
       setIsSubmitting(false);
@@ -220,15 +248,15 @@ export const AdminNewsTab: React.FC = () => {
   const renderStatusBadge = (status: string) => {
     switch (status) {
       case 'ACTIVE':
-        return <Badge variant="gain">ACTIVE</Badge>;
+        return <Badge variant="gain">LIVE CATALYST</Badge>;
       case 'SCHEDULED':
-        return <Badge variant="cyan">SCHEDULED</Badge>;
+        return <Badge variant="neutral">SCHEDULED</Badge>;
       case 'DRAFT':
         return <Badge variant="neutral">DRAFT</Badge>;
       case 'EXPIRED':
         return <Badge variant="loss">EXPIRED</Badge>;
       case 'CANCELLED':
-        return <Badge variant="amber">CANCELLED</Badge>;
+        return <Badge variant="loss">CANCELLED</Badge>;
       default:
         return <Badge variant="neutral">{status}</Badge>;
     }
@@ -240,7 +268,7 @@ export const AdminNewsTab: React.FC = () => {
 
     if (isBullish) {
       return (
-        <span className="inline-flex items-center gap-1 text-emerald-400 font-mono text-xs font-semibold bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded">
+        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
           <TrendingUp className="w-3 h-3" />
           +{score || '0.00'}
         </span>
@@ -248,14 +276,14 @@ export const AdminNewsTab: React.FC = () => {
     }
     if (isBearish) {
       return (
-        <span className="inline-flex items-center gap-1 text-rose-400 font-mono text-xs font-semibold bg-rose-950/40 border border-rose-800/40 px-2 py-0.5 rounded">
+        <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-mono text-xs font-semibold bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded">
           <TrendingDown className="w-3 h-3" />
           {score || '-0.00'}
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 text-slate-400 font-mono text-xs font-semibold bg-slate-800/40 border border-slate-700/40 px-2 py-0.5 rounded">
+      <span className="inline-flex items-center gap-1 text-neutral-600 dark:text-neutral-400 font-mono text-xs font-semibold bg-neutral-200 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 px-2 py-0.5 rounded">
         {score || '0.00'}
       </span>
     );
@@ -263,42 +291,43 @@ export const AdminNewsTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Mandatory Simulated News Disclaimer Banner */}
-      <div className="bg-purple-950/40 border border-purple-800/50 p-4 rounded-xl flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
+      {/* Simulation Disclaimer Banner */}
+      <div className="bg-neutral-100 dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] p-4 rounded-xl flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-neutral-600 dark:text-neutral-400 flex-shrink-0 mt-0.5" />
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold font-mono uppercase tracking-wider text-purple-300">
-              SIMULATED NEWS ENGINE — NOT REAL FINANCIAL NEWS
+            <span className="text-xs font-bold font-mono uppercase tracking-wider text-neutral-900 dark:text-white">
+              ADMIN NEWS & CATALYST CONTROL CENTER
             </span>
-            <Badge variant="simulated">100% SYNTHETIC</Badge>
+            <Badge variant="simulated">SIMULATOR ENGINE</Badge>
           </div>
-          <p className="text-xs text-purple-200/80 leading-relaxed">
-            All news stories, sector catalysts, and price shock variables are generated strictly for simulated virtual trading. The news engine skews simulated market maker bot quotes and order flow without fabricating trades or directly altering ledger balances.
+          <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+            All news headlines injected here are synthetic financial shock catalysts. Publishing an article immediately shifts market sentiment, influences autonomous bot trading aggression, and triggers order book volatility.
           </p>
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* Action Notice */}
       {actionNotice && (
-        <div className="p-3 bg-emerald-950/40 border border-emerald-800/50 rounded-lg text-emerald-300 text-xs flex items-center justify-between">
+        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-400">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4" />
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <span>{actionNotice}</span>
           </div>
-          <button onClick={() => setActionNotice(null)} className="hover:text-emerald-100">
+          <button onClick={() => setActionNotice(null)} className="hover:opacity-75">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
+      {/* Error Message */}
       {actionError && (
-        <div className="p-3 bg-rose-950/40 border border-rose-800/50 rounded-lg text-rose-300 text-xs flex items-center justify-between">
+        <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center justify-between text-xs text-rose-700 dark:text-rose-400">
           <div className="flex items-center gap-2">
-            <XCircle className="w-4 h-4" />
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
             <span>{actionError}</span>
           </div>
-          <button onClick={() => setActionError(null)} className="hover:text-rose-100">
+          <button onClick={() => setActionError(null)} className="hover:opacity-75">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -306,58 +335,58 @@ export const AdminNewsTab: React.FC = () => {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-slate-900/60 border-slate-800">
+        <Card className="bg-white dark:bg-[#0A0A0A] border-neutral-200 dark:border-[#1F1F1F]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Total Stories</p>
-              <p className="text-2xl font-bold font-mono text-white mt-1">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Total Stories</p>
+              <p className="text-2xl font-bold font-mono text-neutral-900 dark:text-white mt-1">
                 {metrics?.totalArticles ?? articles.length}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-cyan-950/50 border border-cyan-800/40 flex items-center justify-center">
-              <Newspaper className="w-5 h-5 text-cyan-400" />
+            <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] flex items-center justify-center">
+              <Newspaper className="w-5 h-5 text-neutral-900 dark:text-white" />
             </div>
           </div>
         </Card>
 
-        <Card className="bg-slate-900/60 border-slate-800">
+        <Card className="bg-white dark:bg-[#0A0A0A] border-neutral-200 dark:border-[#1F1F1F]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Active Catalysts</p>
-              <p className="text-2xl font-bold font-mono text-emerald-400 mt-1">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Active Catalysts</p>
+              <p className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
                 {metrics?.activeCatalysts ?? articles.filter((a) => a.status === 'ACTIVE').length}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-emerald-950/50 border border-emerald-800/40 flex items-center justify-center">
-              <Radio className="w-5 h-5 text-emerald-400 animate-pulse" />
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <Radio className="w-5 h-5 text-emerald-500 animate-pulse" />
             </div>
           </div>
         </Card>
 
-        <Card className="bg-slate-900/60 border-slate-800">
+        <Card className="bg-white dark:bg-[#0A0A0A] border-neutral-200 dark:border-[#1F1F1F]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Scheduled Articles</p>
-              <p className="text-2xl font-bold font-mono text-purple-400 mt-1">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Scheduled Articles</p>
+              <p className="text-2xl font-bold font-mono text-neutral-900 dark:text-white mt-1">
                 {metrics?.scheduledArticles ?? articles.filter((a) => a.status === 'SCHEDULED').length}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-purple-950/50 border border-purple-800/40 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-purple-400" />
+            <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] flex items-center justify-center">
+              <Clock className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
             </div>
           </div>
         </Card>
 
-        <Card className="bg-slate-900/60 border-slate-800">
+        <Card className="bg-white dark:bg-[#0A0A0A] border-neutral-200 dark:border-[#1F1F1F]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Expired Catalysts</p>
-              <p className="text-2xl font-bold font-mono text-slate-400 mt-1">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Expired Catalysts</p>
+              <p className="text-2xl font-bold font-mono text-neutral-500 dark:text-neutral-400 mt-1">
                 {metrics?.expiredArticles ?? articles.filter((a) => a.status === 'EXPIRED').length}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-slate-800/50 border border-slate-700/40 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-slate-400" />
+            <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] flex items-center justify-center">
+              <Clock className="w-5 h-5 text-neutral-400" />
             </div>
           </div>
         </Card>
@@ -367,20 +396,20 @@ export const AdminNewsTab: React.FC = () => {
       <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         <div className="flex flex-1 items-center gap-2">
           <div className="relative flex-1 max-w-sm">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-400" />
             <input
               type="text"
               placeholder="Search news headline..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg pl-9 pr-3 py-1.5 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-neutral-400"
             />
           </div>
 
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-500"
+            className="bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-2.5 py-1.5 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400"
           >
             <option value="ALL">All Categories</option>
             {CATEGORIES.map((cat) => (
@@ -393,10 +422,10 @@ export const AdminNewsTab: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-500"
+            className="bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-2.5 py-1.5 text-xs text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400"
           >
             <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">ACTIVE</option>
+            <option value="ACTIVE">ACTIVE (Live)</option>
             <option value="SCHEDULED">SCHEDULED</option>
             <option value="DRAFT">DRAFT</option>
             <option value="EXPIRED">EXPIRED</option>
@@ -410,7 +439,7 @@ export const AdminNewsTab: React.FC = () => {
             size="sm"
             onClick={fetchNewsAndMetrics}
             disabled={isLoading}
-            className="border-slate-800 text-slate-300 hover:bg-slate-800"
+            className="border-neutral-200 dark:border-[#1F1F1F] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-[#141414]"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -420,10 +449,10 @@ export const AdminNewsTab: React.FC = () => {
             variant="primary"
             size="sm"
             onClick={() => setShowCreateModal(true)}
-            className="bg-cyan-600 hover:bg-cyan-500 text-white font-medium"
+            className="bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 font-medium"
           >
             <Plus className="w-3.5 h-3.5 mr-1.5" />
-            Publish Simulated News
+            Create Simulated News
           </Button>
         </div>
       </div>
@@ -431,21 +460,21 @@ export const AdminNewsTab: React.FC = () => {
       {/* News Articles Grid / List */}
       <div className="space-y-3">
         {articles.length === 0 ? (
-          <Card className="text-center py-12 text-slate-400 bg-slate-900/40 border-slate-800">
-            <Newspaper className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+          <Card className="text-center py-12 text-neutral-500 bg-white dark:bg-[#0A0A0A] border-neutral-200 dark:border-[#1F1F1F]">
+            <Newspaper className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
             <p className="text-sm">No simulated news articles found matching the current filters.</p>
-            <p className="text-xs text-slate-500 mt-1">
-              Click &quot;Publish Simulated News&quot; above to create a catalyst event.
+            <p className="text-xs text-neutral-400 mt-1">
+              Click &quot;Create Simulated News&quot; above to create a catalyst event.
             </p>
           </Card>
         ) : (
           articles.map((item) => (
             <Card
               key={item.id}
-              className={`bg-slate-900/60 border ${
+              className={`bg-white dark:bg-[#0A0A0A] border ${
                 item.status === 'ACTIVE'
-                  ? 'border-emerald-800/40 ring-1 ring-emerald-500/10'
-                  : 'border-slate-800'
+                  ? 'border-emerald-500/40 ring-1 ring-emerald-500/20'
+                  : 'border-neutral-200 dark:border-[#1F1F1F]'
               }`}
             >
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -453,48 +482,48 @@ export const AdminNewsTab: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     {renderStatusBadge(item.status)}
                     <Badge variant="simulated">SIMULATED</Badge>
-                    <span className="font-semibold text-slate-300 bg-slate-800 px-2 py-0.5 rounded text-[11px]">
+                    <span className="font-semibold text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] px-2 py-0.5 rounded text-[11px]">
                       {item.category}
                     </span>
-                    <span className="text-slate-400 text-[11px]">
-                      Scope: <strong className="text-white font-mono">{item.targetScope}</strong>
+                    <span className="text-neutral-500 text-[11px]">
+                      Scope: <strong className="text-neutral-900 dark:text-white font-mono">{item.targetScope}</strong>
                       {item.targetSymbol && (
-                        <> ({item.targetSymbol})</>
+                        <span className="text-neutral-900 dark:text-white font-semibold"> ({item.targetSymbol})</span>
                       )}
                       {item.targetSector && (
-                        <> ({item.targetSector})</>
+                        <span> ({item.targetSector})</span>
                       )}
                     </span>
                     {item.catalyst && (
                       <div className="flex items-center gap-2 ml-auto">
                         {renderImpactBadge(item.impactDirection, item.catalyst.sentimentScore)}
-                        <span className="text-[11px] font-mono text-purple-300 bg-purple-950/40 border border-purple-800/40 px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-mono text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] px-2 py-0.5 rounded">
                           Vol: {item.catalyst.volatilityFactor}x
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <h3 className="text-sm font-semibold text-white leading-snug">
+                  <h3 className="text-sm font-semibold text-neutral-900 dark:text-white leading-snug">
                     {item.headline}
                   </h3>
 
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
                     {item.summary}
                   </p>
 
-                  <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 pt-1">
+                  <div className="flex flex-wrap items-center gap-4 text-[11px] text-neutral-500 pt-1">
                     {item.publishedAt && (
-                      <span>Published: {formatDate(item.publishedAt)}</span>
+                      <span>Published: {formatISTDate(item.publishedAt)}</span>
                     )}
                     {item.scheduledAt && item.status === 'SCHEDULED' && (
-                      <span className="text-purple-400 font-mono">
-                        Scheduled for: {formatDate(item.scheduledAt)}
+                      <span className="font-mono text-neutral-700 dark:text-neutral-300">
+                        Scheduled for: {formatISTDate(item.scheduledAt)}
                       </span>
                     )}
                     {item.expiresAt && item.status === 'ACTIVE' && (
-                      <span className="text-emerald-400 font-mono">
-                        Expires: {formatDate(item.expiresAt)}
+                      <span className="text-emerald-600 dark:text-emerald-400 font-mono">
+                        Expires: {formatISTDate(item.expiresAt)}
                       </span>
                     )}
                   </div>
@@ -519,10 +548,10 @@ export const AdminNewsTab: React.FC = () => {
                       variant="secondary"
                       size="sm"
                       onClick={() => handleCancel(item.id)}
-                      className="border-rose-800 text-rose-400 hover:bg-rose-950/40 text-xs h-7 px-2.5"
+                      className="border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs h-7 px-2.5"
                     >
                       <XCircle className="w-3 h-3 mr-1" />
-                      Cancel
+                      Cancel Catalyst
                     </Button>
                   )}
 
@@ -530,7 +559,7 @@ export const AdminNewsTab: React.FC = () => {
                     variant="secondary"
                     size="sm"
                     onClick={() => handleOpenAudit(item)}
-                    className="border-slate-800 text-slate-400 hover:bg-slate-800 text-xs h-7 px-2.5"
+                    className="border-neutral-200 dark:border-[#1F1F1F] text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#141414] text-xs h-7 px-2.5"
                   >
                     <FileText className="w-3 h-3 mr-1" />
                     Audit Logs
@@ -542,18 +571,20 @@ export const AdminNewsTab: React.FC = () => {
         )}
       </div>
 
-      {/* Modal: Publish Simulated News */}
+      {/* Modal: Create Simulated News */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-[#1F1F1F] pb-3">
               <div className="flex items-center gap-2">
-                <Newspaper className="w-5 h-5 text-cyan-400" />
-                <h3 className="font-semibold text-white text-sm">Publish Simulated News Catalyst</h3>
+                <Newspaper className="w-5 h-5 text-neutral-900 dark:text-white" />
+                <h3 className="font-semibold text-neutral-900 dark:text-white text-sm">
+                  Create Simulated News Catalyst
+                </h3>
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -561,38 +592,44 @@ export const AdminNewsTab: React.FC = () => {
 
             <form onSubmit={handleCreateNews} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">News Headline *</label>
+                <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                  News Headline *
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. ALPHA Corp Signs Major AI Cloud Partnership"
+                  placeholder="e.g. RELIANCE Announces Major Clean Energy Technology Breakthrough"
                   value={createForm.headline}
                   onChange={(e) => setCreateForm({ ...createForm, headline: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1 font-medium">News Summary *</label>
+                <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                  News Summary *
+                </label>
                 <textarea
                   required
                   rows={2}
                   placeholder="Concise overview of the simulated financial event..."
                   value={createForm.summary}
                   onChange={(e) => setCreateForm({ ...createForm, summary: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-neutral-400"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Category</label>
+                  <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                    Category
+                  </label>
                   <select
                     value={createForm.category}
                     onChange={(e) =>
                       setCreateForm({ ...createForm, category: e.target.value as NewsCategory })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400"
                   >
                     {CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
@@ -603,7 +640,9 @@ export const AdminNewsTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Impact Direction</label>
+                  <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                    Impact Direction
+                  </label>
                   <select
                     value={createForm.impactDirection}
                     onChange={(e) =>
@@ -612,7 +651,7 @@ export const AdminNewsTab: React.FC = () => {
                         impactDirection: e.target.value as NewsImpactDirection,
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400"
                   >
                     <option value="POSITIVE">Positive (Bullish Shock)</option>
                     <option value="NEGATIVE">Negative (Bearish Shock)</option>
@@ -623,13 +662,15 @@ export const AdminNewsTab: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Severity Level</label>
+                  <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                    Severity Level
+                  </label>
                   <select
                     value={createForm.severity}
                     onChange={(e) =>
                       setCreateForm({ ...createForm, severity: e.target.value as NewsSeverity })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400"
                   >
                     <option value="LOW">LOW (0.25x Shock Weight)</option>
                     <option value="MEDIUM">MEDIUM (0.50x Shock Weight)</option>
@@ -639,13 +680,15 @@ export const AdminNewsTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Target Scope</label>
+                  <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                    Target Scope
+                  </label>
                   <select
                     value={createForm.targetScope}
                     onChange={(e) =>
                       setCreateForm({ ...createForm, targetScope: e.target.value as NewsTargetScope })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400"
                   >
                     <option value="INSTRUMENT">Single Instrument</option>
                     <option value="SECTOR">Sector Wide</option>
@@ -656,43 +699,57 @@ export const AdminNewsTab: React.FC = () => {
 
               {createForm.targetScope === 'INSTRUMENT' && (
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Target Symbol</label>
+                  <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                    Target Symbol
+                  </label>
                   <select
                     value={createForm.targetSymbol || ''}
                     onChange={(e) => setCreateForm({ ...createForm, targetSymbol: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400"
                   >
-                    {symbols.map((sym) => (
-                      <option key={sym} value={sym}>
-                        {sym}
-                      </option>
-                    ))}
+                    {symbols.length > 0 ? (
+                      symbols.map((sym) => (
+                        <option key={sym} value={sym}>
+                          {sym}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="RELIANCE">RELIANCE</option>
+                        <option value="TCS">TCS</option>
+                        <option value="INFY">INFY</option>
+                        <option value="HDFCBANK">HDFCBANK</option>
+                        <option value="TGRID">TGRID</option>
+                      </>
+                    )}
                   </select>
                 </div>
               )}
 
               {createForm.targetScope === 'SECTOR' && (
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Target Sector</label>
+                  <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                    Target Sector
+                  </label>
                   <input
                     type="text"
-                    placeholder="e.g. Technology, Energy, Healthcare"
+                    placeholder="e.g. Technology, Energy, Financial Services"
                     value={createForm.targetSector || ''}
                     onChange={(e) => setCreateForm({ ...createForm, targetSector: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:border-neutral-400"
                   />
                 </div>
               )}
 
               {/* Catalyst Shock Parameters */}
-              <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-lg space-y-3">
-                <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block">
+              <div className="bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] p-3 rounded-lg space-y-3">
+                <span className="text-[11px] font-semibold text-neutral-900 dark:text-white uppercase tracking-wider block">
                   Simulated Catalyst Parameters
                 </span>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-mono text-[11px]">
+                    <label className="block text-neutral-500 text-[11px] font-mono mb-1">
                       Sentiment Score (-1.0 to +1.0)
                     </label>
                     <input
@@ -704,12 +761,12 @@ export const AdminNewsTab: React.FC = () => {
                           catalyst: { ...createForm.catalyst, sentimentScore: e.target.value },
                         })
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-2.5 py-1.5 text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-neutral-400"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-mono text-[11px]">
+                    <label className="block text-neutral-500 text-[11px] font-mono mb-1">
                       Volatility Multiplier (1.0 to 5.0)
                     </label>
                     <input
@@ -721,14 +778,14 @@ export const AdminNewsTab: React.FC = () => {
                           catalyst: { ...createForm.catalyst, volatilityFactor: e.target.value },
                         })
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-2.5 py-1.5 text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-neutral-400"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-mono text-[11px]">
+                    <label className="block text-neutral-500 text-[11px] font-mono mb-1">
                       Duration (Seconds)
                     </label>
                     <input
@@ -745,34 +802,78 @@ export const AdminNewsTab: React.FC = () => {
                           },
                         })
                       }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-2.5 py-1.5 text-neutral-900 dark:text-white font-mono focus:outline-none focus:border-neutral-400"
                     />
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-4">
-                    <input
-                      type="checkbox"
-                      id="publishImmediately"
-                      checked={createForm.publishImmediately}
-                      onChange={(e) =>
-                        setCreateForm({ ...createForm, publishImmediately: e.target.checked })
-                      }
-                      className="rounded border-slate-700 text-cyan-500 focus:ring-0"
-                    />
-                    <label htmlFor="publishImmediately" className="text-slate-300 font-medium">
-                      Publish Immediately
-                    </label>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              {/* Publication Strategy */}
+              <div className="space-y-2 border-t border-neutral-200 dark:border-[#1F1F1F] pt-3">
+                <label className="block text-neutral-700 dark:text-neutral-300 font-medium">
+                  Publication Timing
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPublishMode('IMMEDIATE')}
+                    className={`py-2 px-3 rounded-lg border text-xs font-medium transition-colors ${
+                      publishMode === 'IMMEDIATE'
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-black border-transparent'
+                        : 'bg-neutral-50 dark:bg-[#141414] border-neutral-200 dark:border-[#1F1F1F] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Publish Immediately
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPublishMode('SCHEDULED')}
+                    className={`py-2 px-3 rounded-lg border text-xs font-medium transition-colors ${
+                      publishMode === 'SCHEDULED'
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-black border-transparent'
+                        : 'bg-neutral-50 dark:bg-[#141414] border-neutral-200 dark:border-[#1F1F1F] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Schedule for Later
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPublishMode('DRAFT')}
+                    className={`py-2 px-3 rounded-lg border text-xs font-medium transition-colors ${
+                      publishMode === 'DRAFT'
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-black border-transparent'
+                        : 'bg-neutral-50 dark:bg-[#141414] border-neutral-200 dark:border-[#1F1F1F] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Save as Draft
+                  </button>
+                </div>
+
+                {publishMode === 'SCHEDULED' && (
+                  <div className="pt-2">
+                    <label className="block text-neutral-600 dark:text-neutral-400 mb-1 font-medium">
+                      Select Publication Date & Time (Local / IST)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required={publishMode === 'SCHEDULED'}
+                      value={scheduledDateTime}
+                      onChange={(e) => setScheduledDateTime(e.target.value)}
+                      className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg px-3 py-2 text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-200 dark:border-[#1F1F1F]">
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   onClick={() => setShowCreateModal(false)}
-                  className="border-slate-800 text-slate-400"
+                  className="border-neutral-200 dark:border-[#1F1F1F] text-neutral-600 dark:text-neutral-400"
                 >
                   Cancel
                 </Button>
@@ -781,9 +882,15 @@ export const AdminNewsTab: React.FC = () => {
                   variant="primary"
                   size="sm"
                   disabled={isSubmitting}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white"
+                  className="bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 font-medium"
                 >
-                  {isSubmitting ? 'Publishing...' : 'Create & Broadcast'}
+                  {isSubmitting
+                    ? 'Processing...'
+                    : publishMode === 'IMMEDIATE'
+                    ? 'Publish & Broadcast Catalyst'
+                    : publishMode === 'SCHEDULED'
+                    ? 'Schedule Article'
+                    : 'Save Draft'}
                 </Button>
               </div>
             </form>
@@ -794,31 +901,31 @@ export const AdminNewsTab: React.FC = () => {
       {/* Modal: Audit Log Executions */}
       {showAuditModal && selectedArticle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="bg-white dark:bg-[#0A0A0A] border border-neutral-200 dark:border-[#1F1F1F] rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-[#1F1F1F] pb-3">
               <div>
-                <h3 className="font-semibold text-white text-sm">
+                <h3 className="font-semibold text-neutral-900 dark:text-white text-sm">
                   Catalyst Audit History — News #{selectedArticle.id}
                 </h3>
-                <p className="text-xs text-slate-400 truncate max-w-lg mt-0.5">
+                <p className="text-xs text-neutral-500 truncate max-w-lg mt-0.5">
                   {selectedArticle.headline}
                 </p>
               </div>
               <button
                 onClick={() => setShowAuditModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {isLoadingAudit ? (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-cyan-500" />
+              <div className="py-8 text-center text-neutral-500 text-xs">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-neutral-600 dark:text-neutral-400" />
                 Loading execution log...
               </div>
             ) : executions.length === 0 ? (
-              <p className="py-6 text-center text-xs text-slate-400">
+              <p className="py-6 text-center text-xs text-neutral-500">
                 No execution audit entries recorded yet for this catalyst.
               </p>
             ) : (
@@ -826,19 +933,19 @@ export const AdminNewsTab: React.FC = () => {
                 {executions.map((ex) => (
                   <div
                     key={ex.id}
-                    className="p-3 bg-slate-950/70 border border-slate-800 rounded-lg text-xs space-y-1 font-mono"
+                    className="p-3 bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#1F1F1F] rounded-lg text-xs space-y-1 font-mono"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-cyan-400">{ex.action}</span>
-                      <span className="text-[11px] text-slate-500">
-                        {formatDate(ex.createdAt)}
+                      <span className="font-semibold text-neutral-900 dark:text-white">{ex.action}</span>
+                      <span className="text-[11px] text-neutral-500">
+                        {formatISTDate(ex.createdAt)}
                       </span>
                     </div>
-                    <div className="text-slate-400">
-                      Effective Impact: <span className="text-white">{ex.effectiveImpact}</span>
+                    <div className="text-neutral-600 dark:text-neutral-400">
+                      Effective Impact: <span className="text-neutral-900 dark:text-white font-bold">{ex.effectiveImpact}</span>
                     </div>
                     {ex.details && (
-                      <div className="text-[11px] text-slate-500 break-all">
+                      <div className="text-[11px] text-neutral-500 break-all">
                         Details: {typeof ex.details === 'string' ? ex.details : JSON.stringify(ex.details)}
                       </div>
                     )}
@@ -847,12 +954,12 @@ export const AdminNewsTab: React.FC = () => {
               </div>
             )}
 
-            <div className="flex justify-end pt-2 border-t border-slate-800">
+            <div className="flex justify-end pt-2 border-t border-neutral-200 dark:border-[#1F1F1F]">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setShowAuditModal(false)}
-                className="border-slate-800 text-slate-400"
+                className="border-neutral-200 dark:border-[#1F1F1F] text-neutral-600 dark:text-neutral-400"
               >
                 Close
               </Button>

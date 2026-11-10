@@ -28,7 +28,7 @@ import { competitionApiService } from '../services/competition.service';
 import { marketApiService } from '../services/market.service';
 import { socketService } from '../services/socket.service';
 import { useAuthStore } from '../store/authStore';
-import { formatCurrency, formatPercent } from '../utils/formatters';
+import { formatCurrency, formatPercent, formatISTDate } from '../utils/formatters';
 
 export const CompetitionDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -166,14 +166,27 @@ export const CompetitionDetailPage: React.FC = () => {
 
     const interval = setInterval(() => {
       const now = Date.now();
-      if (competition.status === 'UPCOMING') {
-        const diff = new Date(competition.startTime).getTime() - now;
-        if (diff <= 0) {
+      if (
+        competition.status === 'UPCOMING' ||
+        competition.status === 'REGISTRATION_OPEN' ||
+        competition.status === 'REGISTRATION_CLOSED'
+      ) {
+        const startDiff = new Date(competition.startTime).getTime() - now;
+        const regDiff = competition.registrationEndTime
+          ? new Date(competition.registrationEndTime).getTime() - now
+          : 0;
+
+        if (startDiff <= 0) {
           setTimeRemainingStr('Starting momentarily...');
+        } else if (competition.status === 'REGISTRATION_OPEN' && regDiff > 0) {
+          const hours = Math.floor(regDiff / 3600000);
+          const mins = Math.floor((regDiff % 3600000) / 60000);
+          const secs = Math.floor((regDiff % 60000) / 1000);
+          setTimeRemainingStr(`Registration closes in ${hours}h ${mins}m ${secs}s`);
         } else {
-          const hours = Math.floor(diff / 3600000);
-          const mins = Math.floor((diff % 3600000) / 60000);
-          const secs = Math.floor((diff % 60000) / 1000);
+          const hours = Math.floor(startDiff / 3600000);
+          const mins = Math.floor((startDiff % 3600000) / 60000);
+          const secs = Math.floor((startDiff % 60000) / 1000);
           setTimeRemainingStr(`Starts in ${hours}h ${mins}m ${secs}s`);
         }
       } else if (competition.status === 'ACTIVE') {
@@ -338,12 +351,12 @@ export const CompetitionDetailPage: React.FC = () => {
               </div>
             )}
 
-            {!isEnrolled && competition.status === 'UPCOMING' && (
+            {!isEnrolled && (competition.status === 'UPCOMING' || competition.status === 'REGISTRATION_OPEN') && (
               <button
                 onClick={handleJoin}
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shadow-sm"
+                className="px-5 py-2 rounded-xl bg-neutral-900 text-white hover:bg-black dark:bg-white dark:text-black dark:hover:bg-neutral-200 font-bold text-xs transition-colors shadow-sm"
               >
-                Join Tournament
+                Register for Tournament
               </button>
             )}
           </div>
@@ -368,16 +381,16 @@ export const CompetitionDetailPage: React.FC = () => {
           </div>
 
           <div className="bg-neutral-50 dark:bg-neutral-900/60 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800">
-            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-mono block">Tournament Start</span>
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-mono block">Tournament Start (IST)</span>
             <span className="text-xs font-mono text-neutral-800 dark:text-neutral-200">
-              {new Date(competition.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+              {formatISTDate(competition.startTime)}
             </span>
           </div>
 
           <div className="bg-neutral-50 dark:bg-neutral-900/60 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800">
-            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-mono block">Tournament End</span>
+            <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-mono block">Tournament End (IST)</span>
             <span className="text-xs font-mono text-neutral-800 dark:text-neutral-200">
-              {new Date(competition.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+              {formatISTDate(competition.endTime)}
             </span>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { ISettlementService, settlementService as defaultSettlementService } fro
 import { IRealtimeService, realtimeService as defaultRealtimeService } from '../../websocket/realtime.service';
 import { InstrumentMatchingQueue, instrumentMatchingQueue as defaultMatchingQueue } from './matching-queue';
 import { IOrderRepository, orderRepository as defaultOrderRepo } from '../orders/order.repository';
+import { IMarketDataRepository, marketDataRepository as defaultMarketDataRepo } from '../market/market-data.repository';
 
 export interface MatchResult {
   trades: Trade[];
@@ -19,7 +20,8 @@ export class MatchingEngine {
     private readonly settlementService: ISettlementService = defaultSettlementService,
     private readonly realtimeService: IRealtimeService = defaultRealtimeService,
     private readonly matchingQueue: InstrumentMatchingQueue = defaultMatchingQueue,
-    private readonly orderRepo: IOrderRepository = defaultOrderRepo
+    private readonly orderRepo: IOrderRepository = defaultOrderRepo,
+    private readonly marketDataRepo: IMarketDataRepository = defaultMarketDataRepo
   ) {}
 
   /**
@@ -236,6 +238,64 @@ export class MatchingEngine {
 
         // Update in-memory state for incoming Sell order
         currentRemaining = FinancialMath.calcRemainingQuantity(currentRemaining, matchQuantity);
+      }
+    }
+
+    // Market Order execution guarantee: In educational simulation mode,
+    // if a trader submits a MARKET order and orderbook depth is depleted,
+    // execute against autonomous market maker bot (User #7) at live market quote.
+    if (
+      process.env.NODE_ENV !== 'test' &&
+      order.userId !== 7 &&
+      order.orderType === 'MARKET' &&
+      FinancialMath.isPositive(currentRemaining)
+    ) {
+      try {
+        let execPrice = '100.0000';
+        if (this.marketDataRepo) {
+          const quote = await this.marketDataRepo.getQuoteByInstrumentId(order.instrumentId);
+          if (quote && FinancialMath.isPositive(quote.lastPrice)) {
+            execPrice = quote.lastPrice;
+          }
+        }
+
+        const mmUserId = 7;
+        const mmSide = order.side === 'BUY' ? 'SELL' : 'BUY';
+        const mmOrder = await this.orderRepo.create({
+          userId: mmUserId,
+          instrumentId: order.instrumentId,
+          side: mmSide,
+          orderType: 'MARKET',
+          quantity: currentRemaining,
+          remainingQuantity: currentRemaining,
+          limitPrice: null,
+          status: 'OPEN',
+        });
+
+        const buyOrd = order.side === 'BUY' ? { ...order, remainingQuantity: currentRemaining } : mmOrder;
+        const sellOrd = order.side === 'BUY' ? mmOrder : { ...order, remainingQuantity: currentRemaining };
+
+        const settledTrade = await this.settlementService.settleTrade({
+          buyOrder: buyOrd,
+          sellOrder: sellOrd,
+          instrumentId: order.instrumentId,
+          symbol: book.symbol,
+          executionPrice: execPrice,
+          executedQuantity: currentRemaining,
+        });
+
+        trades.push(settledTrade);
+        this.realtimeService.broadcastTradeExecution({
+          trade: settledTrade,
+          symbol: book.symbol,
+          dataClassification: 'SIMULATED',
+          aggressorSide: order.side,
+        });
+        this.realtimeService.emitPortfolioUpdated(settledTrade.buyerId);
+        this.realtimeService.emitPortfolioUpdated(settledTrade.sellerId);
+        currentRemaining = '0.0000';
+      } catch (mmErr: any) {
+        logger.warn(`[MATCHING ENGINE] Autonomous MM fill skipped: ${mmErr.message}`);
       }
     }
 

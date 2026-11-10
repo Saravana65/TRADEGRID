@@ -157,12 +157,32 @@ export class CompetitionService {
   ): Promise<CompetitionParticipant> {
     const comp = await this.getCompetitionById(competitionId);
 
-    // Guard: Can only join if competition is UPCOMING or DRAFT
-    if (comp.status !== 'UPCOMING' && comp.status !== 'DRAFT') {
+    const now = new Date();
+
+    // Guard 1: Status must allow registration
+    const joinableStatuses = ['REGISTRATION_OPEN', 'UPCOMING', 'DRAFT'];
+    if (!joinableStatuses.includes(comp.status)) {
       throw new AppError(
         422,
         'CANNOT_JOIN',
-        `Cannot join competition with status "${comp.status}". Joining is only allowed before start.`
+        `Cannot join competition with status "${comp.status}". Joining is only allowed during open registration.`
+      );
+    }
+
+    // Guard 2: Enforce Registration Window deadlines
+    if (comp.registrationEndTime && new Date(comp.registrationEndTime).getTime() < now.getTime()) {
+      throw new AppError(
+        422,
+        'REGISTRATION_CLOSED',
+        'Registration window for this competition has closed.'
+      );
+    }
+
+    if (comp.registrationStartTime && new Date(comp.registrationStartTime).getTime() > now.getTime()) {
+      throw new AppError(
+        422,
+        'REGISTRATION_NOT_YET_OPEN',
+        'Registration window for this competition has not opened yet.'
       );
     }
 

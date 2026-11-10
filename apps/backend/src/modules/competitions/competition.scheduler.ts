@@ -40,7 +40,51 @@ export class CompetitionScheduler {
     try {
       const now = new Date();
 
-      // 1. Check UPCOMING competitions ready to START
+      // Helper to activate or cancel a competition based on minParticipants
+      const attemptStartCompetition = async (comp: any) => {
+        const participantCount = await this.competitionRepo.countParticipants(comp.id);
+        if (participantCount >= comp.minParticipants) {
+          await this.competitionRepo.updateCompetition(comp.id, { status: 'ACTIVE' });
+          await this.competitionRepo.createAuditLog(
+            comp.id,
+            'STARTED',
+            { participantCount, startTime: comp.startTime }
+          );
+          logger.info(`[COMPETITION SCHEDULER] Competition #${comp.id} "${comp.name}" is now ACTIVE (${participantCount} participants)`);
+          if (this.realtimeService) {
+            this.realtimeService.emitCompetitionStarted?.({
+              eventId: `start-${Date.now()}`,
+              competitionId: comp.id,
+              name: comp.name,
+              startTime: comp.startTime,
+              endTime: comp.endTime,
+              participantCount,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } else {
+          await this.competitionRepo.updateCompetition(comp.id, { status: 'CANCELLED' });
+          await this.competitionRepo.createAuditLog(
+            comp.id,
+            'CANCELLED',
+            { reason: `Minimum participant count of ${comp.minParticipants} not met (${participantCount} joined)` }
+          );
+          logger.warn(`[COMPETITION SCHEDULER] Competition #${comp.id} "${comp.name}" CANCELLED (insufficient participants)`);
+          if (this.realtimeService) {
+            this.realtimeService.emitCompetitionCancelled?.({
+              eventId: `cancel-${Date.now()}`,
+              competitionId: comp.id,
+              name: comp.name,
+              reason: `Cancelled: Minimum participant count (${comp.minParticipants}) not reached`,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+      };
+
+      // 1. Check UPCOMING competitions:
+      // - Transition to REGISTRATION_OPEN if registration_start_time has arrived
+      // - Or transition directly to ACTIVE if startTime has arrived
       const upcomingRes = await this.competitionRepo.findCompetitions({
         status: 'UPCOMING',
         limit: 50,
@@ -48,55 +92,47 @@ export class CompetitionScheduler {
 
       for (const comp of upcomingRes.competitions) {
         if (new Date(comp.startTime) <= now) {
-          const participantCount = await this.competitionRepo.countParticipants(comp.id);
-
-          if (participantCount >= comp.minParticipants) {
-            // Activate competition
-            await this.competitionRepo.updateCompetition(comp.id, { status: 'ACTIVE' });
-            await this.competitionRepo.createAuditLog(
-              comp.id,
-              'STARTED',
-              { participantCount, startTime: comp.startTime }
-            );
-
-            logger.info(`[COMPETITION SCHEDULER] Competition #${comp.id} "${comp.name}" is now ACTIVE (${participantCount} participants)`);
-
-            if (this.realtimeService) {
-              this.realtimeService.emitCompetitionStarted?.({
-                eventId: `start-${Date.now()}`,
-                competitionId: comp.id,
-                name: comp.name,
-                startTime: comp.startTime,
-                endTime: comp.endTime,
-                participantCount,
-                timestamp: new Date().toISOString(),
-              });
-            }
-          } else {
-            // Cancel competition due to insufficient participation
-            await this.competitionRepo.updateCompetition(comp.id, { status: 'CANCELLED' });
-            await this.competitionRepo.createAuditLog(
-              comp.id,
-              'CANCELLED',
-              { reason: `Minimum participant count of ${comp.minParticipants} not met (${participantCount} joined)` }
-            );
-
-            logger.warn(`[COMPETITION SCHEDULER] Competition #${comp.id} "${comp.name}" CANCELLED (insufficient participants)`);
-
-            if (this.realtimeService) {
-              this.realtimeService.emitCompetitionCancelled?.({
-                eventId: `cancel-${Date.now()}`,
-                competitionId: comp.id,
-                name: comp.name,
-                reason: `Cancelled: Minimum participant count (${comp.minParticipants}) not reached`,
-                timestamp: new Date().toISOString(),
-              });
-            }
-          }
+          await attemptStartCompetition(comp);
+        } else if (
+          comp.registrationStartTime &&
+          new Date(comp.registrationStartTime) <= now &&
+          (!comp.registrationEndTime || new Date(comp.registrationEndTime) > now)
+        ) {
+          await this.competitionRepo.updateCompetition(comp.id, { status: 'REGISTRATION_OPEN' });
+          logger.info(`[COMPETITION SCHEDULER] Competition #${comp.id} "${comp.name}" status -> REGISTRATION_OPEN`);
         }
       }
 
-      // 2. Check ACTIVE competitions ready to COMPLETE
+      // 2. Check REGISTRATION_OPEN competitions:
+      // - If startTime has arrived, start or cancel
+      // - Else if registrationEndTime has arrived, close registration
+      const regOpenRes = await this.competitionRepo.findCompetitions({
+        status: 'REGISTRATION_OPEN',
+        limit: 50,
+      });
+
+      for (const comp of regOpenRes.competitions) {
+        if (new Date(comp.startTime) <= now) {
+          await attemptStartCompetition(comp);
+        } else if (comp.registrationEndTime && new Date(comp.registrationEndTime) <= now) {
+          await this.competitionRepo.updateCompetition(comp.id, { status: 'REGISTRATION_CLOSED' });
+          logger.info(`[COMPETITION SCHEDULER] Competition #${comp.id} "${comp.name}" status -> REGISTRATION_CLOSED`);
+        }
+      }
+
+      // 3. Check REGISTRATION_CLOSED competitions ready to START
+      const regClosedRes = await this.competitionRepo.findCompetitions({
+        status: 'REGISTRATION_CLOSED',
+        limit: 50,
+      });
+
+      for (const comp of regClosedRes.competitions) {
+        if (new Date(comp.startTime) <= now) {
+          await attemptStartCompetition(comp);
+        }
+      }
+
+      // 4. Check ACTIVE competitions ready to COMPLETE
       const activeRes = await this.competitionRepo.findCompetitions({
         status: 'ACTIVE',
         limit: 50,

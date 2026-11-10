@@ -140,29 +140,57 @@ export const Navbar: React.FC = () => {
   );
 
   return (
-    <header className="h-16 bg-white dark:bg-black border-b border-slate-200 dark:border-[#1F1F1F] px-4 lg:px-6 flex items-center justify-between sticky top-0 z-30 select-none transition-colors duration-200">
-      {/* 1. Left: Mobile Sidebar Toggle + Brand Logo + Market Status Indicator */}
+    <header className="h-16 bg-white dark:bg-black border-b border-neutral-200 dark:border-[#1F1F1F] px-4 lg:px-6 flex items-center justify-between sticky top-0 z-30 select-none transition-colors duration-200">
+      {/* 1. Left: Mobile Sidebar Toggle + Brand Logo + Top Navigation Links + Market Status */}
       <div className="flex items-center gap-3.5">
         <button
           onClick={toggleSidebar}
-          className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141414] transition-colors focus:outline-none"
+          className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#141414] transition-colors focus:outline-none"
           title="Toggle Navigation"
         >
           <Menu className="w-5 h-5" />
         </button>
 
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="p-2 rounded-xl bg-slate-100 dark:bg-[#141414] text-slate-900 dark:text-white border border-slate-200 dark:border-[#262626] shadow-sm">
+          <div className="p-2 rounded-xl bg-neutral-100 dark:bg-[#141414] text-neutral-900 dark:text-white border border-neutral-200 dark:border-[#262626] shadow-sm">
             <TrendingUp className="w-4 h-4" />
           </div>
-          <span className="font-sans font-bold tracking-tight text-base text-slate-900 dark:text-white hidden sm:inline-flex items-center">
-            TRADE<span className="text-slate-500 dark:text-neutral-400 font-semibold">GRID</span>
+          <span className="font-sans font-bold tracking-tight text-base text-neutral-900 dark:text-white hidden sm:inline-flex items-center">
+            TRADE<span className="text-neutral-500 dark:text-neutral-400 font-semibold">GRID</span>
           </span>
         </Link>
 
+        {/* Primary Desktop Nav Links */}
+        <nav className="hidden lg:flex items-center gap-1 pl-4 ml-2 border-l border-neutral-200 dark:border-[#262626] text-xs font-semibold">
+          <Link
+            to="/"
+            className="px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#141414] transition-colors"
+          >
+            Dashboard
+          </Link>
+          <Link
+            to="/markets"
+            className="px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#141414] transition-colors"
+          >
+            Markets
+          </Link>
+          <Link
+            to="/portfolio"
+            className="px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#141414] transition-colors"
+          >
+            Portfolio
+          </Link>
+          <Link
+            to="/competitions"
+            className="px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#141414] transition-colors"
+          >
+            Competitions
+          </Link>
+        </nav>
+
         {/* 2. Market Status Indicator */}
-        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-[#262626]">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-[#111111] border border-slate-200 dark:border-[#222222]">
+        <div className="hidden md:flex items-center gap-2 pl-3 border-l border-neutral-200 dark:border-[#262626]">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-50 dark:bg-[#111111] border border-neutral-200 dark:border-[#222222]">
             <span className="relative flex h-2 w-2">
               <span
                 className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
@@ -175,7 +203,7 @@ export const Navbar: React.FC = () => {
                 }`}
               />
             </span>
-            <span className="text-[11px] font-sans font-medium text-slate-700 dark:text-neutral-300">
+            <span className="text-[11px] font-sans font-medium text-neutral-700 dark:text-neutral-300">
               {exchangeStatus === 'OPEN' ? 'MARKET OPEN' : 'MARKET CLOSED'}
             </span>
           </div>
@@ -210,26 +238,26 @@ export const Navbar: React.FC = () => {
         <div className="relative" ref={searchRef}>
           <button
             onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#111111] border border-slate-200 dark:border-[#222222] hover:border-slate-400 dark:hover:border-[#383838] text-xs font-sans text-slate-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white transition-colors shadow-sm"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-50 dark:bg-[#111111] border border-neutral-200 dark:border-[#222222] hover:border-neutral-400 dark:hover:border-[#383838] text-xs font-sans text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors shadow-sm"
           >
-            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-neutral-500" />
+            <Search className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
             <span className="hidden md:inline font-medium">Search tickers...</span>
-            <kbd className="hidden md:inline-block px-1.5 py-0.5 bg-slate-200 dark:bg-[#1C1C1C] border border-slate-300 dark:border-[#2E2E2E] rounded text-[9px] text-slate-600 dark:text-neutral-400 font-mono">
+            <kbd className="hidden md:inline-block px-1.5 py-0.5 bg-neutral-200 dark:bg-[#1C1C1C] border border-neutral-300 dark:border-[#2E2E2E] rounded text-[9px] text-neutral-600 dark:text-neutral-400 font-mono">
               ⌘K
             </kbd>
           </button>
 
           {/* Quick Search Modal Dropdown */}
           {isSearchOpen && (
-            <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-[#0D0D0D] border border-slate-200 dark:border-[#262626] rounded-2xl shadow-2xl p-3 z-50 animate-fadeIn">
+            <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-[#0D0D0D] border border-neutral-200 dark:border-[#262626] rounded-2xl shadow-2xl p-3 z-50 animate-fadeIn">
               <div className="relative mb-2">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 dark:text-neutral-500" />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-neutral-400 dark:text-neutral-500" />
                 <input
                   type="text"
                   placeholder="Type symbol or company name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-[#262626] rounded-xl pl-9 pr-3 py-1.5 text-xs font-sans text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none focus:border-slate-400 dark:focus:border-[#404040]"
+                  className="w-full bg-neutral-50 dark:bg-[#141414] border border-neutral-200 dark:border-[#262626] rounded-xl pl-9 pr-3 py-1.5 text-xs font-sans text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-neutral-400 dark:focus:border-[#404040]"
                   autoFocus
                 />
               </div>
@@ -242,15 +270,15 @@ export const Navbar: React.FC = () => {
                       setIsSearchOpen(false);
                       setSearchQuery('');
                     }}
-                    className="w-full text-left p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#171717] flex items-center justify-between text-xs font-sans transition-colors"
+                    className="w-full text-left p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-[#171717] flex items-center justify-between text-xs font-sans transition-colors"
                   >
                     <div>
-                      <span className="font-bold text-slate-900 dark:text-white mr-2">{inst.symbol}</span>
-                      <span className="text-[11px] text-slate-500 dark:text-neutral-400 block truncate max-w-[170px]">
+                      <span className="font-bold text-neutral-900 dark:text-white mr-2">{inst.symbol}</span>
+                      <span className="text-[11px] text-neutral-500 dark:text-neutral-400 block truncate max-w-[170px]">
                         {inst.name}
                       </span>
                     </div>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-semibold bg-slate-100 dark:bg-[#1C1C1C] text-slate-700 dark:text-neutral-300 border border-slate-200 dark:border-[#2E2E2E]">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-semibold bg-neutral-100 dark:bg-[#1C1C1C] text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-[#2E2E2E]">
                       {inst.exchange}
                     </span>
                   </button>
@@ -264,7 +292,7 @@ export const Navbar: React.FC = () => {
         <div className="relative" ref={notificationsRef}>
           <button
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#141414] transition-colors relative"
+            className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#141414] transition-colors relative"
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
@@ -272,24 +300,24 @@ export const Navbar: React.FC = () => {
           </button>
 
           {isNotificationsOpen && (
-            <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-[#0D0D0D] border border-slate-200 dark:border-[#262626] rounded-2xl shadow-2xl p-3 z-50">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-[#1F1F1F]">
-                <span className="text-xs font-bold text-slate-900 dark:text-white font-sans">
+            <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-[#0D0D0D] border border-neutral-200 dark:border-[#262626] rounded-2xl shadow-2xl p-3 z-50">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-100 dark:border-[#1F1F1F]">
+                <span className="text-xs font-bold text-neutral-900 dark:text-white font-sans">
                   Notifications
                 </span>
-                <span className="text-[10px] text-slate-400 font-sans">3 recent</span>
+                <span className="text-[10px] text-neutral-400 font-sans">3 recent</span>
               </div>
               <div className="space-y-1.5">
                 {notifications.map((n) => (
                   <div
                     key={n.id}
-                    className="p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-[#141414] transition-colors font-sans"
+                    className="p-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#141414] transition-colors font-sans"
                   >
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-white">
+                    <div className="flex items-center justify-between text-xs font-semibold text-neutral-800 dark:text-white">
                       <span>{n.title}</span>
-                      <span className="text-[10px] text-slate-400 font-normal">{n.time}</span>
+                      <span className="text-[10px] text-neutral-400 font-normal">{n.time}</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-neutral-400 mt-0.5">
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                       {n.message}
                     </p>
                   </div>
@@ -305,7 +333,7 @@ export const Navbar: React.FC = () => {
         {/* 6. Virtual Cash Balance with Unobtrusive SIMULATOR Label */}
         <Link
           to="/portfolio"
-          className="flex items-center gap-2.5 bg-slate-50 dark:bg-[#111111] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#222222] hover:border-slate-400 dark:hover:border-[#383838] transition-all shadow-sm group"
+          className="flex items-center gap-2.5 bg-neutral-50 dark:bg-[#111111] px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-[#222222] hover:border-neutral-400 dark:hover:border-[#383838] transition-all shadow-sm group"
           title="Virtual Portfolio Balance (Educational Simulator)"
         >
           <div className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0">
@@ -313,10 +341,10 @@ export const Navbar: React.FC = () => {
           </div>
           <div className="flex flex-col text-right">
             <div className="flex items-center gap-1.5 justify-end">
-              <span className="text-[9px] uppercase font-sans font-bold text-slate-500 dark:text-neutral-400 tracking-wider">
+              <span className="text-[9px] uppercase font-sans font-bold text-neutral-500 dark:text-neutral-400 tracking-wider">
                 Cash
               </span>
-              <span className="text-[9px] px-1 py-0.2 rounded font-mono font-bold bg-slate-200 dark:bg-[#222222] text-slate-700 dark:text-neutral-300">
+              <span className="text-[9px] px-1 py-0.2 rounded font-mono font-bold bg-neutral-200 dark:bg-[#222222] text-neutral-700 dark:text-neutral-300">
                 SIM
               </span>
             </div>
@@ -330,21 +358,21 @@ export const Navbar: React.FC = () => {
         <div className="relative" ref={profileRef}>
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-[#141414] transition-colors focus:outline-none"
+            className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-100 dark:hover:bg-[#141414] transition-colors focus:outline-none"
           >
-            <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-black flex items-center justify-center font-bold font-sans text-xs shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-black flex items-center justify-center font-bold font-sans text-xs shadow-sm">
               {user?.username?.slice(0, 2).toUpperCase() || 'TR'}
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
           </button>
 
           {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#0D0D0D] border border-slate-200 dark:border-[#262626] rounded-2xl shadow-xl py-2 z-50 animate-fadeIn font-sans">
-              <div className="px-4 py-2 border-b border-slate-100 dark:border-[#1F1F1F]">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#0D0D0D] border border-neutral-200 dark:border-[#262626] rounded-2xl shadow-xl py-2 z-50 animate-fadeIn font-sans">
+              <div className="px-4 py-2 border-b border-neutral-100 dark:border-[#1F1F1F]">
+                <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
                   {user?.username}
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate">
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
                   {user?.email}
                 </p>
                 <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-semibold mt-1 inline-block">
@@ -356,7 +384,7 @@ export const Navbar: React.FC = () => {
                 <Link
                   to="/portfolio"
                   onClick={() => setIsProfileOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-[#171717] transition-colors"
+                  className="flex items-center gap-2.5 px-4 py-2 text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-[#171717] transition-colors"
                 >
                   <Wallet className="w-4 h-4 text-neutral-400" />
                   Portfolio & Ledger
@@ -364,14 +392,14 @@ export const Navbar: React.FC = () => {
                 <Link
                   to="/trade"
                   onClick={() => setIsProfileOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 dark:text-neutral-300 hover:bg-slate-50 dark:hover:bg-[#171717] transition-colors"
+                  className="flex items-center gap-2.5 px-4 py-2 text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-[#171717] transition-colors"
                 >
                   <TrendingUp className="w-4 h-4 text-neutral-400" />
                   Trading Terminal
                 </Link>
               </div>
 
-              <div className="pt-1 border-t border-slate-100 dark:border-[#1F1F1F]">
+              <div className="pt-1 border-t border-neutral-100 dark:border-[#1F1F1F]">
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"

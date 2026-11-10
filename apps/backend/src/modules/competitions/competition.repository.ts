@@ -664,6 +664,10 @@ export class KnexCompetitionRepository implements ICompetitionRepository {
       maxParticipants: row.max_participants,
       minParticipants: row.min_participants,
       participantCount,
+      registrationStartTime: row.registration_start_time ? new Date(row.registration_start_time).toISOString() : null,
+      registrationEndTime: row.registration_end_time ? new Date(row.registration_end_time).toISOString() : null,
+      rules: row.rules || null,
+      bannerUrl: row.banner_url || null,
       startTime: new Date(row.start_time).toISOString(),
       endTime: new Date(row.end_time).toISOString(),
       allowedInstruments: row.allowed_instruments

@@ -968,6 +968,8 @@ export interface CatalystCompletedEvent {
 export type CompetitionStatus =
   | 'DRAFT'
   | 'UPCOMING'
+  | 'REGISTRATION_OPEN'
+  | 'REGISTRATION_CLOSED'
   | 'ACTIVE'
   | 'COMPLETED'
   | 'CANCELLED'
@@ -989,6 +991,10 @@ export interface Competition {
   maxParticipants: number;
   minParticipants: number;
   participantCount?: number;
+  registrationStartTime?: string | null;
+  registrationEndTime?: string | null;
+  rules?: string | null;
+  bannerUrl?: string | null;
   startTime: string;
   endTime: string;
   allowedInstruments?: string[] | null;

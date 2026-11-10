@@ -120,10 +120,17 @@ export class AuthService {
       updatedAt: userRecord.updated_at ? new Date(userRecord.updated_at).toISOString() : new Date().toISOString(),
     };
 
-    // 4. Generate Tokens
+    // 4. Ensure wallet exists
+    try {
+      await this.walletService.createWalletForUser(user.id);
+    } catch (err: any) {
+      logger.debug(`[AUTH] Wallet check/init for user #${user.id}: ${err.message}`);
+    }
+
+    // 5. Generate Tokens
     const tokens = generateTokens(user);
 
-    // 5. Persist Session with hashed refresh token
+    // 6. Persist Session with hashed refresh token
     const tokenHash = hashToken(tokens.refreshToken);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
