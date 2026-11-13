@@ -17,11 +17,14 @@ import {
   OrderBook,
   Trade,
   PortfolioPosition,
+  ActiveCatalystSummary,
 } from '@tradegrid/shared-types';
+import { newsApiService } from '../services/news.service';
 import {
   TrendingUp,
   TrendingDown,
   Maximize2,
+  Radio,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -63,6 +66,37 @@ export const DashboardPage: React.FC = () => {
 
   // Live price flash indicator for active header
   const [priceFlash, setPriceFlash] = useState<'up' | 'down' | null>(null);
+
+  // Active Catalysts State (Phase 5C)
+  const [activeCatalysts, setActiveCatalysts] = useState<ActiveCatalystSummary[]>([]);
+
+  // Real-time Market News Catalyst Subscriptions
+  useEffect(() => {
+    const loadCatalysts = () => {
+      newsApiService
+        .getActiveCatalysts()
+        .then((data) => {
+          setActiveCatalysts(data || []);
+        })
+        .catch(() => {});
+    };
+
+    loadCatalysts();
+    socketService.subscribe('news');
+
+    socketService.on('news:published', loadCatalysts);
+    socketService.on('news:catalyst:started', loadCatalysts);
+    socketService.on('news:expired', loadCatalysts);
+    socketService.on('news:catalyst:completed', loadCatalysts);
+
+    return () => {
+      socketService.off('news:published', loadCatalysts);
+      socketService.off('news:catalyst:started', loadCatalysts);
+      socketService.off('news:expired', loadCatalysts);
+      socketService.off('news:catalyst:completed', loadCatalysts);
+      socketService.unsubscribe('news');
+    };
+  }, []);
 
   // Initial Data Load
   useEffect(() => {
@@ -219,6 +253,37 @@ export const DashboardPage: React.FC = () => {
           Market Watchlist
         </button>
       </div>
+
+      {/* Active Catalyst Market Alert Banner */}
+      {activeCatalysts.length > 0 && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3 sm:p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-fadeIn">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-600 text-white font-mono text-[11px] font-bold tracking-wider uppercase shrink-0">
+              <Radio className="w-3 h-3 animate-ping" />
+              MARKET CRASH ALERT
+            </span>
+            <div className="truncate">
+              <p className="text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-400 truncate">
+                {activeCatalysts[0].headline}
+              </p>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
+                Scope: {activeCatalysts[0].targetScope} {activeCatalysts[0].targetSymbol ? `(${activeCatalysts[0].targetSymbol})` : ''} • Severity: {activeCatalysts[0].severity} • Direction: {activeCatalysts[0].impactDirection}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold">
+              Vol: {activeCatalysts[0].volatilityFactor}x | Shock: {activeCatalysts[0].sentimentScore}
+            </span>
+            <Link
+              to="/news"
+              className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-1 whitespace-nowrap"
+            >
+              Wire Details →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Main Responsive Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
