@@ -8,7 +8,31 @@ export default {
   theme: {
     extend: {
       colors: {
+        border: 'var(--border-subtle)',
+        input: 'var(--bg-surface-input)',
+        ring: 'var(--brand-accent)',
         background: 'var(--bg-app)',
+        foreground: 'var(--text-primary)',
+        primary: {
+          DEFAULT: 'var(--brand-accent)',
+          foreground: 'var(--brand-accent-contrast)',
+        },
+        secondary: {
+          DEFAULT: 'var(--bg-surface-hover)',
+          foreground: 'var(--text-secondary)',
+        },
+        muted: {
+          DEFAULT: 'var(--bg-surface-hover)',
+          foreground: 'var(--text-muted)',
+        },
+        accent: {
+          DEFAULT: 'var(--bg-surface-elevated)',
+          foreground: 'var(--text-primary)',
+        },
+        card: {
+          DEFAULT: 'var(--bg-card)',
+          foreground: 'var(--text-primary)',
+        },
         surface: {
           DEFAULT: 'var(--bg-surface)',
           card: 'var(--bg-card)',
@@ -16,7 +40,6 @@ export default {
           elevated: 'var(--bg-surface-elevated)',
           input: 'var(--bg-surface-input)',
         },
-        card: 'var(--bg-card)',
         'card-border': 'var(--border-card)',
         'border-subtle': 'var(--border-subtle)',
         brand: {

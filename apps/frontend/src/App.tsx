@@ -24,6 +24,7 @@ import { TradingTerminalPage } from './pages/TradingTerminalPage';
 import { TransactionHistoryPage } from './pages/TransactionHistoryPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import DemoOne from './components/ui/demo';
 
 // Guard: Only allow authenticated users
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -99,6 +100,7 @@ export const App: React.FC = () => {
           <Route path="achievements" element={<AchievementsPage />} />
           <Route path="history" element={<TransactionHistoryPage />} />
           <Route path="admin" element={<AdminDashboardPage />} />
+          <Route path="demo" element={<DemoOne />} />
         </Route>
 
         {/* 404 Catch-All */}

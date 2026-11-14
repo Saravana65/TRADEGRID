@@ -8,6 +8,7 @@ import { Button } from '../components/common/Button';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 import { useMarketStore } from '../store/marketStore';
 import { Instrument, DataClassification } from '@tradegrid/shared-types';
+import { StocksDataTable, StockItem } from '../components/ui/stocks-data-table';
 import {
   Search,
   TrendingUp,
@@ -16,6 +17,8 @@ import {
   Activity,
   RefreshCw,
   ShieldCheck,
+  Table as TableIcon,
+  Sparkles,
 } from 'lucide-react';
 
 export const MarketsPage: React.FC = () => {
@@ -23,6 +26,7 @@ export const MarketsPage: React.FC = () => {
   const [selectedExchange, setSelectedExchange] = useState<string>('');
   const [selectedSector, setSelectedSector] = useState<string>('');
   const [selectedClassification, setSelectedClassification] = useState<DataClassification | ''>('');
+  const [viewMode, setViewMode] = useState<'animated' | 'classic'>('animated');
 
   const {
     instruments,
@@ -66,6 +70,49 @@ export const MarketsPage: React.FC = () => {
       classification: selectedClassification || undefined,
     });
   };
+
+  const stockItems: StockItem[] = instruments.map((inst, idx) => {
+    const quote = quotes[inst.symbol.toUpperCase()];
+    const price = quote ? parseFloat(quote.lastPrice) : 100;
+    const changePercent = quote ? parseFloat(quote.changePercent) : 0;
+    const prevClose = quote ? parseFloat(quote.previousClose || quote.lastPrice) : price;
+    const change = price - prevClose;
+    const volume = quote ? parseInt(String(quote.volume || '100000'), 10) : 100000;
+    const base = price - change;
+    const sparkline = [
+      base,
+      base + change * 0.15,
+      base + change * 0.3,
+      base + change * 0.2,
+      base + change * 0.5,
+      base + change * 0.7,
+      base + change * 0.65,
+      base + change * 0.85,
+      base + change * 0.95,
+      price,
+    ];
+    const volatility: 'low' | 'mid' | 'high' =
+      Math.abs(changePercent) > 2.5 ? 'high' : Math.abs(changePercent) > 0.8 ? 'mid' : 'low';
+    const status: 'bullish' | 'bearish' | 'neutral' | 'volatile' | 'catalyst' =
+      changePercent > 0.5 ? 'bullish' : changePercent < -0.5 ? 'bearish' : 'neutral';
+
+    return {
+      id: String(inst.id || idx),
+      symbol: inst.symbol,
+      name: inst.name,
+      exchange: inst.exchange,
+      sector: inst.sector || 'Equities',
+      classification: (inst.dataClassification as any) || 'SIMULATED',
+      price,
+      change,
+      changePercent,
+      volume,
+      sparkline,
+      volatility,
+      status,
+      lastAction: 'Active Tick',
+    };
+  });
 
   const columns: TableColumn<Instrument>[] = [
     {
@@ -416,6 +463,34 @@ export const MarketsPage: React.FC = () => {
                 </option>
               ))}
             </select>
+
+            {/* View Mode Switcher */}
+            <div className="flex items-center bg-slate-100 dark:bg-[#0A0A0A] border border-slate-200 dark:border-card-border rounded-xl p-0.5 shadow-sm">
+              <button
+                onClick={() => setViewMode('animated')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans transition-colors ${
+                  viewMode === 'animated'
+                    ? 'bg-primary text-primary-foreground font-bold shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                }`}
+                title="Interactive animated stock table with sparklines"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Live Table
+              </button>
+              <button
+                onClick={() => setViewMode('classic')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans transition-colors ${
+                  viewMode === 'classic'
+                    ? 'bg-primary text-primary-foreground font-bold shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                }`}
+                title="Compact grid view"
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+                Compact
+              </button>
+            </div>
           </div>
         }
       >
@@ -427,6 +502,10 @@ export const MarketsPage: React.FC = () => {
         ) : instruments.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-xs font-mono">
             No instruments found matching your search and filter criteria.
+          </div>
+        ) : viewMode === 'animated' ? (
+          <div className="p-2 sm:p-4">
+            <StocksDataTable stocks={stockItems} title="" />
           </div>
         ) : (
           <Table columns={columns} data={instruments} keyExtractor={(item) => String(item.id)} />
